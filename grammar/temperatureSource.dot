@@ -1,0 +1,26 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+1900928234704 -> 1900928234800 [label="entities:0" arrowtail=diamond dir=both]
+1900928234800 -> 1900928230816 [label="properties:0" arrowtail=diamond dir=both]
+1900928230816[label="{source_id:Property|+type:str='dummy.dummy'\l+default:str=''\l}"]
+1900928234800 -> 1900928234896 [label="properties:1" arrowtail=diamond dir=both]
+1900928234896[label="{temperature:Property|+type:str='t'\l+default:str=''\l}"]
+1900928234800 -> 1900928234944 [label="properties:2" arrowtail=diamond dir=both]
+1900928234944[label="{location:Property|+type:str='dummy.dummy'\l+default:str=''\l}"]
+1900928234800 -> 1900928234992 [label="properties:3" arrowtail=diamond dir=both]
+1900928234992[label="{range:Property|+type:str='r'\l+default:str=''\l}"]
+1900928234800[label="{TemperatureSourceA:Entity|+etype:str='actor'\l+topic:str='sources.temperature....'\l}"]
+1900928234704[label="{:EntityModel|}"]
+
+}

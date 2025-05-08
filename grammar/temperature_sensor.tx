@@ -1,0 +1,4 @@
+
+
+// Comments (they start with //)
+Comment: /\/\/.*?$/;

@@ -1,0 +1,44 @@
+EntityModel:
+    entities += Entity
+;
+
+Entity:
+    'Entity' name=ID
+    (
+        ('type:' etype=EntityType)?
+        ('topic:' topic=FQN)?
+        ('properties:' '-' properties*=Property['-'])?
+    )#
+    'end'
+;
+
+EntityType:
+    'sensor' | 'actuator' | 'actor'
+;
+
+DataTypeModel:
+    (
+        (types*=DataType)
+    )#
+;
+
+DataType: PrimitiveDataType | CustomDataType;
+
+CustomDataType:
+    'DataType' name=ID
+        properties*=Property
+    'end'
+;
+
+Property: name=ID ':' type=FQN ('=' default=STRING)?;
+
+PrimitiveDataType: 'type' name=ID;
+
+FQN: ID+['.'];
+
+Comment: CommentLine | CommentBlock;
+
+CommentLine: /\/\/.*?$/;
+
+CommentBlock: /\/\*(.|\n)*?\*\//;
+

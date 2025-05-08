@@ -1,0 +1,55 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+2795169033504[ label="{EntityModel|}"]
+
+2795169033168[ label="{Entity|name: ID\letype: EntityType\ltopic: FQN\l}"]
+
+2795169033264[ label="{DataTypeModel|}"]
+
+2795169024912[ label="{*DataType|}"]
+
+2795169022800[ label="{CustomDataType|name: ID\l}"]
+
+2795169033120[ label="{Property|name: ID\ltype: FQN\ldefault: STRING\l}"]
+
+2795169023136[ label="{PrimitiveDataType|name: ID\l}"]
+
+
+
+2795169033504 -> 2795169033168[arrowtail=diamond, dir=both, headlabel="entities 1..*"]
+2795169033168 -> 2795169033120[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2795169033264 -> 2795169024912[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2795169024912 -> 2795169023136 [dir=back]
+2795169024912 -> 2795169022800 [dir=back]
+2795169022800 -> 2795169033120[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>EntityType</b></td><td>sensor|actuator|actor</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+</table> >]
+
+
+}
