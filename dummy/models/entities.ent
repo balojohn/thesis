@@ -1,0 +1,19 @@
+Entity TemperatureSensorA
+    type: sensor
+    topic: sensors.temperature.sA
+    properties:
+        - sensor_id: dummy.dummy
+        - temperature: float
+        - location: dummy.dummy
+        - range: float
+end
+
+Entity TemperatureSourceA
+    type: actor
+    topic: sources.temperature.sA
+    properties:
+        - source_id: dummy.dummy
+        - temperature: float
+        - location: dummy.dummy
+        - range: float
+end

@@ -1,9 +1,0 @@
-Entity TemperatureSourceA
-    type: actor
-    topic: sources.temperature.sA
-    properties:
-        - source_id: dummy.dummy
-        - temperature: t
-        - location: dummy.dummy
-        - range: r
-end

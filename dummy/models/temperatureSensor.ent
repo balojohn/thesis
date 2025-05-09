@@ -1,9 +1,0 @@
-Entity TemperatureSensorA
-    type: sensor
-    topic: sensors.temperature.sA
-    properties:
-        - sensor_id: dummy.dummy
-        - temperature: t
-        - location: dummy.dummy
-        - range: r
-end
