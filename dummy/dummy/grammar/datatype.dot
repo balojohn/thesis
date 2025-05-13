@@ -1,0 +1,70 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+2264219031632[ label="{DataTypeModel|}"]
+
+2264219038736[ label="{*DataType|}"]
+
+2264219039264[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
+
+2264219040176[ label="{*Property|}"]
+
+2264219039216[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+2264219039648[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+2264219038352[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+2264219039312[ label="{EnumerationElement|name: STRING\l}"]
+
+2264219037872[ label="{PrimitiveDataType|name: ID\l}"]
+
+2264219034800[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+
+
+2264219031632 -> 2264219034800[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2264219031632 -> 2264219038736[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2264219031632 -> 2264219038352[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2264219038736 -> 2264219037872 [dir=back]
+2264219038736 -> 2264219039264 [dir=back]
+2264219038736 -> 2264219038352 [dir=back]
+2264219039264 -> 2264219040176[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2264219040176 -> 2264219039648 [dir=back]
+2264219040176 -> 2264219039216 [dir=back]
+2264219039216 -> 2264219038736[headlabel="type "]
+2264219039648 -> 2264219038736[headlabel="type "]
+2264219038352 -> 2264219039312[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+</table> >]
+
+
+}

@@ -1,0 +1,33 @@
+endpoints
+    {% for e in endpoints %}
+        {% if e.type == "publisher" %}
+        publisher
+            uri: "{{ e.uri }}"
+            msg: {{ e.msg.name }}
+            {% if e.namespace  %}
+            namespace: "{{ e.namespace }}"
+            {% endif %}
+        end
+        {% elif e.type == "subscriber" %}
+        subscriber
+            uri: "{{ e.uri }}"
+            msg: {{ e.msg.name }}
+            {% if e.namespace  %}
+            namespace: "{{ e.namespace }}"
+            {% endif %}
+        end
+        {% endif %}
+    {% endfor %}
+
+    messages
+    {% for msg in msgs %}
+        {% if msg.__class__.__name__ == "PubSubMessage" %}
+        TopicMsg {{ msg.name }}
+            {% for p in msg.properties %}
+            {{ p.name }}: {{ p.type.name }}
+            {% endfor %}
+        end
+        {% endif %}
+    {% endfor %}
+    end
+end

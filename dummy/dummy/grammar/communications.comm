@@ -1,0 +1,23 @@
+Communication PubSubMessage
+    endpoints
+        publisher
+            uri: 'actor.thermostat.thA'
+            msg: TemperatureMessage
+            namespace: 'test'
+        end
+
+        subscriber
+            uri: 'sensor.temperature.sA'
+            msg: TemperatureMessage
+            namespace: 'test'
+        end
+    end
+    
+    messages
+        TopicMsg TemperatureMessage
+            temperature: FLOAT
+            range: FLOAT
+            location: STRING
+        end
+    end
+end

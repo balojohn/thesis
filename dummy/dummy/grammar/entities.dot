@@ -1,0 +1,32 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+1895874646176 -> 1895874651024 [label="entities:0" arrowtail=diamond dir=both]
+1895874651024 -> 1895874651744 [label="attributes:0" arrowtail=diamond dir=both]
+1895874651744[label="{temperature:SimpleProperty|+type:str='FLOAT'\l+default:str=''\l}"]
+1895874651024 -> 1895874655776 [label="attributes:1" arrowtail=diamond dir=both]
+1895874655776[label="{range:SimpleProperty|+type:str='FLOAT'\l+default:str=''\l}"]
+1895874651024 -> 1895874655440 [label="attributes:2" arrowtail=diamond dir=both]
+1895874655440[label="{location:SimpleProperty|+type:str='STRING'\l+default:str=''\l}"]
+1895874651024[label="{TemperatureSensorA:Entity|+etype:str='sensor'\l+topic:str='sensor.temperature.s...'\l}"]
+1895874646176 -> 1895874655824 [label="entities:1" arrowtail=diamond dir=both]
+1895874655824 -> 1895874655920 [label="attributes:0" arrowtail=diamond dir=both]
+1895874655920[label="{temperature:SimpleProperty|+type:str='FLOAT'\l+default:str=''\l}"]
+1895874655824 -> 1895874657408 [label="attributes:1" arrowtail=diamond dir=both]
+1895874657408[label="{range:SimpleProperty|+type:str='FLOAT'\l+default:str=''\l}"]
+1895874655824 -> 1895874654912 [label="attributes:2" arrowtail=diamond dir=both]
+1895874654912[label="{location:SimpleProperty|+type:str='STRING'\l+default:str=''\l}"]
+1895874655824[label="{Thermostat:Entity|+etype:str='actor'\l+topic:str='actor.thermostat.thA'\l}"]
+1895874646176[label="{:EntityModel|imports:list=[]\l}"]
+
+}

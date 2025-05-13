@@ -1,0 +1,38 @@
+import datatype
+
+Model:
+    (
+    imports*=Import
+    thing=Thing
+    )#
+;
+
+Thing: Sensor | Actuator | CompositeDevice;
+
+CompositeDevice:
+    'CompDev' name=ID
+	(
+        ('sensors' ':'
+             '-' sensors+=PosedSensor['-'])?
+        ('actuators' ':'
+             '-' actuators+=PosedActuator['-'])?
+        ('composites' ':'
+             '-' composites+=PosedCSThing['-'])?
+        ('dataModel:' dataModel=[DataType:FQN])?
+	)#
+    'end'
+;
+
+PosedThing: PosedSensor | PosedActuator | PosedCompDev;
+
+PosedCompDev:
+    ref=[CompositeDevice:FQN|+m:thing] (transformation=DTransformation)?
+;
+
+PosedSensor:
+    ref=[Sensor:FQN|+m:thing] ('('name=ID')')? (transformation=DTransformation)?
+;
+
+PosedActuator:
+    ref=[Actuator:FQN|+m:thing] ('('name=ID')')? (transformation=DTransformation)?
+;

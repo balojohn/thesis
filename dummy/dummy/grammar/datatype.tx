@@ -1,0 +1,49 @@
+DataTypeModel:
+    (
+        (imports*=Import)
+        (types*=DataType)
+        (enums*=Enumeration)
+    )#
+;
+
+DataType: PrimitiveDataType | CustomDataType | Enumeration;
+
+CustomDataType:
+    'DataType' name=ID
+        (description=Description)?
+        properties*=Property
+    'end'
+;
+
+// Property: name=ID ':' type=FQN ('=' default=STRING)?;
+
+Property: ListProperty | SimpleProperty;
+
+SimpleProperty: name=ID ':' type=[DataType:FQN|+m:types] ('=' default=STRING)?;
+
+ListProperty: name=ID ':' type=[DataType:FQN|+m:types]'[]' ('=' default=STRING)?;
+
+Enumeration:
+    'Enum' name=ID
+        (description=Description)?
+        elements+=EnumerationElement
+    'end'
+;
+
+EnumerationElement: name=STRING;
+
+// Primitive data types
+PrimitiveDataType: 'type' name=ID;
+
+
+FQN: ID+['.'];
+FQNI: ID+['.']('.*')?;
+Import: 'import' importURI=FQNI ('as' name=ID)? ';';
+
+Description: /\#(.*?)$/;
+
+Comment: CommentLine | CommentBlock ;
+
+CommentLine: /\/\/.*?$/;
+
+CommentBlock: /\/\*(.|\n)*?\*\//;

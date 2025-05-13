@@ -1,0 +1,22 @@
+{% for sensor in sensors %}
+Entity {{ sensor['name'] }}
+    type: {{ sensor['type'] }}
+    topic: "{{ sensor['topic'] }}"
+    attributes:
+    {% for attr in sensor['attributes'] %}
+        - {{ attr[0] }}: {{ attr[1] }}
+    {% endfor %}
+end
+
+{% endfor %}
+{% for actor in actors %}
+Entity {{ actor['name'] }}
+    type: {{ actor['type'] }}
+    topic: "{{ actor['topic'] }}"
+    attributes:
+    {% for attr in actor['attributes'] %}
+        - {{ attr[0] }}: {{ attr[1] }}
+    {% endfor %}
+end
+
+{% endfor %}

@@ -1,0 +1,17 @@
+Entity TemperatureSensorA
+    type: sensor
+    topic: 'sensor.temperature.sA'
+    attributes:
+        - temperature: FLOAT
+        - range: FLOAT
+        - location: STRING
+end
+
+Entity Thermostat
+    type: actor
+    topic: 'actor.thermostat.thA'
+    attributes:
+        - temperature: FLOAT
+        - range: FLOAT
+        - location: STRING
+end

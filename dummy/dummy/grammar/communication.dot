@@ -1,0 +1,151 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+1541789622176[ label="{Communication|name: ID\l}"]
+
+1541789621744[ label="{*Endpoint|}"]
+
+1541789616944[ label="{Publisher|uri: STRING\lnamespace: STRING\l}"]
+
+1541756998944[ label="{Subscriber|uri: STRING\lnamespace: STRING\l}"]
+
+1541789622752[ label="{Array|}"]
+
+1541789629088[ label="{*Value|}"]
+
+1541789629184[ label="{Dict|}"]
+
+1541789628992[ label="{Member|key: STRING\l}"]
+
+1541789629472[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+1541789763056[ label="{DataTypeModel|}"]
+
+1541789763200[ label="{*DataType|}"]
+
+1541789763392[ label="{CustomDataType|name: ID\l}"]
+
+1541789763488[ label="{*Property|}"]
+
+1541789763584[ label="{SimpleProperty|name: ID\ltype: FQN\ldefault: STRING\l}"]
+
+1541789763680[ label="{ListProperty|name: ID\ltype: FQN\ldefault: STRING\l}"]
+
+1541789763776[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+1541789763824[ label="{EnumerationElement|name: STRING\l}"]
+
+1541789763920[ label="{PrimitiveDataType|name: ID\l}"]
+
+1541789764208[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+1541789764688[ label="{MessageModel|}"]
+
+1541789764784[ label="{*Message|}"]
+
+1541789764880[ label="{PubSubMessage|}"]
+
+1541789765072[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+
+
+1541789622176 -> 1541789621744[arrowtail=diamond, dir=both, headlabel="endpoints 0..*"]
+1541789622176 -> 1541789764784[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+1541789621744 -> 1541789616944 [dir=back]
+1541789621744 -> 1541756998944 [dir=back]
+1541789616944 -> 1541789764880[headlabel="msg "]
+1541756998944 -> 1541789764880[headlabel="msg "]
+1541789622752 -> 1541789629088[arrowtail=diamond, dir=both, headlabel="values 0..*"]
+1541789629088 -> 1541789629184 [dir=back]
+1541789629088 -> 1541789622752 [dir=back]
+1541789629184 -> 1541789628992[arrowtail=diamond, dir=both, headlabel="members 0..*"]
+1541789628992 -> 1541789629088[arrowtail=diamond, dir=both, headlabel="value "]
+1541789763056 -> 1541789764208[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1541789763056 -> 1541789763200[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+1541789763056 -> 1541789763776[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+1541789763200 -> 1541789763920 [dir=back]
+1541789763200 -> 1541789763392 [dir=back]
+1541789763200 -> 1541789763776 [dir=back]
+1541789763392 -> 1541789763488[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1541789763488 -> 1541789763680 [dir=back]
+1541789763488 -> 1541789763584 [dir=back]
+1541789763776 -> 1541789763824[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+1541789764688 -> 1541789765072[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1541789764688 -> 1541789764784[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+1541789764784 -> 1541789763488[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1541789764784 -> 1541789764880 [dir=back]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>EndpointType</b></td><td>Publisher|Subscriber</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+	<tr>
+		<td><b>NID</b></td><td>(.*?)\n</td>
+	</tr>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+</table> >]
+
+
+}
