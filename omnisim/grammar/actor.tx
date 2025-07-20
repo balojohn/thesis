@@ -1,0 +1,156 @@
+import datatype
+import geometry
+
+Model:
+    (
+    imports*=Import
+    actor=Actor
+    )#
+;
+
+CompositeActor:
+    'CActor' name=ID
+	(
+        ('shape' ':' shape=Shape)?
+        ('actors' ':'
+             '-' actors+=PosedActor['-'])?
+        ('composites' ':'
+             '-' composites+=PosedCActor['-'])?
+        ('dataModel:' dataModel=[DataType:FQN])?
+	)#
+    'end'
+;
+
+PosedActor:
+    ref=[Actor:FQN|+m:actor] ('('name=ID')')? (transformation=Transformation)?
+;
+
+PosedCActor:
+    ref=[CompositeActor:FQN|+m:thing] (transformation=Transformation)?
+;
+
+Actor:
+    SoundSource |
+    Color       |
+    Text        |
+    EnvActor    |
+    Human        
+;
+
+SoundSource:
+    'SoundSource' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('language' ':' language=STRING)?
+            ('speech:' speech=STRING)?
+            ('emotion:' emotion=STRING)?
+            ('minRange:' minRange=FLOAT)?
+            ('maxRange:' maxRange=FLOAT)?
+        )#
+    'end'
+;
+
+Color:
+    'Color' name=ID
+        (
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('r' ':' r=INT)?
+            ('g' ':' g=INT)?
+            ('b' ':' b=INT)?
+        )#
+    'end'
+;
+
+Text:
+    'Text' name=ID
+        (
+            ('type:' type=[TextType])?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('message' ':' message=STRING)?
+        )#
+    'end'
+;
+
+TextType:
+    'Barcode'     |
+    'QR'          |
+    'RFIDTag'     |
+    'PlainText'
+;
+
+EnvActor:
+    'EnvActor' name=ID
+        (
+            ('type:' type=[EnvActorType] 'actor'
+                'that disperses' EnvProperty=EnvironmentalPropertyType
+                'with dispersion' dispersion=DispersionType)?
+            ('dataModel:' dataModel=[DataType:FQN])
+        )#
+    'end'
+;
+
+EnvActorType: 'Water' | 'Fire';
+
+EnvironmentalPropertyType:
+    'Temperature'  |
+    'AirQuality'   |
+    'SoundLevelDB' |
+    'CO2'          |
+    'Gas'          |
+    'Illumination' |
+    'Humidity'
+;
+
+DispersionType:
+    'Constant'      |
+    'Linear'        |
+    'Quadratic'     |
+    'Exponential'   |
+    'Logarithmic'
+;
+/*
+Constant:
+    ('value' ':' value=FLOAT)
+;
+
+Linear:
+    ('start' ':' startingPoint=FLOAT)
+    ('step' ':' step=FLOAT)
+;
+
+Quadratic:
+    ('a' ':' a=FLOAT)
+    ('b' ':' b=FLOAT)
+    ('c' ':' c=FLOAT)
+;
+
+Exponential:
+    ('base' ':' base=FLOAT)
+    ('yIntercept' ':' yIntercept=FLOAT)
+;
+
+Logarithmic:
+    ('base' ':' base=FLOAT)
+    ('alpha' ':' alpha=FLOAT)
+;
+*/
+Human:
+    'Human' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('motion' ':' motion=STRING)?
+            ('language' ':' language=STRING)?
+            ('speech:' speech=STRING)?
+            ('emotion:' emotion=STRING)?
+            ('age:' age=STRING)?
+            ('minRange:' minRange=FLOAT)?
+            ('maxRange:' maxRange=FLOAT)?
+        )#
+    'end'
+;

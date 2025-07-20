@@ -1,0 +1,76 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+2915774377824[ label="{MessageModel|}"]
+
+2915774372064[ label="{*Message|}"]
+
+2915774743136[ label="{PubSubMessage|}"]
+
+2915774743808[ label="{DataTypeModel|}"]
+
+2915774743904[ label="{*DataType|}"]
+
+2915774744000[ label="{*Property|}"]
+
+2915774744096[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+2915774744240[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+2915774744720[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+2915774744960[ label="{EnumerationElement|name: STRING\l}"]
+
+2915774745536[ label="{PrimitiveDataType|name: ID\l}"]
+
+2915774746208[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+
+
+2915774377824 -> 2915774746208[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2915774377824 -> 2915774372064[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+2915774372064 -> 2915774744000[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2915774372064 -> 2915774743136 [dir=back]
+2915774743808 -> 2915774746208[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2915774743808 -> 2915774743904[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2915774743808 -> 2915774744720[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2915774743904 -> 2915774745536 [dir=back]
+2915774743904 -> 2915774744720 [dir=back]
+2915774744000 -> 2915774744240 [dir=back]
+2915774744000 -> 2915774744096 [dir=back]
+2915774744096 -> 2915774743904[headlabel="type "]
+2915774744240 -> 2915774743904[headlabel="type "]
+2915774744720 -> 2915774744960[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+</table> >]
+
+
+}

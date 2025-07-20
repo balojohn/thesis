@@ -1,0 +1,57 @@
+import datatype
+import msg
+
+Communication:
+    'Communication' name=ID
+    (
+        'endpoints'
+            endpoints*=Endpoint
+        'end'
+
+        'messages'
+            msgs*=Message
+        'end'
+    )#
+    'end'
+;
+
+Endpoint: Publisher | Subscriber;
+
+Publisher:
+    'publisher'
+    (
+        ('uri:' uri=STRING)
+        ('msg:' msg=[PubSubMessage:FQN|^msgs])?
+        ('namespace:' namespace=STRING)?
+    )#
+    'end'
+;
+
+Subscriber:
+    'subscriber'
+    (
+        ('uri:' uri=STRING)
+        ('msg:' msg=[PubSubMessage:FQN|^msgs])?
+        ('namespace:' namespace=STRING)?
+    )#
+    'end'
+;
+EndpointType: 'Publisher' | 'Subscriber';
+
+/*
+Array:
+    "[" values*=Value[','] "]"
+;
+
+Value:
+    STRING | FLOAT | BOOL | Dict | Array | "null"
+;
+
+Dict:
+    "{" members*=Member[','] "}"
+;
+
+Member:
+    key=STRING ':' value=Value
+;
+*/

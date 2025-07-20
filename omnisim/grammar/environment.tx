@@ -1,0 +1,73 @@
+import thing
+import actor
+import geometry
+
+Model:
+    imports*=Import
+    (
+        (environment=Environment)?
+        obstacles*=Obstacle
+    )#
+;
+
+Environment:
+    'Environment:' name=ID
+    (
+        ('dimensions'
+            (grid*=Grid)
+        'end'
+        )
+        ('properties'
+            (properties*=EnvironmentalProperty)
+        'end'
+        )
+        ('things'
+            (things=[Thing:FQN] '@' poses=Pose)*
+        'end'
+        )?
+        ('actors'
+            (actors=[Actor:FQN] '@' poses=Pose)*
+        'end'
+        )?
+        ('obstacles'
+            (obstacles=[Obstacle:FQN] '@' poses=Pose)*
+        'end'
+        )?
+    )#
+    'end'
+;
+
+EnvDimensions: '2D' | '3D';
+
+Grid:
+    ('width:' width=FLOAT)
+    ('height:' height=FLOAT)
+    ('cellSizeCm:' cellSizeCm=FLOAT)
+;
+
+Obstacle:
+    'Obstacle' name=ID
+        'shape:' shape=Shape
+    'end'
+;
+/*
+PerceivableEntity:
+    'PerceivableEntity'
+        'properties:' '-' properties*=PerceptionProperty['-']
+        'shape:' shape=Shape
+    'end'
+;
+
+PerceptionProperty:
+    type=EnvironmentalPropertyType ':' value=FLOAT ('with range' range=FLOAT)?
+;
+*/
+
+EnvironmentalProperty:
+    type=EnvironmentalPropertyType ':' value=FLOAT
+        ('with dispersion' dispersion=DispersionType)?
+;
+
+FQN: ID('.'ID)*;
+FQNI: ID+['.']('.*')?;
+Import: 'import' importURI=STRING ('as' name=ID)?;

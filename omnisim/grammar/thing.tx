@@ -1,0 +1,273 @@
+import datatype
+import geometry
+
+Model:
+    (
+    imports*=Import
+    thing=Thing
+    )#
+;
+
+Thing: Sensor | Actuator | CompositeThing;
+
+CompositeThing:
+    'CThing' name=ID
+	(
+        ('shape' ':' shape=Shape)?
+        ('sensors' ':'
+             '-' sensors+=PosedSensor['-'])?
+        ('actuators' ':'
+             '-' actuators+=PosedActuator['-'])?
+        ('composites' ':'
+             '-' composites+=PosedCThing['-'])?
+        ('dataModel:' dataModel=[DataType:FQN])?
+	)#
+    'end'
+;
+
+PosedThing: PosedSensor | PosedActuator | PosedCThing;
+
+PosedCThing:
+    ref=[CompositeThing:FQN|+m:thing] (transformation=Transformation)?
+;
+
+PosedSensor:
+    ref=[Sensor:FQN|+m:thing] ('('name=ID')')? (transformation=Transformation)?
+;
+
+PosedActuator:
+    ref=[Actuator:FQN|+m:thing] ('('name=ID')')? (transformation=Transformation)?
+;
+
+Sensor:
+    RangeFinder |
+    Reader      |
+    Alarm       |
+    Microphone  |
+    Light       |
+    IMU
+;
+
+RangeFinder:
+    'RangeFinder' name=ID
+        (
+            ('type:' type=[RangeFinderType])
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('hfov:' hfov=FLOAT)?
+            ('vfov:' vfov=FLOAT)?
+            ('minRange:' minRange=FLOAT)?
+            ('maxRange:' maxRange=FLOAT)?
+        )#
+    'end'
+;
+
+RangeFinderType: 'Sonar' | 'IR';
+
+LiDAR:
+    'LiDAR' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxFreq:' maxFreq=FLOAT)?
+            ('minAngle:' minAngle=FLOAT)?
+            ('maxAngle:' maxAngle=FLOAT)?
+            ('numBeams:' numBeams=FLOAT)?
+            ('minRange:' minRange=FLOAT)?
+            ('maxRange:' maxRange=FLOAT)?
+        )#
+    'end'
+;
+
+Reader:
+    'Reader' name=ID
+        (
+            ('type:' type=[ReaderType])
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('resHeight:' resHeight=FLOAT)?
+            ('resWidth:' resWidth=FLOAT)?
+            ('hfov:' hfov=FLOAT)?
+            ('vfov:' vfov=FLOAT)?
+        )#
+    'end'
+;
+
+ReaderType: 'Camera' | 'RFID' ;
+
+Alarm:
+    'Alarm' name=ID
+        (
+            ('type:' type=[AlarmType])
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('minRange:' minRange=FLOAT)?
+            ('maxRange:' maxRange=FLOAT)?
+            ('hz:' hz=FLOAT)?
+        )#
+    'end'
+;
+
+AlarmType: 'AreaAlarm' | 'LinearAlarm' ;
+
+Microphone:
+    'Microphone' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxfreq:' maxFreq=FLOAT)?
+            ('mode:' mode=STRING)?
+            ('blocked:' blocked=BOOL)?
+        )#
+    'end'
+;
+
+Light:
+    'Light' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxFreq:' maxFreq=FLOAT)?
+            ('luminoscity:' luminoscity=FLOAT)?
+            ('color:' color=STRING)?
+            ('minRange:' minRange=FLOAT)?
+            ('maxRange:' maxRange=FLOAT)?
+        )#
+    'end'
+;
+
+IMU:
+    'IMU' name=ID
+        'type:' type=IMUType
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxFreq:' maxFreq=FLOAT)?
+        )#
+    'end'
+;
+
+IMUType: '6DOF' | '9DOF';
+
+Actuator:
+    PanTilt     |
+    EnvDevice   |
+    Relay       |
+    Button      |
+    Led         |
+    Speaker
+;
+
+PanTilt:
+    'PanTilt' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('joints' ':' '-' joints*=Transformation['-'])?
+            ('shape' ':' shape=Shape)?
+        )#
+    'end'
+;
+
+EnvDevice:
+    'EnvDevice' name=ID
+        (
+            ('type:' type=[EnvDeviceType] 'sensor'
+                'with dispersion' dispersion=DispersionType)?
+            ('dataModel:' dataModel=[DataType:FQN])
+        )#
+    'end'
+;
+
+EnvDeviceType:
+    'Temperature' |
+    'Humidity'    |
+    'PH'          |
+    'Gas'
+;
+
+DispersionType:
+    'Constant'      |
+    'Linear'        |
+    'Exponential'   |
+    'Logarithmic'   |
+    'Quadratic'
+;
+
+Relay:
+    'Relay' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('freq:' pubFreq=FLOAT)?
+            // ('maxFreq:' maxFreq=FLOAT)?
+            ('state:' state=STRING)?
+            ('allowed_states:' allowed_states=FLOAT)?
+        )#
+    'end'
+;
+
+Button: SingleButton | ButtonArray;
+
+SingleButton:
+    'SingleButton' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            // ('maxFreq:' maxFreq=FLOAT)?
+            ('pressed:' pressed=BOOL)?
+        )#
+    'end'
+;
+
+ButtonArray:
+    'ButtonArray' name=ID
+        (
+            ('size:' size=INT)
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+        )#
+    'end'
+;
+
+Led: SingleLed | LedArray;
+
+SingleLed:
+    'Led' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('color' ':' color=INT)?
+            ('shape' ':' shape=Shape)?
+            ('responseTime:' responseTime=FLOAT)?
+        )#
+    'end'
+;
+
+LedArray:
+    'LedArray' name=ID
+        (
+            ('size:' size=INT)
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('responseTime:' responseTime=FLOAT)?
+        )#
+    'end'
+;
+
+Speaker:
+    'Speaker' name=ID
+        (
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+        )#
+    'end'
+;

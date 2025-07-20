@@ -1,0 +1,16 @@
+import datatype
+
+MessageModel:
+    (
+        (imports*=Import)
+        (msgs*=Message)
+    )#
+;
+
+Message: PubSubMessage;
+
+PubSubMessage:
+    'TopicMsg' name=ID
+        properties*=Property
+    'end'
+;

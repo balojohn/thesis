@@ -1,0 +1,93 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+1467826063792[ label="{Communication|name: ID\l}"]
+
+1467826192800[ label="{*Endpoint|}"]
+
+1467826192608[ label="{Publisher|uri: STRING\lnamespace: STRING\l}"]
+
+1467826076512[ label="{Subscriber|uri: STRING\lnamespace: STRING\l}"]
+
+1467826201248[ label="{DataTypeModel|}"]
+
+1467826201344[ label="{*DataType|}"]
+
+1467826201440[ label="{*Property|}"]
+
+1467826201536[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+1467826201632[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+1467826201776[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+1467826202304[ label="{EnumerationElement|name: STRING\l}"]
+
+1467826202832[ label="{PrimitiveDataType|name: ID\l}"]
+
+1467826203648[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+1467826204320[ label="{MessageModel|}"]
+
+1467826204416[ label="{*Message|}"]
+
+1467826076080[ label="{PubSubMessage|}"]
+
+
+
+1467826063792 -> 1467826192800[arrowtail=diamond, dir=both, headlabel="endpoints 0..*"]
+1467826063792 -> 1467826204416[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+1467826192800 -> 1467826192608 [dir=back]
+1467826192800 -> 1467826076512 [dir=back]
+1467826192608 -> 1467826076080[headlabel="msg "]
+1467826076512 -> 1467826076080[headlabel="msg "]
+1467826201248 -> 1467826203648[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1467826201248 -> 1467826201344[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+1467826201248 -> 1467826201776[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+1467826201344 -> 1467826202832 [dir=back]
+1467826201344 -> 1467826201776 [dir=back]
+1467826201440 -> 1467826201632 [dir=back]
+1467826201440 -> 1467826201536 [dir=back]
+1467826201536 -> 1467826201344[headlabel="type "]
+1467826201632 -> 1467826201344[headlabel="type "]
+1467826201776 -> 1467826202304[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+1467826204320 -> 1467826203648[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1467826204320 -> 1467826204416[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+1467826204416 -> 1467826201440[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1467826204416 -> 1467826076080 [dir=back]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>EndpointType</b></td><td>Publisher|Subscriber</td>
+	</tr>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+</table> >]
+
+
+}

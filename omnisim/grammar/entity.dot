@@ -1,0 +1,76 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+2634005409968[ label="{EntityModel|}"]
+
+2634005159888[ label="{Entity|name: ID\letype: EntityType\ltopic: STRING\l}"]
+
+2634005532640[ label="{DataTypeModel|}"]
+
+2634005532688[ label="{*DataType|}"]
+
+2634005532784[ label="{*Property|}"]
+
+2634005532880[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+2634005532976[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+2634005533072[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+2634005533168[ label="{EnumerationElement|name: STRING\l}"]
+
+2634005533264[ label="{PrimitiveDataType|name: ID\l}"]
+
+2633979522048[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+
+
+2634005409968 -> 2633979522048[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2634005409968 -> 2634005159888[arrowtail=diamond, dir=both, headlabel="entities 0..*"]
+2634005159888 -> 2634005532784[arrowtail=diamond, dir=both, headlabel="attributes 0..*"]
+2634005532640 -> 2633979522048[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2634005532640 -> 2634005532688[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2634005532640 -> 2634005533072[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2634005532688 -> 2634005533264 [dir=back]
+2634005532688 -> 2634005533072 [dir=back]
+2634005532784 -> 2634005532976 [dir=back]
+2634005532784 -> 2634005532880 [dir=back]
+2634005532880 -> 2634005532688[headlabel="type "]
+2634005532976 -> 2634005532688[headlabel="type "]
+2634005533072 -> 2634005533168[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+	<tr>
+		<td><b>EntityType</b></td><td>sensor|actuator|actor</td>
+	</tr>
+</table> >]
+
+
+}

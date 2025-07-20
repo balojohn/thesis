@@ -1,0 +1,155 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+1629095122592[ label="{Model|}"]
+
+1629094923776[ label="{CompositeActor|name: ID\l}"]
+
+1629094935200[ label="{PosedActor|name: ID\l}"]
+
+1629095202208[ label="{PosedCActor|}"]
+
+1629095203744[ label="{*Actor|}"]
+
+1629095202592[ label="{SoundSource|name: ID\lpubFreq: FLOAT\llanguage: STRING\lspeech: STRING\lemotion: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1629095204320[ label="{Color|name: ID\lpubFreq: FLOAT\lr: INT\lg: INT\lb: INT\l}"]
+
+1629095206432[ label="{Text|name: ID\ltype: TextType\lpubFreq: FLOAT\lmessage: STRING\l}"]
+
+1629095320448[ label="{EnvActor|name: ID\ltype: EnvActorType\lEnvProperty: EnvPropertyType\ldispersion: DispersionType\l}"]
+
+1629094923056[ label="{Human|name: ID\lpubFreq: FLOAT\lmotion: STRING\llanguage: STRING\lspeech: STRING\lemotion: STRING\lage: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1629095318672[ label="{DataTypeModel|}"]
+
+1629095318768[ label="{*DataType|}"]
+
+1629095318912[ label="{*Property|}"]
+
+1629095319440[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+1629095320064[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+1629095320592[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+1629095319680[ label="{EnumerationElement|name: STRING\l}"]
+
+1629095320784[ label="{PrimitiveDataType|name: ID\l}"]
+
+1629095321312[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+1629095321696[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+1629095321792[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+1629095321888[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
+
+1629095321984[ label="{Transformation|}"]
+
+1629095322080[ label="{Pose|}"]
+
+1629095322176[ label="{*Shape|}"]
+
+1629095322272[ label="{ComplexShape|}"]
+
+1629095322368[ label="{*PredefinedShape|}"]
+
+1629095322464[ label="{Circle|radius: FLOAT\l}"]
+
+1629095119328[ label="{Square|length: FLOAT\l}"]
+
+1629095322608[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
+
+1629062553504[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
+
+1629095322752[ label="{ArbitraryShape|}"]
+
+
+
+1629095122592 -> 1629095321312[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1629095122592 -> 1629095203744[arrowtail=diamond, dir=both, headlabel="actor "]
+1629094923776 -> 1629095322176[arrowtail=diamond, dir=both, headlabel="shape "]
+1629094923776 -> 1629094935200[arrowtail=diamond, dir=both, headlabel="actors 1..*"]
+1629094923776 -> 1629095202208[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+1629094923776 -> 1629095318768[headlabel="dataModel "]
+1629094935200 -> 1629095203744[headlabel="ref "]
+1629094935200 -> 1629095321984[arrowtail=diamond, dir=both, headlabel="transformation "]
+1629095202208 -> 1629094923776[headlabel="ref "]
+1629095202208 -> 1629095321984[arrowtail=diamond, dir=both, headlabel="transformation "]
+1629095203744 -> 1629095202592 [dir=back]
+1629095203744 -> 1629095204320 [dir=back]
+1629095203744 -> 1629095206432 [dir=back]
+1629095203744 -> 1629095320448 [dir=back]
+1629095203744 -> 1629094923056 [dir=back]
+1629095202592 -> 1629095318768[headlabel="dataModel "]
+1629095320448 -> 1629095318768[headlabel="dataModel "]
+1629094923056 -> 1629095318768[headlabel="dataModel "]
+1629095318672 -> 1629095321312[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1629095318672 -> 1629095318768[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+1629095318672 -> 1629095320592[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+1629095318768 -> 1629095320784 [dir=back]
+1629095318768 -> 1629095320592 [dir=back]
+1629095318912 -> 1629095320064 [dir=back]
+1629095318912 -> 1629095319440 [dir=back]
+1629095319440 -> 1629095318768[headlabel="type "]
+1629095320064 -> 1629095318768[headlabel="type "]
+1629095320592 -> 1629095319680[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+1629095321984 -> 1629095321792[arrowtail=diamond, dir=both, headlabel="translation "]
+1629095321984 -> 1629095321888[arrowtail=diamond, dir=both, headlabel="rotation "]
+1629095322080 -> 1629095321792[arrowtail=diamond, dir=both, headlabel="translation "]
+1629095322080 -> 1629095321888[arrowtail=diamond, dir=both, headlabel="rotation "]
+1629095322176 -> 1629095322368 [dir=back]
+1629095322176 -> 1629095322752 [dir=back]
+1629095322176 -> 1629095322272 [dir=back]
+1629095322272 -> 1629095322176[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
+1629095322368 -> 1629095322464 [dir=back]
+1629095322368 -> 1629095119328 [dir=back]
+1629095322368 -> 1629095322608 [dir=back]
+1629095322368 -> 1629062553504 [dir=back]
+1629095322752 -> 1629095321696[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>DispersionType</b></td><td>Constant|Linear|Quadratic|Exponential|Logarithmic</td>
+	</tr>
+	<tr>
+		<td><b>EnvActorType</b></td><td>Water|Fire</td>
+	</tr>
+	<tr>
+		<td><b>EnvPropertyType</b></td><td>Temperature|Humidity|PH|Gas</td>
+	</tr>
+	<tr>
+		<td><b>TextType</b></td><td>Barcode|QR|RFIDTag|PlainText</td>
+	</tr>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+</table> >]
+
+
+}

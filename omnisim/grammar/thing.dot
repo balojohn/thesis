@@ -1,0 +1,240 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+2340069371888[ label="{Model|}"]
+
+2340069459872[ label="{*Thing|}"]
+
+2340069373136[ label="{CompositeThing|name: ID\l}"]
+
+2340069363680[ label="{*PosedThing|}"]
+
+2340069365312[ label="{PosedCThing|}"]
+
+2340069154576[ label="{PosedSensor|name: ID\l}"]
+
+2340069157120[ label="{PosedActuator|name: ID\l}"]
+
+2340069523680[ label="{*Sensor|}"]
+
+2340069527376[ label="{RangeFinder|name: ID\ltype: RangeFinderType\lpubFreq: FLOAT\lhfov: FLOAT\lvfov: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+2340069529920[ label="{LiDAR|name: ID\lpubFreq: FLOAT\lminAngle: FLOAT\lmaxAngle: FLOAT\lnumBeams: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+2340069528576[ label="{Reader|name: ID\ltype: ReaderType\lpubFreq: FLOAT\lresHeight: FLOAT\lresWidth: FLOAT\lhfov: FLOAT\lvfov: FLOAT\l}"]
+
+2340069527568[ label="{Alarm|name: ID\ltype: AlarmType\lpubFreq: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\lhz: FLOAT\l}"]
+
+2340069527760[ label="{Microphone|name: ID\lpubFreq: FLOAT\lmode: STRING\lblocked: BOOL\l}"]
+
+2340069527904[ label="{Light|name: ID\lpubFreq: FLOAT\lluminoscity: FLOAT\lcolor: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+2340069526560[ label="{IMU|name: ID\ltype: IMUType\lpubFreq: FLOAT\l}"]
+
+2340069524544[ label="{*Actuator|}"]
+
+2340069523536[ label="{PanTilt|name: ID\l}"]
+
+2340069525120[ label="{EnvDevice|name: ID\ltype: EnvDeviceType\ldispersion: DispersionType\l}"]
+
+2340069525840[ label="{Relay|name: ID\lpubFreq: FLOAT\lstate: STRING\lallowed_states: FLOAT\l}"]
+
+2340069525408[ label="{*Button|}"]
+
+2340069528864[ label="{SingleButton|name: ID\lpressed: BOOL\l}"]
+
+2340069529056[ label="{ButtonArray|name: ID\lsize: INT\l}"]
+
+2340069528672[ label="{*Led|}"]
+
+2340069529584[ label="{SingleLed|name: ID\lcolor: INT\lresponseTime: FLOAT\l}"]
+
+2340069529680[ label="{LedArray|name: ID\lsize: INT\lresponseTime: FLOAT\l}"]
+
+2340069529776[ label="{Speaker|name: ID\l}"]
+
+2340069530832[ label="{DataTypeModel|}"]
+
+2340069530928[ label="{*DataType|}"]
+
+2340069531024[ label="{*Property|}"]
+
+2340069531120[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+2340069531216[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+2340069531264[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+2340069531360[ label="{EnumerationElement|name: STRING\l}"]
+
+2340069531456[ label="{PrimitiveDataType|name: ID\l}"]
+
+2340069531744[ label="{Import|importURI: FQNI\lname: ID\l}"]
+
+2340069532176[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+2340069532272[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+2340069532368[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
+
+2340069532464[ label="{Transformation|}"]
+
+2340069532560[ label="{Pose|}"]
+
+2340069532656[ label="{*Shape|}"]
+
+2340069532752[ label="{ComplexShape|}"]
+
+2340069532848[ label="{*PredefinedShape|}"]
+
+2340069532944[ label="{Circle|radius: FLOAT\l}"]
+
+2340069533040[ label="{Square|length: FLOAT\l}"]
+
+2340069533088[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
+
+2340069533184[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
+
+2340069533232[ label="{ArbitraryShape|}"]
+
+
+
+2340069371888 -> 2340069531744[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2340069371888 -> 2340069459872[arrowtail=diamond, dir=both, headlabel="thing "]
+2340069459872 -> 2340069523680 [dir=back]
+2340069459872 -> 2340069524544 [dir=back]
+2340069459872 -> 2340069373136 [dir=back]
+2340069373136 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069373136 -> 2340069154576[arrowtail=diamond, dir=both, headlabel="sensors 1..*"]
+2340069373136 -> 2340069157120[arrowtail=diamond, dir=both, headlabel="actuators 1..*"]
+2340069373136 -> 2340069365312[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+2340069373136 -> 2340069530928[headlabel="dataModel "]
+2340069363680 -> 2340069154576 [dir=back]
+2340069363680 -> 2340069157120 [dir=back]
+2340069363680 -> 2340069365312 [dir=back]
+2340069365312 -> 2340069373136[headlabel="ref "]
+2340069365312 -> 2340069532464[arrowtail=diamond, dir=both, headlabel="transformation "]
+2340069154576 -> 2340069523680[headlabel="ref "]
+2340069154576 -> 2340069532464[arrowtail=diamond, dir=both, headlabel="transformation "]
+2340069157120 -> 2340069524544[headlabel="ref "]
+2340069157120 -> 2340069532464[arrowtail=diamond, dir=both, headlabel="transformation "]
+2340069523680 -> 2340069527376 [dir=back]
+2340069523680 -> 2340069528576 [dir=back]
+2340069523680 -> 2340069527568 [dir=back]
+2340069523680 -> 2340069527760 [dir=back]
+2340069523680 -> 2340069527904 [dir=back]
+2340069523680 -> 2340069526560 [dir=back]
+2340069527376 -> 2340069530928[headlabel="dataModel "]
+2340069527376 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069529920 -> 2340069530928[headlabel="dataModel "]
+2340069529920 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069528576 -> 2340069530928[headlabel="dataModel "]
+2340069528576 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069527568 -> 2340069530928[headlabel="dataModel "]
+2340069527568 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069527760 -> 2340069530928[headlabel="dataModel "]
+2340069527760 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069527904 -> 2340069530928[headlabel="dataModel "]
+2340069527904 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069526560 -> 2340069530928[headlabel="dataModel "]
+2340069526560 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069524544 -> 2340069523536 [dir=back]
+2340069524544 -> 2340069525120 [dir=back]
+2340069524544 -> 2340069525840 [dir=back]
+2340069524544 -> 2340069525408 [dir=back]
+2340069524544 -> 2340069528672 [dir=back]
+2340069524544 -> 2340069529776 [dir=back]
+2340069523536 -> 2340069530928[headlabel="dataModel "]
+2340069523536 -> 2340069532464[arrowtail=diamond, dir=both, headlabel="joints 0..*"]
+2340069523536 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069525120 -> 2340069530928[headlabel="dataModel "]
+2340069525840 -> 2340069530928[headlabel="dataModel "]
+2340069525840 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069525408 -> 2340069528864 [dir=back]
+2340069525408 -> 2340069529056 [dir=back]
+2340069528864 -> 2340069530928[headlabel="dataModel "]
+2340069528864 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069529056 -> 2340069530928[headlabel="dataModel "]
+2340069529056 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069528672 -> 2340069529584 [dir=back]
+2340069528672 -> 2340069529680 [dir=back]
+2340069529584 -> 2340069530928[headlabel="dataModel "]
+2340069529584 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069529680 -> 2340069530928[headlabel="dataModel "]
+2340069529680 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069529776 -> 2340069530928[headlabel="dataModel "]
+2340069529776 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shape "]
+2340069530832 -> 2340069531744[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2340069530832 -> 2340069530928[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2340069530832 -> 2340069531264[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2340069530928 -> 2340069531456 [dir=back]
+2340069530928 -> 2340069531264 [dir=back]
+2340069531024 -> 2340069531216 [dir=back]
+2340069531024 -> 2340069531120 [dir=back]
+2340069531120 -> 2340069530928[headlabel="type "]
+2340069531216 -> 2340069530928[headlabel="type "]
+2340069531264 -> 2340069531360[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+2340069532464 -> 2340069532272[arrowtail=diamond, dir=both, headlabel="translation "]
+2340069532464 -> 2340069532368[arrowtail=diamond, dir=both, headlabel="rotation "]
+2340069532560 -> 2340069532272[arrowtail=diamond, dir=both, headlabel="translation "]
+2340069532560 -> 2340069532368[arrowtail=diamond, dir=both, headlabel="rotation "]
+2340069532656 -> 2340069532848 [dir=back]
+2340069532656 -> 2340069533232 [dir=back]
+2340069532656 -> 2340069532752 [dir=back]
+2340069532752 -> 2340069532656[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
+2340069532848 -> 2340069532944 [dir=back]
+2340069532848 -> 2340069533040 [dir=back]
+2340069532848 -> 2340069533088 [dir=back]
+2340069532848 -> 2340069533184 [dir=back]
+2340069533232 -> 2340069532176[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>FQN</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+	<tr>
+		<td><b>AlarmType</b></td><td>AreaAlarm|LinearAlarm</td>
+	</tr>
+	<tr>
+		<td><b>DispersionType</b></td><td>Constant|Linear|Exponential|Logarithmic|Quadratic</td>
+	</tr>
+	<tr>
+		<td><b>EnvDeviceType</b></td><td>Temperature|Humidity|PH|Gas</td>
+	</tr>
+	<tr>
+		<td><b>IMUType</b></td><td>6DOF|9DOF</td>
+	</tr>
+	<tr>
+		<td><b>RangeFinderType</b></td><td>Sonar|IR</td>
+	</tr>
+	<tr>
+		<td><b>ReaderType</b></td><td>Camera|RFID</td>
+	</tr>
+</table> >]
+
+
+}

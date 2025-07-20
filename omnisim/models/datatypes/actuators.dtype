@@ -1,0 +1,9 @@
+DataType ButtonData
+    state: int
+end
+
+DataType LedArrayData
+    size: int
+    colors: int[] // 0-255
+    intensity: int[] //0-255
+end

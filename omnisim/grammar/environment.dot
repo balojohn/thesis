@@ -1,0 +1,253 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+1671705151920[ label="{Model|}"]
+
+1671705319072[ label="{Environment|name: ID\l}"]
+
+1671705322912[ label="{Grid|width: FLOAT\lheight: FLOAT\lcellSizeCm: FLOAT\l}"]
+
+1671705315520[ label="{Obstacle|name: ID\l}"]
+
+1671705324304[ label="{EnvironmentalProperty|type: EnvironmentalPropertyType\lvalue: FLOAT\ldispersion: DispersionType\l}"]
+
+1671705077488[ label="{Import|importURI: STRING\lname: ID\l}"]
+
+1671705076480[ label="{Model|}"]
+
+1671705076576[ label="{*Thing|}"]
+
+1671705076672[ label="{CompositeThing|name: ID\l}"]
+
+1671705076816[ label="{*PosedThing|}"]
+
+1671705077344[ label="{PosedCThing|}"]
+
+1671705077968[ label="{PosedSensor|name: ID\l}"]
+
+1671705078496[ label="{PosedActuator|name: ID\l}"]
+
+1671705077584[ label="{*Sensor|}"]
+
+1671705078688[ label="{RangeFinder|name: ID\ltype: RangeFinderType\lpubFreq: FLOAT\lhfov: FLOAT\lvfov: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1671705078880[ label="{LiDAR|name: ID\lpubFreq: FLOAT\lminAngle: FLOAT\lmaxAngle: FLOAT\lnumBeams: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1671705079216[ label="{Reader|name: ID\ltype: ReaderType\lpubFreq: FLOAT\lresHeight: FLOAT\lresWidth: FLOAT\lhfov: FLOAT\lvfov: FLOAT\l}"]
+
+1671705079360[ label="{Alarm|name: ID\ltype: AlarmType\lpubFreq: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\lhz: FLOAT\l}"]
+
+1671705079552[ label="{Microphone|name: ID\lpubFreq: FLOAT\lmode: STRING\lblocked: BOOL\l}"]
+
+1671705079648[ label="{Light|name: ID\lpubFreq: FLOAT\lluminoscity: FLOAT\lcolor: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1671705079744[ label="{IMU|name: ID\ltype: IMUType\lpubFreq: FLOAT\l}"]
+
+1671705079936[ label="{*Actuator|}"]
+
+1671705080032[ label="{PanTilt|name: ID\l}"]
+
+1671705080128[ label="{EnvDevice|name: ID\ltype: EnvDeviceType\ldispersion: DispersionType\l}"]
+
+1671705080416[ label="{Relay|name: ID\lpubFreq: FLOAT\lstate: STRING\lallowed_states: FLOAT\l}"]
+
+1671705080512[ label="{*Button|}"]
+
+1671705080608[ label="{SingleButton|name: ID\lpressed: BOOL\l}"]
+
+1671705080704[ label="{ButtonArray|name: ID\lsize: INT\l}"]
+
+1671705080800[ label="{*Led|}"]
+
+1671705080896[ label="{SingleLed|name: ID\lcolor: INT\lresponseTime: FLOAT\l}"]
+
+1671705080992[ label="{LedArray|name: ID\lsize: INT\lresponseTime: FLOAT\l}"]
+
+1671705081088[ label="{Speaker|name: ID\l}"]
+
+1671705081184[ label="{Model|}"]
+
+1671705081280[ label="{CompositeActor|name: ID\l}"]
+
+1671705081376[ label="{PosedActor|name: ID\l}"]
+
+1671705081424[ label="{PosedCActor|}"]
+
+1671705081520[ label="{*Actor|}"]
+
+1671705081616[ label="{SoundSource|name: ID\lpubFreq: FLOAT\llanguage: STRING\lspeech: STRING\lemotion: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1671705081712[ label="{Color|name: ID\lpubFreq: FLOAT\lr: INT\lg: INT\lb: INT\l}"]
+
+1671705081808[ label="{Text|name: ID\ltype: TextType\lpubFreq: FLOAT\lmessage: STRING\l}"]
+
+1671705082000[ label="{EnvActor|name: ID\ltype: EnvActorType\lEnvProperty: EnvironmentalPropertyType\ldispersion: DispersionType\l}"]
+
+1671705082384[ label="{Human|name: ID\lpubFreq: FLOAT\lmotion: STRING\llanguage: STRING\lspeech: STRING\lemotion: STRING\lage: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1671705082480[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+1671705082528[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+1671705082624[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
+
+1671705082720[ label="{Transformation|}"]
+
+1671705082816[ label="{Pose|}"]
+
+1671705082912[ label="{*Shape|}"]
+
+1671705083008[ label="{ComplexShape|}"]
+
+1671705083104[ label="{*PredefinedShape|}"]
+
+1671705083200[ label="{Circle|radius: FLOAT\l}"]
+
+1671705083296[ label="{Square|length: FLOAT\l}"]
+
+1671705083392[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
+
+1671705083488[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
+
+1671705083584[ label="{ArbitraryShape|}"]
+
+
+
+1671705151920 -> 1671705077488[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1671705151920 -> 1671705319072[arrowtail=diamond, dir=both, headlabel="environment "]
+1671705151920 -> 1671705315520[arrowtail=diamond, dir=both, headlabel="obstacles 0..*"]
+1671705319072 -> 1671705322912[arrowtail=diamond, dir=both, headlabel="grid 0..*"]
+1671705319072 -> 1671705324304[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1671705319072 -> 1671705076576[headlabel="things 0..*"]
+1671705319072 -> 1671705082816[arrowtail=diamond, dir=both, headlabel="poses 0..*"]
+1671705319072 -> 1671705081520[headlabel="actors 0..*"]
+1671705319072 -> 1671705315520[headlabel="obstacles 0..*"]
+1671705315520 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705076480 -> 1671705076576[arrowtail=diamond, dir=both, headlabel="thing "]
+1671705076576 -> 1671705077584 [dir=back]
+1671705076576 -> 1671705079936 [dir=back]
+1671705076576 -> 1671705076672 [dir=back]
+1671705076672 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705076672 -> 1671705077968[arrowtail=diamond, dir=both, headlabel="sensors 1..*"]
+1671705076672 -> 1671705078496[arrowtail=diamond, dir=both, headlabel="actuators 1..*"]
+1671705076672 -> 1671705077344[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+1671705076816 -> 1671705077968 [dir=back]
+1671705076816 -> 1671705078496 [dir=back]
+1671705076816 -> 1671705077344 [dir=back]
+1671705077344 -> 1671705076672[headlabel="ref "]
+1671705077344 -> 1671705082720[arrowtail=diamond, dir=both, headlabel="transformation "]
+1671705077968 -> 1671705077584[headlabel="ref "]
+1671705077968 -> 1671705082720[arrowtail=diamond, dir=both, headlabel="transformation "]
+1671705078496 -> 1671705079936[headlabel="ref "]
+1671705078496 -> 1671705082720[arrowtail=diamond, dir=both, headlabel="transformation "]
+1671705077584 -> 1671705078688 [dir=back]
+1671705077584 -> 1671705079216 [dir=back]
+1671705077584 -> 1671705079360 [dir=back]
+1671705077584 -> 1671705079552 [dir=back]
+1671705077584 -> 1671705079648 [dir=back]
+1671705077584 -> 1671705079744 [dir=back]
+1671705078688 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705078880 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705079216 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705079360 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705079552 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705079648 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705079744 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705079936 -> 1671705080032 [dir=back]
+1671705079936 -> 1671705080128 [dir=back]
+1671705079936 -> 1671705080416 [dir=back]
+1671705079936 -> 1671705080512 [dir=back]
+1671705079936 -> 1671705080800 [dir=back]
+1671705079936 -> 1671705081088 [dir=back]
+1671705080032 -> 1671705082720[arrowtail=diamond, dir=both, headlabel="joints 0..*"]
+1671705080032 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705080416 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705080512 -> 1671705080608 [dir=back]
+1671705080512 -> 1671705080704 [dir=back]
+1671705080608 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705080704 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705080800 -> 1671705080896 [dir=back]
+1671705080800 -> 1671705080992 [dir=back]
+1671705080896 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705080992 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705081088 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705081184 -> 1671705081520[arrowtail=diamond, dir=both, headlabel="actor "]
+1671705081280 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shape "]
+1671705081280 -> 1671705081376[arrowtail=diamond, dir=both, headlabel="actors 1..*"]
+1671705081280 -> 1671705081424[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+1671705081376 -> 1671705081520[headlabel="ref "]
+1671705081376 -> 1671705082720[arrowtail=diamond, dir=both, headlabel="transformation "]
+1671705081424 -> 1671705081280[headlabel="ref "]
+1671705081424 -> 1671705082720[arrowtail=diamond, dir=both, headlabel="transformation "]
+1671705081520 -> 1671705081616 [dir=back]
+1671705081520 -> 1671705081712 [dir=back]
+1671705081520 -> 1671705081808 [dir=back]
+1671705081520 -> 1671705082000 [dir=back]
+1671705081520 -> 1671705082384 [dir=back]
+1671705082720 -> 1671705082528[arrowtail=diamond, dir=both, headlabel="translation "]
+1671705082720 -> 1671705082624[arrowtail=diamond, dir=both, headlabel="rotation "]
+1671705082816 -> 1671705082528[arrowtail=diamond, dir=both, headlabel="translation "]
+1671705082816 -> 1671705082624[arrowtail=diamond, dir=both, headlabel="rotation "]
+1671705082912 -> 1671705083104 [dir=back]
+1671705082912 -> 1671705083584 [dir=back]
+1671705082912 -> 1671705083008 [dir=back]
+1671705083008 -> 1671705082912[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
+1671705083104 -> 1671705083200 [dir=back]
+1671705083104 -> 1671705083296 [dir=back]
+1671705083104 -> 1671705083392 [dir=back]
+1671705083104 -> 1671705083488 [dir=back]
+1671705083584 -> 1671705082480[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>DispersionType</b></td><td>Constant|Linear|Quadratic|Exponential|Logarithmic</td>
+	</tr>
+	<tr>
+		<td><b>EnvActorType</b></td><td>Water|Fire</td>
+	</tr>
+	<tr>
+		<td><b>EnvironmentalPropertyType</b></td><td>Temperature|AirQuality|SoundLevelDB|CO2|Gas|Illumination|Humidity</td>
+	</tr>
+	<tr>
+		<td><b>TextType</b></td><td>Barcode|QR|RFIDTag|PlainText</td>
+	</tr>
+	<tr>
+		<td><b>EnvDimensions</b></td><td>2D|3D</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>ID (. ID)*</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+	<tr>
+		<td><b>AlarmType</b></td><td>AreaAlarm|LinearAlarm</td>
+	</tr>
+	<tr>
+		<td><b>DispersionType</b></td><td>Constant|Linear|Exponential|Logarithmic|Quadratic</td>
+	</tr>
+	<tr>
+		<td><b>EnvDeviceType</b></td><td>Temperature|Humidity|PH|Gas</td>
+	</tr>
+	<tr>
+		<td><b>IMUType</b></td><td>6DOF|9DOF</td>
+	</tr>
+	<tr>
+		<td><b>RangeFinderType</b></td><td>Sonar|IR</td>
+	</tr>
+	<tr>
+		<td><b>ReaderType</b></td><td>Camera|RFID</td>
+	</tr>
+</table> >]
+
+
+}

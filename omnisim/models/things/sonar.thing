@@ -1,0 +1,12 @@
+import '../datatypes/sensors.dtype' as RangeData;
+
+RangeFinder Sonar
+    type: Sonar
+    dataModel: RangeData
+    shape: Rectangle(5, 2)
+    freq: 30.0
+    hfov: 60.0
+    vfov: 37.9
+    minRange: 10.0 // cm
+    maxRange: 250.0 // cm
+end

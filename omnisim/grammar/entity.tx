@@ -1,0 +1,22 @@
+import datatype
+
+EntityModel:
+    (
+        imports*=Import
+        entities*=Entity
+    )#
+;
+
+Entity:
+    'Entity' name=ID
+    (
+        ('type:' etype=EntityType)
+        ('topic:' topic=STRING)
+        ('attributes:' '-' attributes*=Property['-'])?
+    )#
+    'end'
+;
+
+EntityType:
+    'sensor' | 'actuator' | 'actor'
+;
