@@ -8,9 +8,9 @@ from ..mm_classes.datatype import type_builtins, PrimitiveDataType
 
 from .shared_globals import SHARED_GLOBAL_REPO
 
-def get_thing_mm(debug=False):
+def get_actor_mm(debug=False):
     mm = metamodel_from_file(
-        join(THIS_DIR, 'grammar', 'thing.tx'),
+        join(THIS_DIR, 'grammar', 'actor.tx'),
         classes=[PrimitiveDataType],
         builtins=type_builtins,
         global_repository=SHARED_GLOBAL_REPO,
@@ -21,12 +21,6 @@ def get_thing_mm(debug=False):
             "*.*": scoping_providers.FQNImportURI(),
             "*.dataModel": scoping_providers.FQNGlobalRepo(
                 join(MODEL_REPO_PATH, 'datatypes', '*.dtype')
-            ),
-            "*.sensors": scoping_providers.FQNGlobalRepo(
-                join(MODEL_REPO_PATH, 'things', '*.thing')
-            ),
-            "*.actuators": scoping_providers.FQNGlobalRepo(
-                join(MODEL_REPO_PATH, 'things', '*.thing')
             ),
             # "*.communication": scoping_providers.FQNGlobalRepo(
             #     join(MODEL_REPO_PATH, 'communication','*.comm')

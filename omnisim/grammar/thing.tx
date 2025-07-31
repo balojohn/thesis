@@ -28,15 +28,15 @@ CompositeThing:
 PosedThing: PosedSensor | PosedActuator | PosedCThing;
 
 PosedCThing:
-    ref=[CompositeThing:FQN|+m:thing] (transformation=Transformation)?
+    ref=[CompositeThing:FQN|+m:thing] (transformation=DTransformation)?
 ;
 
 PosedSensor:
-    ref=[Sensor:FQN|+m:thing] ('('name=ID')')? (transformation=Transformation)?
+    ref=[Sensor:FQN|+m:thing] ('('name=ID')')? (transformation=DTransformation)?
 ;
 
 PosedActuator:
-    ref=[Actuator:FQN|+m:thing] ('('name=ID')')? (transformation=Transformation)?
+    ref=[Actuator:FQN|+m:thing] ('('name=ID')')? (transformation=DTransformation)?
 ;
 
 Sensor:
@@ -51,10 +51,11 @@ Sensor:
 RangeFinder:
     'RangeFinder' name=ID
         (
+            ('class:' class=ID)
             ('type:' type=[RangeFinderType])
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('hfov:' hfov=FLOAT)?
             ('vfov:' vfov=FLOAT)?
@@ -69,9 +70,10 @@ RangeFinderType: 'Sonar' | 'IR';
 LiDAR:
     'LiDAR' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxFreq:' maxFreq=FLOAT)?
             ('minAngle:' minAngle=FLOAT)?
             ('maxAngle:' maxAngle=FLOAT)?
@@ -85,10 +87,11 @@ LiDAR:
 Reader:
     'Reader' name=ID
         (
+            ('class:' class=ID)
             ('type:' type=[ReaderType])
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('resHeight:' resHeight=FLOAT)?
             ('resWidth:' resWidth=FLOAT)?
@@ -103,10 +106,11 @@ ReaderType: 'Camera' | 'RFID' ;
 Alarm:
     'Alarm' name=ID
         (
+            ('class:' class=ID)
             ('type:' type=[AlarmType])
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
@@ -120,9 +124,10 @@ AlarmType: 'AreaAlarm' | 'LinearAlarm' ;
 Microphone:
     'Microphone' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('mode:' mode=STRING)?
             ('blocked:' blocked=BOOL)?
@@ -133,9 +138,10 @@ Microphone:
 Light:
     'Light' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxFreq:' maxFreq=FLOAT)?
             ('luminoscity:' luminoscity=FLOAT)?
             ('color:' color=STRING)?
@@ -147,11 +153,12 @@ Light:
 
 IMU:
     'IMU' name=ID
-        'type:' type=IMUType
         (
+            ('class:' class=ID)
+            ('type:' type=[IMUType])?
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxFreq:' maxFreq=FLOAT)?
         )#
     'end'
@@ -171,9 +178,11 @@ Actuator:
 PanTilt:
     'PanTilt' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('joints' ':' '-' joints*=Transformation['-'])?
             ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
         )#
     'end'
 ;
@@ -181,9 +190,12 @@ PanTilt:
 EnvDevice:
     'EnvDevice' name=ID
         (
-            ('type:' type=[EnvDeviceType] 'sensor'
+            ('class:' class=ID)
+            ('type:' type=[EnvDeviceType] class=ID
                 'with dispersion' dispersion=DispersionType)?
             ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
         )#
     'end'
 ;
@@ -206,9 +218,10 @@ DispersionType:
 Relay:
     'Relay' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
-            ('freq:' pubFreq=FLOAT)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxFreq:' maxFreq=FLOAT)?
             ('state:' state=STRING)?
             ('allowed_states:' allowed_states=FLOAT)?
@@ -221,10 +234,12 @@ Button: SingleButton | ButtonArray;
 SingleButton:
     'SingleButton' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxFreq:' maxFreq=FLOAT)?
-            ('pressed:' pressed=BOOL)?
+            ('state:' state=INT)?
         )#
     'end'
 ;
@@ -232,9 +247,11 @@ SingleButton:
 ButtonArray:
     'ButtonArray' name=ID
         (
+            ('class:' class=ID)
             ('size:' size=INT)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
         )#
     'end'
 ;
@@ -244,9 +261,11 @@ Led: SingleLed | LedArray;
 SingleLed:
     'Led' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('color' ':' color=INT)?
             ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
             ('responseTime:' responseTime=FLOAT)?
         )#
     'end'
@@ -255,9 +274,11 @@ SingleLed:
 LedArray:
     'LedArray' name=ID
         (
+            ('class:' class=ID)
             ('size:' size=INT)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
             ('responseTime:' responseTime=FLOAT)?
         )#
     'end'
@@ -266,8 +287,14 @@ LedArray:
 Speaker:
     'Speaker' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
         )#
     'end'
+;
+
+DTransformation:
+    ('@' transformation=Transformation)? ('on' parentThing=[PosedThing:FQN])?
 ;

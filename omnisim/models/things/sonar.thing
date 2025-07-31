@@ -1,12 +1,13 @@
 import '../datatypes/sensors.dtype' as RangeData;
 
 RangeFinder Sonar
+    class: Sensor
     type: Sonar
     dataModel: RangeData
     shape: Rectangle(5, 2)
-    freq: 30.0
+    pubFreq: 100
     hfov: 60.0
     vfov: 37.9
-    minRange: 10.0 // cm
-    maxRange: 250.0 // cm
+    minRange: 10.0
+    maxRange: 250.0
 end

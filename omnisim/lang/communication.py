@@ -19,8 +19,13 @@ def get_communication_mm(debug=False):
 
     mm.register_scope_providers(
         {
+            # Support for 'import ... as alias' resolution:
+            "*.*": scoping_providers.FQNImportURI(),
             "*.communication": scoping_providers.FQNGlobalRepo(
                 join(MODEL_REPO_PATH, 'communication', '*.comm')
+            ),
+            "*.dataType": scoping_providers.FQNGlobalRepo(
+                join(MODEL_REPO_PATH, 'datatypes', '*.dtype')
             ),
         }
     )

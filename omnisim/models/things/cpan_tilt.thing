@@ -1,0 +1,6 @@
+CThing CPanTilt
+    shape: Cylinder(10, 30)
+    actuators:
+        - DynamixelServo @ Transform(Translation(0, 0), Rotation(0, 0))
+        - DynamixelServo @ Transform(Translation(10, 0), Rotation(0, 0))
+end

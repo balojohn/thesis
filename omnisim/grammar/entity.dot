@@ -11,43 +11,47 @@
     edge[dir=black,arrowtail=empty]
 
 
-2634005409968[ label="{EntityModel|}"]
+2783387195760[ label="{EntityModel|}"]
 
-2634005159888[ label="{Entity|name: ID\letype: EntityType\ltopic: STRING\l}"]
+2783387205360[ label="{Entity|name: ID\letype: EntityType\ltopic: FQN\lpubFreq: FLOAT\l}"]
 
-2634005532640[ label="{DataTypeModel|}"]
+2783387554480[ label="{DataTypeModel|}"]
 
-2634005532688[ label="{*DataType|}"]
+2783387554576[ label="{*DataType|}"]
 
-2634005532784[ label="{*Property|}"]
+2783387554672[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
 
-2634005532880[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+2783387554768[ label="{*Property|}"]
 
-2634005532976[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+2783387554864[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
 
-2634005533072[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+2783387555008[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
 
-2634005533168[ label="{EnumerationElement|name: STRING\l}"]
+2783387555536[ label="{Enumeration|name: ID\ldescription: Description\l}"]
 
-2634005533264[ label="{PrimitiveDataType|name: ID\l}"]
+2783387556064[ label="{EnumerationElement|name: STRING\l}"]
 
-2633979522048[ label="{Import|importURI: FQNI\lname: ID\l}"]
+2783387556256[ label="{PrimitiveDataType|name: ID\l}"]
+
+2783387556976[ label="{Import|importURI: STRING\lname: ID\l}"]
 
 
 
-2634005409968 -> 2633979522048[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2634005409968 -> 2634005159888[arrowtail=diamond, dir=both, headlabel="entities 0..*"]
-2634005159888 -> 2634005532784[arrowtail=diamond, dir=both, headlabel="attributes 0..*"]
-2634005532640 -> 2633979522048[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2634005532640 -> 2634005532688[arrowtail=diamond, dir=both, headlabel="types 0..*"]
-2634005532640 -> 2634005533072[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
-2634005532688 -> 2634005533264 [dir=back]
-2634005532688 -> 2634005533072 [dir=back]
-2634005532784 -> 2634005532976 [dir=back]
-2634005532784 -> 2634005532880 [dir=back]
-2634005532880 -> 2634005532688[headlabel="type "]
-2634005532976 -> 2634005532688[headlabel="type "]
-2634005533072 -> 2634005533168[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+2783387195760 -> 2783387556976[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2783387195760 -> 2783387205360[arrowtail=diamond, dir=both, headlabel="entities 0..*"]
+2783387205360 -> 2783387554768[arrowtail=diamond, dir=both, headlabel="attributes 0..*"]
+2783387554480 -> 2783387556976[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2783387554480 -> 2783387554576[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2783387554480 -> 2783387555536[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2783387554576 -> 2783387556256 [dir=back]
+2783387554576 -> 2783387555536 [dir=back]
+2783387554576 -> 2783387554672 [dir=back]
+2783387554672 -> 2783387554768[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2783387554768 -> 2783387555008 [dir=back]
+2783387554768 -> 2783387554864 [dir=back]
+2783387554864 -> 2783387554576[headlabel="type "]
+2783387555008 -> 2783387554576[headlabel="type "]
+2783387555536 -> 2783387556064[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
 match_rules [ shape=plaintext, label=< <table>
 	<tr>
 		<td><b>Comment</b></td><td></td>
@@ -62,7 +66,7 @@ match_rules [ shape=plaintext, label=< <table>
 		<td><b>Description</b></td><td>\#(.*?)$</td>
 	</tr>
 	<tr>
-		<td><b>FQN</b></td><td>FQN</td>
+		<td><b>FQN</b></td><td>ID (. ID)*</td>
 	</tr>
 	<tr>
 		<td><b>FQNI</b></td><td>(ID)+ .*?</td>

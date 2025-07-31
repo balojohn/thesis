@@ -1,12 +1,18 @@
 from textx import language
 
 from .lang import (
+    get_actor_mm,
     get_datatype_mm,
     get_entity_mm,
     get_communication_mm,
     get_env_mm,
     get_thing_mm
 )
+@language('omnisim-actor', '*.actor')
+def actor_language():
+    "Omnisim Actor language"
+    mm = get_actor_mm()
+    return mm
 
 @language('omnisim-dtype', '*.dtype')
 def dtypes_language():

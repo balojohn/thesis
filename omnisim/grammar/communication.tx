@@ -1,6 +1,11 @@
 import datatype
 import msg
 
+CommunicationModel:
+    (imports*=Import)?
+    communications*=Communication
+;
+
 Communication:
     'Communication' name=ID
     (
@@ -37,21 +42,3 @@ Subscriber:
     'end'
 ;
 EndpointType: 'Publisher' | 'Subscriber';
-
-/*
-Array:
-    "[" values*=Value[','] "]"
-;
-
-Value:
-    STRING | FLOAT | BOOL | Dict | Array | "null"
-;
-
-Dict:
-    "{" members*=Member[','] "}"
-;
-
-Member:
-    key=STRING ':' value=Value
-;
-*/

@@ -11,46 +11,51 @@
     edge[dir=black,arrowtail=empty]
 
 
-2915774377824[ label="{MessageModel|}"]
+1518855601280[ label="{MessageModel|}"]
 
-2915774372064[ label="{*Message|}"]
+1518855592544[ label="{*Message|}"]
 
-2915774743136[ label="{PubSubMessage|}"]
+1518855597632[ label="{PubSubMessage|}"]
 
-2915774743808[ label="{DataTypeModel|}"]
+1518855872848[ label="{DataTypeModel|}"]
 
-2915774743904[ label="{*DataType|}"]
+1518855873232[ label="{*DataType|}"]
 
-2915774744000[ label="{*Property|}"]
+1518855872800[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
 
-2915774744096[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+1518855873184[ label="{*Property|}"]
 
-2915774744240[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+1518855876064[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
 
-2915774744720[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+1518855873040[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
 
-2915774744960[ label="{EnumerationElement|name: STRING\l}"]
+1518855864736[ label="{Enumeration|name: ID\ldescription: Description\l}"]
 
-2915774745536[ label="{PrimitiveDataType|name: ID\l}"]
+1518855866080[ label="{EnumerationElement|name: STRING\l}"]
 
-2915774746208[ label="{Import|importURI: FQNI\lname: ID\l}"]
+1518855867088[ label="{PrimitiveDataType|name: ID\l}"]
+
+1518855868144[ label="{Import|importURI: STRING\lname: ID\l}"]
 
 
 
-2915774377824 -> 2915774746208[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2915774377824 -> 2915774372064[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
-2915774372064 -> 2915774744000[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
-2915774372064 -> 2915774743136 [dir=back]
-2915774743808 -> 2915774746208[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2915774743808 -> 2915774743904[arrowtail=diamond, dir=both, headlabel="types 0..*"]
-2915774743808 -> 2915774744720[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
-2915774743904 -> 2915774745536 [dir=back]
-2915774743904 -> 2915774744720 [dir=back]
-2915774744000 -> 2915774744240 [dir=back]
-2915774744000 -> 2915774744096 [dir=back]
-2915774744096 -> 2915774743904[headlabel="type "]
-2915774744240 -> 2915774743904[headlabel="type "]
-2915774744720 -> 2915774744960[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+1518855601280 -> 1518855868144[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1518855601280 -> 1518855592544[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+1518855592544 -> 1518855873184[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1518855592544 -> 1518855873232[headlabel="dataType "]
+1518855592544 -> 1518855597632 [dir=back]
+1518855872848 -> 1518855868144[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1518855872848 -> 1518855873232[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+1518855872848 -> 1518855864736[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+1518855873232 -> 1518855867088 [dir=back]
+1518855873232 -> 1518855864736 [dir=back]
+1518855873232 -> 1518855872800 [dir=back]
+1518855872800 -> 1518855873184[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1518855873184 -> 1518855873040 [dir=back]
+1518855873184 -> 1518855876064 [dir=back]
+1518855876064 -> 1518855873232[headlabel="type "]
+1518855873040 -> 1518855873232[headlabel="type "]
+1518855864736 -> 1518855866080[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
 match_rules [ shape=plaintext, label=< <table>
 	<tr>
 		<td><b>Comment</b></td><td></td>
@@ -65,7 +70,7 @@ match_rules [ shape=plaintext, label=< <table>
 		<td><b>Description</b></td><td>\#(.*?)$</td>
 	</tr>
 	<tr>
-		<td><b>FQN</b></td><td>FQN</td>
+		<td><b>FQN</b></td><td>ID (. ID)*</td>
 	</tr>
 	<tr>
 		<td><b>FQNI</b></td><td>(ID)+ .*?</td>

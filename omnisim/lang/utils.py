@@ -2,6 +2,7 @@ from os.path import join, basename
 from ..utils import MODEL_REPO_PATH
 
 from ..lang import (
+    get_actor_mm,
     get_communication_mm,
     get_datatype_mm,
     get_entity_mm,
@@ -21,15 +22,8 @@ def preload_dtype_models():
     return mm
 
 def preload_thing_models():
-    preload_dtype_models()  # ensure datatypes are known first
     mm = get_thing_mm()
     preload_models(mm, join(MODEL_REPO_PATH, 'things', '*.thing'))
-    return mm
-
-def preload_env_models():
-    preload_thing_models()  # ensure things are known first
-    mm = get_env_mm()
-    preload_models(mm, join(MODEL_REPO_PATH, 'environment', '*.env'))
     return mm
 
 def build_model(model_fpath):
@@ -37,15 +31,19 @@ def build_model(model_fpath):
     if model_filename.endswith('.comm'):
         mm = get_communication_mm()
     elif model_filename.endswith('.dtype'):
-        preload_dtype_models()
         mm = get_datatype_mm()
     elif model_filename.endswith('.ent'):
         mm = get_entity_mm()
     elif model_filename.endswith('.env'):
-        preload_env_models()  # this internally preloads things and datatypes
+        preload_dtype_models()
+        preload_thing_models()  # ensure things are known first
         mm = get_env_mm()
+        preload_models(mm, join(MODEL_REPO_PATH, 'environment', '*.env'))
+    elif model_filename.endswith('.actor'):
+        preload_dtype_models()
+        mm = get_actor_mm()
     elif model_filename.endswith('.thing'):
-        preload_thing_models()  # this internally preloads datatypes
+        preload_dtype_models()  # this internally preloads datatypes
         mm = get_thing_mm()
     else:
         raise ValueError('Not a valid model extension.')

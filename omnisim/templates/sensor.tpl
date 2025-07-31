@@ -8,10 +8,10 @@ from commlib.transports.redis import ConnectionParameters
 
 
 # ====== Message Class ======
-# class {{ message_name }}(PubSubMessage):
-#     {% for prop in message_properties %}
-#     {{ prop.name }}: {{ prop.type }}
-#     {% endfor %}
+class {{ message_name }}(PubSubMessage):
+     {% for prop in message_properties %}
+     {{ prop.name }}: {{ prop.type }}
+     {% endfor %}
 
 # ====== Sensor Node ======
 class {{ sensor_name }}(Node):

@@ -11,6 +11,7 @@ Message: PubSubMessage;
 
 PubSubMessage:
     'TopicMsg' name=ID
-        properties*=Property
+        ('type:' dataType=[datatype.DataType|FQN])?     // Optional reference to a DataType
+        properties*=Property                        // Optional additional or overriding properties
     'end'
 ;

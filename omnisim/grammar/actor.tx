@@ -41,7 +41,8 @@ SoundSource:
     'SoundSource' name=ID
         (
             ('dataModel:' dataModel=[DataType:FQN])
-            ('freq:' pubFreq=FLOAT)?
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('language' ':' language=STRING)?
             ('speech:' speech=STRING)?
@@ -55,7 +56,8 @@ SoundSource:
 Color:
     'Color' name=ID
         (
-            ('freq:' pubFreq=FLOAT)?
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('r' ':' r=INT)?
             ('g' ':' g=INT)?
@@ -68,7 +70,8 @@ Text:
     'Text' name=ID
         (
             ('type:' type=[TextType])?
-            ('freq:' pubFreq=FLOAT)?
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('message' ':' message=STRING)?
         )#
@@ -89,6 +92,8 @@ EnvActor:
                 'that disperses' EnvProperty=EnvironmentalPropertyType
                 'with dispersion' dispersion=DispersionType)?
             ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
         )#
     'end'
 ;

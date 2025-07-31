@@ -1,0 +1,6 @@
+import 'geometry.dtype' as geometry;
+
+DataType TemperatureData
+  temperatures: float[]
+  sensor_id: str
+end

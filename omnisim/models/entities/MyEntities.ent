@@ -1,6 +1,6 @@
 Entity TemperatureSensorA
     type: sensor
-    topic: 'sensor.temperature.sA'
+    topic: sensor.temperature.sA
     attributes:
         - temperature: float
         - range: float
@@ -9,7 +9,7 @@ end
 
 Entity Thermostat
     type: actor
-    topic: 'actor.thermostat.thA'
+    topic: actor.thermostat.thA
     attributes:
         - temperature: float
         - range: float

@@ -2,12 +2,11 @@ import 'geometry.dtype' as geometry;
 
 DataType RangeData
     // DataModel for range-finder sensors such as sonar and IR
-    range: float
     hfov: float
     vfov: float
-    min_range: float
-    max_range: float
-    sensor_id: str
+    minRange: float
+    maxRange: float
+    // sensor_id: str
 end
 
 DataType IMUData

@@ -1,21 +1,54 @@
-Communication PubSubMessage
+//Communication PubSubMessage
+//    endpoints
+//        publisher
+//            uri: 'actor.thermostat.thA'
+//            msg: TemperatureMessage
+//        end
+//
+//        subscriber
+//            uri: 'sensor.temperature.sA'
+//            msg: TemperatureMessage
+//        end
+//    end
+//    
+//    messages
+//        TopicMsg TemperatureMessage
+//            temperature: float
+//            range: float
+//            location: str
+//        end
+//    end
+//end
+//
+import '../datatypes/sensors.dtype' as sensors;
+
+Communication SonarComms
     endpoints
         publisher
-            uri: 'actor.thermostat.thA'
-            msg: TemperatureMessage
-        end
-
-        subscriber
-            uri: 'sensor.temperature.sA'
-            msg: TemperatureMessage
+            uri: 'sensor.rangefinder.sonar'
+            msg: SonarRangeMessage
         end
     end
-    
+
     messages
-        TopicMsg TemperatureMessage
-            temperature: float
-            range: float
-            location: str
+        TopicMsg SonarRangeMessage
+            pubFreq: float
+            type: sensors.RangeData
         end
     end
 end
+
+//Communication ButtonComms
+//    endpoints
+//        publisher
+//            uri: 'button.button_a'
+//            msg: ButtonMessage
+//        end
+//    end
+//
+//    messages
+//        TopicMsg ButtonMessage
+//            pubFreq: float
+//        end
+//    end
+//end

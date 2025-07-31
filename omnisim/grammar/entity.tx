@@ -11,7 +11,8 @@ Entity:
     'Entity' name=ID
     (
         ('type:' etype=EntityType)
-        ('topic:' topic=STRING)
+        ('topic:' topic=FQN)
+        ('pubFreq:' pubFreq=FLOAT)?
         ('attributes:' '-' attributes*=Property['-'])?
     )#
     'end'

@@ -19,9 +19,9 @@ CustomDataType:
 
 Property: ListProperty | SimpleProperty;
 
-SimpleProperty: name=ID ':' type=[DataType:FQN|+m:types] ('=' default=STRING)?;
+SimpleProperty: name=ID ':' type=[DataType:FQN|+m:types] ('=' (default=STRING | FLOAT))?;
 
-ListProperty: name=ID ':' type=[DataType:FQN|+m:types]'[]' ('=' default=STRING)?;
+ListProperty: name=ID ':' type=[DataType:FQN|+m:types]'[]' ('=' (default=STRING | FLOAT))?;
 
 Enumeration:
     'Enum' name=ID

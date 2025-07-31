@@ -1,11 +1,9 @@
 from os.path import join
 
 from textx import metamodel_from_file
-# import textx.scoping.providers as scoping_providers
 
 from ..utils import THIS_DIR
 from ..mm_classes.datatype import type_builtins, PrimitiveDataType
-import textx.scoping as scoping
 
 from .shared_globals import SHARED_GLOBAL_REPO
 

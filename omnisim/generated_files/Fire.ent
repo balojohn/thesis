@@ -1,0 +1,10 @@
+
+Entity Fire
+    type: actor
+    topic: actor.envactor.fire
+    pubFreq: 1.0
+    attributes:
+        - temperatures: float
+        - sensor_id: str
+end
+

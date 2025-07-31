@@ -1,0 +1,6 @@
+CThing ButtonArray
+    actuators:
+        - Button @ Transform(Translation(0, 0), Rotation(0, 0))
+        - Button @ Transform(Translation(1, 0), Rotation(0, 0))
+        - Button @ Transform(Translation(2, 0), Rotation(0, 0))
+end
