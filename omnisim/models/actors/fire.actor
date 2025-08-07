@@ -1,8 +1,8 @@
 EnvActor Fire
     type: Fire actor
             that disperses Temperature
-                with dispersion Constant
+                with dispersion Constant(value: 2.0)
     dataModel: TemperatureData
-    shape: Cylinder(5, 2)
+    shape: Rectangle(5, 2)
     pubFreq: 1
 end

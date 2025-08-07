@@ -1,5 +1,6 @@
 import datatype
 import geometry
+import thing
 
 Model:
     (
@@ -110,39 +111,6 @@ EnvironmentalPropertyType:
     'Humidity'
 ;
 
-DispersionType:
-    'Constant'      |
-    'Linear'        |
-    'Quadratic'     |
-    'Exponential'   |
-    'Logarithmic'
-;
-/*
-Constant:
-    ('value' ':' value=FLOAT)
-;
-
-Linear:
-    ('start' ':' startingPoint=FLOAT)
-    ('step' ':' step=FLOAT)
-;
-
-Quadratic:
-    ('a' ':' a=FLOAT)
-    ('b' ':' b=FLOAT)
-    ('c' ':' c=FLOAT)
-;
-
-Exponential:
-    ('base' ':' base=FLOAT)
-    ('yIntercept' ':' yIntercept=FLOAT)
-;
-
-Logarithmic:
-    ('base' ':' base=FLOAT)
-    ('alpha' ':' alpha=FLOAT)
-;
-*/
 Human:
     'Human' name=ID
         (
@@ -158,4 +126,45 @@ Human:
             ('maxRange:' maxRange=FLOAT)?
         )#
     'end'
+;
+
+DispersionType:
+    Constant      |
+    Linear        |
+    Quadratic     |
+    Exponential   |
+    Logarithmic
+;
+
+Constant:
+    'Constant' '(' 'value' ':' value=FLOAT ')'
+;
+
+Linear:
+    'Linear' '('
+        'start' ':' startingPoint=FLOAT ',' 
+        'step' ':' step=FLOAT
+    ')'
+;
+
+Quadratic:
+    'Quadratic' '('
+        'a' ':' a=FLOAT ',' 
+        'b' ':' b=FLOAT ',' 
+        'c' ':' c=FLOAT
+    ')'
+;
+
+Exponential:
+    'Exponential' '('
+        'base' ':' base=FLOAT ',' 
+        'yIntercept' ':' yIntercept=FLOAT
+    ')'
+;
+
+Logarithmic:
+    'Logarithmic' '('
+        'base' ':' base=FLOAT ',' 
+        'alpha' ':' alpha=FLOAT
+    ')'
 ;

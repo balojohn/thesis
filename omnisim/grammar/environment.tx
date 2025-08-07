@@ -10,6 +10,18 @@ Model:
     )#
 ;
 
+ThingPlacement:
+    ref=[Thing:FQN] '@' pose=Pose
+;
+
+ActorPlacement:
+    ref=[Actor:FQN] '@' pose=Pose
+;
+
+ObstaclePlacement:
+    ref=[Obstacle:FQN] '@' pose=Pose
+;
+
 Environment:
     'Environment:' name=ID
     (
@@ -22,15 +34,15 @@ Environment:
         'end'
         )
         ('things'
-            (things=[Thing:FQN] '@' poses=Pose)*
+            (things*=ThingPlacement)
         'end'
         )?
         ('actors'
-            (actors=[Actor:FQN] '@' poses=Pose)*
+            (actors*=ActorPlacement)
         'end'
         )?
         ('obstacles'
-            (obstacles=[Obstacle:FQN] '@' poses=Pose)*
+            (obstacles*=ObstaclePlacement)
         'end'
         )?
     )#

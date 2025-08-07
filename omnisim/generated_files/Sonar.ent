@@ -7,6 +7,8 @@ Entity Sonar
         - vfov: float = 37.9
         - minRange: float = 10.0
         - maxRange: float = 250.0
+        - noise_mean: float = 0.0
+        - noise_std: float = 1.5
 end
 
 

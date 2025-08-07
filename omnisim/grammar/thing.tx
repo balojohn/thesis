@@ -54,13 +54,13 @@ RangeFinder:
             ('class:' class=ID)
             ('type:' type=[RangeFinderType])
             ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
             ('hfov:' hfov=FLOAT)?
             ('vfov:' vfov=FLOAT)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
+            ('noise:' noise=Noise)?
         )#
     'end'
 ;
@@ -72,14 +72,14 @@ LiDAR:
         (
             ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxFreq:' maxFreq=FLOAT)?
             ('minAngle:' minAngle=FLOAT)?
             ('maxAngle:' maxAngle=FLOAT)?
             ('numBeams:' numBeams=FLOAT)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
+            ('noise:' noise=Noise)?
         )#
     'end'
 ;
@@ -90,13 +90,13 @@ Reader:
             ('class:' class=ID)
             ('type:' type=[ReaderType])
             ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
             ('resHeight:' resHeight=FLOAT)?
             ('resWidth:' resWidth=FLOAT)?
             ('hfov:' hfov=FLOAT)?
             ('vfov:' vfov=FLOAT)?
+            ('noise:' noise=Noise)?
         )#
     'end'
 ;
@@ -109,12 +109,12 @@ Alarm:
             ('class:' class=ID)
             ('type:' type=[AlarmType])
             ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
             ('hz:' hz=FLOAT)?
+            ('noise:' noise=Noise)?
         )#
     'end'
 ;
@@ -126,11 +126,11 @@ Microphone:
         (
             ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
             ('mode:' mode=STRING)?
             ('blocked:' blocked=BOOL)?
+            ('noise:' noise=Noise)?
         )#
     'end'
 ;
@@ -157,9 +157,9 @@ IMU:
             ('class:' class=ID)
             ('type:' type=[IMUType])?
             ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxFreq:' maxFreq=FLOAT)?
+            ('noise:' noise=Noise)?
         )#
     'end'
 ;
@@ -205,14 +205,6 @@ EnvDeviceType:
     'Humidity'    |
     'PH'          |
     'Gas'
-;
-
-DispersionType:
-    'Constant'      |
-    'Linear'        |
-    'Exponential'   |
-    'Logarithmic'   |
-    'Quadratic'
 ;
 
 Relay:
@@ -295,6 +287,72 @@ Speaker:
     'end'
 ;
 
+Noise:
+    Gaussian | Uniform | CustomNoise
+;
+
+Gaussian:
+    'Gaussian' '('
+        'mean:' mean=FLOAT ',' 
+        'std:' std=FLOAT
+    ')'
+;
+
+Uniform:
+    'Uniform' '('
+        'min:' min=FLOAT ',' 
+        'max:' max=FLOAT
+    ')'
+;
+
+CustomNoise:
+    'CustomNoise' '('
+        'type:' type=STRING ',' 
+        'params:' params=STRING
+    ')'
+;
+
 DTransformation:
     ('@' transformation=Transformation)? ('on' parentThing=[PosedThing:FQN])?
+;
+
+DispersionType:
+    Constant      |
+    Linear        |
+    Quadratic     |
+    Exponential   |
+    Logarithmic
+;
+
+Constant:
+    'Constant' '(' 'value' ':' value=FLOAT ')'
+;
+
+Linear:
+    'Linear' '('
+        'start' ':' startingPoint=FLOAT ',' 
+        'step' ':' step=FLOAT
+    ')'
+;
+
+Quadratic:
+    'Quadratic' '('
+        'a' ':' a=FLOAT ',' 
+        'b' ':' b=FLOAT ',' 
+        'c' ':' c=FLOAT
+    ')'
+;
+
+Exponential:
+    'Exponential' '('
+        'base' ':' base=FLOAT ',' 
+        'yIntercept' ':' yIntercept=FLOAT
+    ')'
+;
+
+Logarithmic:
+    'Logarithmic' '('
+        'base' ':' base=FLOAT ',' 
+        'alpha' ':' alpha=FLOAT
+    ')'
 ;

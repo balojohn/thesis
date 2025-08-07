@@ -11,122 +11,277 @@
     edge[dir=black,arrowtail=empty]
 
 
-1629095122592[ label="{Model|}"]
+2945072028112[ label="{Model|}"]
 
-1629094923776[ label="{CompositeActor|name: ID\l}"]
+2945103919392[ label="{CompositeActor|name: ID\l}"]
 
-1629094935200[ label="{PosedActor|name: ID\l}"]
+2945105529984[ label="{PosedActor|name: ID\l}"]
 
-1629095202208[ label="{PosedCActor|}"]
+2945105540640[ label="{PosedCActor|}"]
 
-1629095203744[ label="{*Actor|}"]
+2945105528256[ label="{*Actor|}"]
 
-1629095202592[ label="{SoundSource|name: ID\lpubFreq: FLOAT\llanguage: STRING\lspeech: STRING\lemotion: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+2945105438112[ label="{SoundSource|name: ID\lpubFreq: FLOAT\llanguage: STRING\lspeech: STRING\lemotion: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
 
-1629095204320[ label="{Color|name: ID\lpubFreq: FLOAT\lr: INT\lg: INT\lb: INT\l}"]
+2945105435328[ label="{Color|name: ID\lpubFreq: FLOAT\lr: INT\lg: INT\lb: INT\l}"]
 
-1629095206432[ label="{Text|name: ID\ltype: TextType\lpubFreq: FLOAT\lmessage: STRING\l}"]
+2945105625504[ label="{Text|name: ID\ltype: TextType\lpubFreq: FLOAT\lmessage: STRING\l}"]
 
-1629095320448[ label="{EnvActor|name: ID\ltype: EnvActorType\lEnvProperty: EnvPropertyType\ldispersion: DispersionType\l}"]
+2945105629440[ label="{EnvActor|name: ID\ltype: EnvActorType\lEnvProperty: EnvironmentalPropertyType\lpubFreq: FLOAT\l}"]
 
-1629094923056[ label="{Human|name: ID\lpubFreq: FLOAT\lmotion: STRING\llanguage: STRING\lspeech: STRING\lemotion: STRING\lage: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+2945105636880[ label="{Human|name: ID\lpubFreq: FLOAT\lmotion: STRING\llanguage: STRING\lspeech: STRING\lemotion: STRING\lage: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
 
-1629095318672[ label="{DataTypeModel|}"]
+2945105626368[ label="{*DispersionType|}"]
 
-1629095318768[ label="{*DataType|}"]
+2945105822976[ label="{Constant|value: FLOAT\l}"]
 
-1629095318912[ label="{*Property|}"]
+2945105826096[ label="{Linear|startingPoint: FLOAT\lstep: FLOAT\l}"]
 
-1629095319440[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+2945105822880[ label="{Quadratic|a: FLOAT\lb: FLOAT\lc: FLOAT\l}"]
 
-1629095320064[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+2945105825760[ label="{Exponential|base: FLOAT\lyIntercept: FLOAT\l}"]
 
-1629095320592[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+2945105825040[ label="{Logarithmic|base: FLOAT\lalpha: FLOAT\l}"]
 
-1629095319680[ label="{EnumerationElement|name: STRING\l}"]
+2945105823936[ label="{DataTypeModel|}"]
 
-1629095320784[ label="{PrimitiveDataType|name: ID\l}"]
+2945105824176[ label="{*DataType|}"]
 
-1629095321312[ label="{Import|importURI: FQNI\lname: ID\l}"]
+2945105824416[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
 
-1629095321696[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+2945105824992[ label="{*Property|}"]
 
-1629095321792[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+2945105825520[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
 
-1629095321888[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
+2945105825568[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
 
-1629095321984[ label="{Transformation|}"]
+2945105825712[ label="{Enumeration|name: ID\ldescription: Description\l}"]
 
-1629095322080[ label="{Pose|}"]
+2945105825856[ label="{EnumerationElement|name: STRING\l}"]
 
-1629095322176[ label="{*Shape|}"]
+2945105826288[ label="{PrimitiveDataType|name: ID\l}"]
 
-1629095322272[ label="{ComplexShape|}"]
+2945105826528[ label="{Import|importURI: STRING\lname: ID\l}"]
 
-1629095322368[ label="{*PredefinedShape|}"]
+2945105827008[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
 
-1629095322464[ label="{Circle|radius: FLOAT\l}"]
+2945105827104[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
 
-1629095119328[ label="{Square|length: FLOAT\l}"]
+2945105827200[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
 
-1629095322608[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
+2945105827296[ label="{Transformation|}"]
 
-1629062553504[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
+2945105827392[ label="{Pose|}"]
 
-1629095322752[ label="{ArbitraryShape|}"]
+2945105827488[ label="{*Shape|}"]
+
+2945105827584[ label="{ComplexShape|}"]
+
+2945105827680[ label="{*PredefinedShape|}"]
+
+2945105827776[ label="{Circle|radius: FLOAT\l}"]
+
+2945105827872[ label="{Square|length: FLOAT\l}"]
+
+2945105827968[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
+
+2945105828064[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
+
+2945105828160[ label="{ArbitraryShape|}"]
+
+2945105828208[ label="{Model|}"]
+
+2945105828304[ label="{*Thing|}"]
+
+2945105828400[ label="{CompositeThing|name: ID\l}"]
+
+2945105828496[ label="{*PosedThing|}"]
+
+2945105828592[ label="{PosedCThing|}"]
+
+2945105828688[ label="{PosedSensor|name: ID\l}"]
+
+2945105828784[ label="{PosedActuator|name: ID\l}"]
+
+2945105828880[ label="{*Sensor|}"]
+
+2945105828976[ label="{RangeFinder|name: ID\lclass: ID\ltype: RangeFinderType\lpubFreq: FLOAT\lhfov: FLOAT\lvfov: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+2945105829168[ label="{LiDAR|name: ID\lclass: ID\lpubFreq: FLOAT\lminAngle: FLOAT\lmaxAngle: FLOAT\lnumBeams: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+2945105829264[ label="{Reader|name: ID\lclass: ID\ltype: ReaderType\lpubFreq: FLOAT\lresHeight: FLOAT\lresWidth: FLOAT\lhfov: FLOAT\lvfov: FLOAT\l}"]
+
+2945105829408[ label="{Alarm|name: ID\lclass: ID\ltype: AlarmType\lpubFreq: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\lhz: FLOAT\l}"]
+
+2945105829600[ label="{Microphone|name: ID\lclass: ID\lpubFreq: FLOAT\lmode: STRING\lblocked: BOOL\l}"]
+
+2945105829696[ label="{Light|name: ID\lclass: ID\lpubFreq: FLOAT\lluminoscity: FLOAT\lcolor: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+2945105829792[ label="{IMU|name: ID\lclass: ID\ltype: IMUType\lpubFreq: FLOAT\l}"]
+
+2945105829984[ label="{*Actuator|}"]
+
+2945105830080[ label="{PanTilt|name: ID\lclass: ID\lpubFreq: FLOAT\l}"]
+
+2945105830176[ label="{EnvDevice|name: ID\lclass: list[ID]\ltype: EnvDeviceType\ldispersion: DispersionType\lpubFreq: FLOAT\l}"]
+
+2945105830320[ label="{Relay|name: ID\lclass: ID\lpubFreq: FLOAT\lstate: STRING\lallowed_states: FLOAT\l}"]
+
+2945105830416[ label="{*Button|}"]
+
+2945105830512[ label="{SingleButton|name: ID\lclass: ID\lpubFreq: FLOAT\lstate: INT\l}"]
+
+2945105830608[ label="{ButtonArray|name: ID\lclass: ID\lsize: INT\lpubFreq: FLOAT\l}"]
+
+2945105830704[ label="{*Led|}"]
+
+2945105830800[ label="{SingleLed|name: ID\lclass: ID\lcolor: INT\lpubFreq: FLOAT\lresponseTime: FLOAT\l}"]
+
+2945105830896[ label="{LedArray|name: ID\lclass: ID\lsize: INT\lpubFreq: FLOAT\lresponseTime: FLOAT\l}"]
+
+2945105830992[ label="{Speaker|name: ID\lclass: ID\lpubFreq: FLOAT\l}"]
+
+2945105831088[ label="{DTransformation|}"]
+
+2945105831280[ label="{Constant|value: FLOAT\l}"]
+
+2945105831376[ label="{Linear|startingPoint: FLOAT\lstep: FLOAT\l}"]
+
+2945105831472[ label="{Quadratic|a: FLOAT\lb: FLOAT\lc: FLOAT\l}"]
+
+2945105831568[ label="{Exponential|base: FLOAT\lyIntercept: FLOAT\l}"]
+
+2945105831664[ label="{Logarithmic|base: FLOAT\lalpha: FLOAT\l}"]
 
 
 
-1629095122592 -> 1629095321312[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-1629095122592 -> 1629095203744[arrowtail=diamond, dir=both, headlabel="actor "]
-1629094923776 -> 1629095322176[arrowtail=diamond, dir=both, headlabel="shape "]
-1629094923776 -> 1629094935200[arrowtail=diamond, dir=both, headlabel="actors 1..*"]
-1629094923776 -> 1629095202208[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
-1629094923776 -> 1629095318768[headlabel="dataModel "]
-1629094935200 -> 1629095203744[headlabel="ref "]
-1629094935200 -> 1629095321984[arrowtail=diamond, dir=both, headlabel="transformation "]
-1629095202208 -> 1629094923776[headlabel="ref "]
-1629095202208 -> 1629095321984[arrowtail=diamond, dir=both, headlabel="transformation "]
-1629095203744 -> 1629095202592 [dir=back]
-1629095203744 -> 1629095204320 [dir=back]
-1629095203744 -> 1629095206432 [dir=back]
-1629095203744 -> 1629095320448 [dir=back]
-1629095203744 -> 1629094923056 [dir=back]
-1629095202592 -> 1629095318768[headlabel="dataModel "]
-1629095320448 -> 1629095318768[headlabel="dataModel "]
-1629094923056 -> 1629095318768[headlabel="dataModel "]
-1629095318672 -> 1629095321312[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-1629095318672 -> 1629095318768[arrowtail=diamond, dir=both, headlabel="types 0..*"]
-1629095318672 -> 1629095320592[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
-1629095318768 -> 1629095320784 [dir=back]
-1629095318768 -> 1629095320592 [dir=back]
-1629095318912 -> 1629095320064 [dir=back]
-1629095318912 -> 1629095319440 [dir=back]
-1629095319440 -> 1629095318768[headlabel="type "]
-1629095320064 -> 1629095318768[headlabel="type "]
-1629095320592 -> 1629095319680[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
-1629095321984 -> 1629095321792[arrowtail=diamond, dir=both, headlabel="translation "]
-1629095321984 -> 1629095321888[arrowtail=diamond, dir=both, headlabel="rotation "]
-1629095322080 -> 1629095321792[arrowtail=diamond, dir=both, headlabel="translation "]
-1629095322080 -> 1629095321888[arrowtail=diamond, dir=both, headlabel="rotation "]
-1629095322176 -> 1629095322368 [dir=back]
-1629095322176 -> 1629095322752 [dir=back]
-1629095322176 -> 1629095322272 [dir=back]
-1629095322272 -> 1629095322176[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
-1629095322368 -> 1629095322464 [dir=back]
-1629095322368 -> 1629095119328 [dir=back]
-1629095322368 -> 1629095322608 [dir=back]
-1629095322368 -> 1629062553504 [dir=back]
-1629095322752 -> 1629095321696[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+2945072028112 -> 2945105826528[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2945072028112 -> 2945105528256[arrowtail=diamond, dir=both, headlabel="actor "]
+2945103919392 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945103919392 -> 2945105529984[arrowtail=diamond, dir=both, headlabel="actors 1..*"]
+2945103919392 -> 2945105540640[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+2945103919392 -> 2945105824176[headlabel="dataModel "]
+2945105529984 -> 2945105528256[headlabel="ref "]
+2945105529984 -> 2945105827296[arrowtail=diamond, dir=both, headlabel="transformation "]
+2945105540640 -> 2945103919392[headlabel="ref "]
+2945105540640 -> 2945105827296[arrowtail=diamond, dir=both, headlabel="transformation "]
+2945105528256 -> 2945105438112 [dir=back]
+2945105528256 -> 2945105435328 [dir=back]
+2945105528256 -> 2945105625504 [dir=back]
+2945105528256 -> 2945105629440 [dir=back]
+2945105528256 -> 2945105636880 [dir=back]
+2945105438112 -> 2945105824176[headlabel="dataModel "]
+2945105438112 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105435328 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105625504 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105629440 -> 2945105626368[arrowtail=diamond, dir=both, headlabel="dispersion "]
+2945105629440 -> 2945105824176[headlabel="dataModel "]
+2945105629440 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105636880 -> 2945105824176[headlabel="dataModel "]
+2945105626368 -> 2945105822976 [dir=back]
+2945105626368 -> 2945105826096 [dir=back]
+2945105626368 -> 2945105822880 [dir=back]
+2945105626368 -> 2945105825760 [dir=back]
+2945105626368 -> 2945105825040 [dir=back]
+2945105823936 -> 2945105826528[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2945105823936 -> 2945105824176[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2945105823936 -> 2945105825712[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2945105824176 -> 2945105826288 [dir=back]
+2945105824176 -> 2945105825712 [dir=back]
+2945105824176 -> 2945105824416 [dir=back]
+2945105824416 -> 2945105824992[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2945105824992 -> 2945105825568 [dir=back]
+2945105824992 -> 2945105825520 [dir=back]
+2945105825520 -> 2945105824176[headlabel="type "]
+2945105825568 -> 2945105824176[headlabel="type "]
+2945105825712 -> 2945105825856[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+2945105827296 -> 2945105827104[arrowtail=diamond, dir=both, headlabel="translation "]
+2945105827296 -> 2945105827200[arrowtail=diamond, dir=both, headlabel="rotation "]
+2945105827392 -> 2945105827104[arrowtail=diamond, dir=both, headlabel="translation "]
+2945105827392 -> 2945105827200[arrowtail=diamond, dir=both, headlabel="rotation "]
+2945105827488 -> 2945105827680 [dir=back]
+2945105827488 -> 2945105828160 [dir=back]
+2945105827488 -> 2945105827584 [dir=back]
+2945105827584 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
+2945105827680 -> 2945105827776 [dir=back]
+2945105827680 -> 2945105827872 [dir=back]
+2945105827680 -> 2945105827968 [dir=back]
+2945105827680 -> 2945105828064 [dir=back]
+2945105828160 -> 2945105827008[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+2945105828208 -> 2945105826528[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2945105828208 -> 2945105828304[arrowtail=diamond, dir=both, headlabel="thing "]
+2945105828304 -> 2945105828880 [dir=back]
+2945105828304 -> 2945105829984 [dir=back]
+2945105828304 -> 2945105828400 [dir=back]
+2945105828400 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105828400 -> 2945105828688[arrowtail=diamond, dir=both, headlabel="sensors 1..*"]
+2945105828400 -> 2945105828784[arrowtail=diamond, dir=both, headlabel="actuators 1..*"]
+2945105828400 -> 2945105828592[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+2945105828400 -> 2945105824176[headlabel="dataModel "]
+2945105828496 -> 2945105828688 [dir=back]
+2945105828496 -> 2945105828784 [dir=back]
+2945105828496 -> 2945105828592 [dir=back]
+2945105828592 -> 2945105828400[headlabel="ref "]
+2945105828592 -> 2945105831088[arrowtail=diamond, dir=both, headlabel="transformation "]
+2945105828688 -> 2945105828880[headlabel="ref "]
+2945105828688 -> 2945105831088[arrowtail=diamond, dir=both, headlabel="transformation "]
+2945105828784 -> 2945105829984[headlabel="ref "]
+2945105828784 -> 2945105831088[arrowtail=diamond, dir=both, headlabel="transformation "]
+2945105828880 -> 2945105828976 [dir=back]
+2945105828880 -> 2945105829264 [dir=back]
+2945105828880 -> 2945105829408 [dir=back]
+2945105828880 -> 2945105829600 [dir=back]
+2945105828880 -> 2945105829696 [dir=back]
+2945105828880 -> 2945105829792 [dir=back]
+2945105828976 -> 2945105824176[headlabel="dataModel "]
+2945105828976 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105829168 -> 2945105824176[headlabel="dataModel "]
+2945105829168 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105829264 -> 2945105824176[headlabel="dataModel "]
+2945105829264 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105829408 -> 2945105824176[headlabel="dataModel "]
+2945105829408 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105829600 -> 2945105824176[headlabel="dataModel "]
+2945105829600 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105829696 -> 2945105824176[headlabel="dataModel "]
+2945105829696 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105829792 -> 2945105824176[headlabel="dataModel "]
+2945105829792 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105829984 -> 2945105830080 [dir=back]
+2945105829984 -> 2945105830176 [dir=back]
+2945105829984 -> 2945105830320 [dir=back]
+2945105829984 -> 2945105830416 [dir=back]
+2945105829984 -> 2945105830704 [dir=back]
+2945105829984 -> 2945105830992 [dir=back]
+2945105830080 -> 2945105824176[headlabel="dataModel "]
+2945105830080 -> 2945105827296[arrowtail=diamond, dir=both, headlabel="joints 0..*"]
+2945105830080 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105830176 -> 2945105824176[headlabel="dataModel "]
+2945105830176 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105830320 -> 2945105824176[headlabel="dataModel "]
+2945105830320 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105830416 -> 2945105830512 [dir=back]
+2945105830416 -> 2945105830608 [dir=back]
+2945105830512 -> 2945105824176[headlabel="dataModel "]
+2945105830512 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105830608 -> 2945105824176[headlabel="dataModel "]
+2945105830608 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105830704 -> 2945105830800 [dir=back]
+2945105830704 -> 2945105830896 [dir=back]
+2945105830800 -> 2945105824176[headlabel="dataModel "]
+2945105830800 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105830896 -> 2945105824176[headlabel="dataModel "]
+2945105830896 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105830992 -> 2945105824176[headlabel="dataModel "]
+2945105830992 -> 2945105827488[arrowtail=diamond, dir=both, headlabel="shape "]
+2945105831088 -> 2945105827296[arrowtail=diamond, dir=both, headlabel="transformation "]
+2945105831088 -> 2945105828496[headlabel="parentThing "]
 match_rules [ shape=plaintext, label=< <table>
-	<tr>
-		<td><b>DispersionType</b></td><td>Constant|Linear|Quadratic|Exponential|Logarithmic</td>
-	</tr>
 	<tr>
 		<td><b>EnvActorType</b></td><td>Water|Fire</td>
 	</tr>
 	<tr>
-		<td><b>EnvPropertyType</b></td><td>Temperature|Humidity|PH|Gas</td>
+		<td><b>EnvironmentalPropertyType</b></td><td>Temperature|AirQuality|SoundLevelDB|CO2|Gas|Illumination|Humidity</td>
 	</tr>
 	<tr>
 		<td><b>TextType</b></td><td>Barcode|QR|RFIDTag|PlainText</td>
@@ -144,10 +299,28 @@ match_rules [ shape=plaintext, label=< <table>
 		<td><b>Description</b></td><td>\#(.*?)$</td>
 	</tr>
 	<tr>
-		<td><b>FQN</b></td><td>FQN</td>
+		<td><b>FQN</b></td><td>ID (. ID)*</td>
 	</tr>
 	<tr>
 		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+	<tr>
+		<td><b>AlarmType</b></td><td>AreaAlarm|LinearAlarm</td>
+	</tr>
+	<tr>
+		<td><b>DispersionType</b></td><td>Constant|Linear|Quadratic|Exponential|Logarithmic</td>
+	</tr>
+	<tr>
+		<td><b>EnvDeviceType</b></td><td>Temperature|Humidity|PH|Gas</td>
+	</tr>
+	<tr>
+		<td><b>IMUType</b></td><td>6DOF|9DOF</td>
+	</tr>
+	<tr>
+		<td><b>RangeFinderType</b></td><td>Sonar|IR</td>
+	</tr>
+	<tr>
+		<td><b>ReaderType</b></td><td>Camera|RFID</td>
 	</tr>
 </table> >]
 

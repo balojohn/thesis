@@ -23,7 +23,8 @@ ACTOR_CLASSES = [
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(TEMPLATES_PATH),
     trim_blocks=True,
-    lstrip_blocks=True
+    lstrip_blocks=True,
+    keep_trailing_newline=True
 )
 
 entities_tpl = jinja_env.get_template('entity_model.jinja')
@@ -89,6 +90,20 @@ def extract_entities(components):
             for a in component.dataModel.properties:
                 value = getattr(component, a.name, None)
                 attrs.append((a.name, str(a.type), value))
+
+        # Add noise attributes if any
+        if hasattr(component, 'noise') and component.noise:
+            noise_type = component.noise.__class__.__name__
+            if noise_type == "Gaussian":
+                attrs.append(("noise_mean", "float", component.noise.mean))
+                attrs.append(("noise_std", "float", component.noise.std))
+            elif noise_type == "Uniform":
+                attrs.append(("noise_min", "float", component.noise.min))
+                attrs.append(("noise_max", "float", component.noise.max))
+            elif noise_type == "CustomNoise":
+                attrs.append(("noise_type", "string", component.noise.type))
+                attrs.append(("noise_params", "string", component.noise.params))
+        
         _entry = {
             'name': name,
             'type': _cls,

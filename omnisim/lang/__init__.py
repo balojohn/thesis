@@ -5,6 +5,9 @@ from .entity import get_entity_mm
 from .environment import get_env_mm
 from .thing import get_thing_mm
 from .utils import build_model
-from .utils import (preload_models,
-                        preload_dtype_models,
-                            preload_thing_models)
+from .utils import (
+    preload_models,
+    preload_dtype_models,
+    preload_thing_models,
+    preload_actor_models
+)
