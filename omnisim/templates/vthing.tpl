@@ -12,6 +12,18 @@ from commlib.utils import Rate
 # Path to your redis-server executable
 REDIS_PATH = r"C:\redis\redis-server.exe"
 
+{% set id_field = "sensor_id" %}
+{% if thing.class == "Actuator" %}
+{% set id_field = "actuator_id" %}
+{% elif thing.class == "Actor" %}
+{% set id_field = "actor_id" %}
+{% endif %}
+
+{% set node_prefix =
+    "sensor." if thing.class == "Sensor"
+    else "actuator." if thing.class == "Actuator"
+    else "actor."
+%}
 def start_redis():
     print("[System] Starting Redis server...")
     try:
@@ -27,6 +39,7 @@ def start_redis():
 
 {% for comm in comms.communications %}
 {% for endpoint in comm.endpoints %}
+{% if endpoint.uri.startswith(node_prefix) %}
 {% set msg = endpoint.msg %}
 {% if msg %}
 class {{ msg.name }}(PubSubMessage):
@@ -34,13 +47,14 @@ class {{ msg.name }}(PubSubMessage):
     {{ prop.name }}: {{ "float" if prop.type.name == "float" else "str" }}
     {% endfor %}
 {% endif %}
+{% endif %}
 {% endfor %}
 {% endfor %}
 
 class {{ thing.name }}Node(Node):
-    def __init__(self, sensor_id: str = "", *args, **kwargs):
+    def __init__(self, {{ id_field }}: str = "", *args, **kwargs):
         self.pub_freq = {{ thing.pubFreq }}
-        self.sensor_id = sensor_id
+        self.{{ id_field }} = {{ id_field }}
         conn_params = ConnectionParameters()
 
         super().__init__(
@@ -51,7 +65,7 @@ class {{ thing.name }}Node(Node):
 
         {% for comm in comms.communications %}
         {% for e in comm.endpoints %}
-        {% if e.__class__.__name__ == "Publisher" %}
+        {% if e.__class__.__name__ == "Publisher" and e.uri.startswith(node_prefix) %}
         # Create dedicated publisher for {{ e.uri }}
         self.{{ e.uri.replace('.', '_') }}_pub = self.create_publisher(
             topic='{{ e.uri }}',
@@ -65,16 +79,16 @@ class {{ thing.name }}Node(Node):
         # Start commlib's internal loop in the background (since run() is blocking)
         threading.Thread(target=self.run, daemon=True).start()
         time.sleep(0.5)  # Give commlib time to initialize the transport
-        print(f"[{self.__class__.__name__}] Running with sensor_id={self.sensor_id}")
+        print(f"[{self.__class__.__name__}] Running with id={self.{{ id_field }}}")
         rate = Rate(self.pub_freq)
         while True:
             {% for comm in comms.communications %}
             {% for e in comm.endpoints %}
-            {% if e.__class__.__name__ == "Publisher" %}
+            {% if e.__class__.__name__ == "Publisher" and e.uri.startswith(node_prefix) %}
             # create the message
             msg = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
-                sensor_id=self.sensor_id,
+                {{ id_field }}=self.{{ id_field }},
                 type="RangeData"
             )
             print(f"[{{ thing.name }}Node] Publishing to {{ e.uri }}: {msg.model_dump()}")
@@ -95,8 +109,8 @@ if __name__ == '__main__':
         except redis.exceptions.ConnectionError:
             print("[Redis] Not running. Start Redis server first.")
             exit(1)
-        sensor_id = sys.argv[1] if len(sys.argv) > 1 else "{{ thing.name.lower() }}_1"
-        node = {{ thing.name }}Node(sensor_id=sensor_id)
+        {{ id_field }} = sys.argv[1] if len(sys.argv) > 1 else "{{ thing.name.lower() }}_1"
+        node = {{ thing.name }}Node({{ id_field }}={{ id_field }})
         node.start()
     except KeyboardInterrupt:
         print(f"\n[{{ thing.name }}] Stopped by user.")

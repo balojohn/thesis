@@ -4,6 +4,6 @@ SingleButton Button
     class: Actuator
     dataModel: ButtonData
     shape: Rectangle(1,1)
-    pubFreq: 10.0
+    pubFreq: 1.0
     state: 1
 end

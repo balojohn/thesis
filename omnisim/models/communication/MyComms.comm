@@ -1,3 +1,38 @@
+import '../datatypes/sensors.dtype' as sensors;
+
+Communication SonarComms
+    endpoints
+        publisher
+            uri: 'sensor.rangefinder.sonar'
+            msg: SonarRangeMessage
+        end
+    end
+
+    messages
+        TopicMsg SonarRangeMessage
+            pubFreq: float
+            type: str
+            sensor_id: str
+        end
+    end
+end
+
+Communication ButtonComms
+    endpoints
+        publisher
+            uri: 'actuator.button'
+            msg: ButtonMessage
+        end
+    end
+
+    messages
+        TopicMsg ButtonMessage
+            pubFreq: float
+            actuator_id: str
+        end
+    end
+end
+
 //Communication PubSubMessage
 //    endpoints
 //        publisher
@@ -20,36 +55,3 @@
 //    end
 //end
 //
-import '../datatypes/sensors.dtype' as sensors;
-
-Communication SonarComms
-    endpoints
-        publisher
-            uri: 'sensor.rangefinder.sonar'
-            msg: SonarRangeMessage
-        end
-    end
-
-    messages
-        TopicMsg SonarRangeMessage
-            pubFreq: float
-            type: str
-            sensor_id: str
-        end
-    end
-end
-
-//Communication ButtonComms
-//    endpoints
-//        publisher
-//            uri: 'button.button_a'
-//            msg: ButtonMessage
-//        end
-//    end
-//
-//    messages
-//        TopicMsg ButtonMessage
-//            pubFreq: float
-//        end
-//    end
-//end
