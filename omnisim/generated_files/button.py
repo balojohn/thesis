@@ -14,7 +14,7 @@ REDIS_PATH = r"C:\redis\redis-server.exe"
 
 
 
-def start_redis():
+def redis_start():
     print("[System] Starting Redis server...")
     try:
         proc = subprocess.Popen([REDIS_PATH], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -30,11 +30,14 @@ def start_redis():
 class ButtonMessage(PubSubMessage):
     pubFreq: float
     actuator_id: str
+    state: str
 
 class ButtonNode(Node):
     def __init__(self, actuator_id: str = "", *args, **kwargs):
         self.pub_freq = 1.0
         self.actuator_id = actuator_id
+        self.state = 1
+
         conn_params = ConnectionParameters()
 
         super().__init__(
@@ -49,6 +52,10 @@ class ButtonNode(Node):
             msg_type=ButtonMessage,
         )
 
+    def simulate_button(self):
+        # TODO: implement actual simulation logic for Button
+        return 0.0
+
     def start(self):
         # Start commlib's internal loop in the background (since run() is blocking)
         threading.Thread(target=self.run, daemon=True).start()
@@ -60,7 +67,8 @@ class ButtonNode(Node):
             msg = ButtonMessage(
                 pubFreq=self.pub_freq,
                 actuator_id=self.actuator_id,
-                type="RangeData"
+                type="ButtonData",
+                state = self.state,
             )
             print(f"[ButtonNode] Publishing to actuator.singlebutton.button.{self.actuator_id}: {msg.model_dump()}")
             self.publisher.publish(msg)
@@ -68,7 +76,7 @@ class ButtonNode(Node):
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.sonar sonar_2
 if __name__ == '__main__':
-    start_redis()
+    redis_start()
     try:
         try:
             r = redis.Redis(host='localhost', port=6379)

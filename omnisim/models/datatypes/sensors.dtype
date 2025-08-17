@@ -4,9 +4,9 @@ DataType RangeData
     // DataModel for range-finder sensors such as sonar and IR
     hfov: float
     vfov: float
+    distance: float
     minRange: float
     maxRange: float
-    // sensor_id: str
 end
 
 DataType IMUData
@@ -19,6 +19,7 @@ DataType LiDARData
     ranges: float[]
     min_angle: float
     max_angle: float
+    distance: float
     min_range: float
     max_range: float
     angle_increment: float

@@ -13,10 +13,15 @@ vthing_tpl = jinja_env.get_template('vthing.tpl')
 
 
 def build_vthing(thing, comms, dtypes) -> str:
+    data_model_name = thing.dataModel.name  # e.g., "RangeData"
+    data_model = next((t for t in dtypes.types if t.name == data_model_name), None)
+    if data_model is None:
+        raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")
     context = {
         'thing': thing,
         'comms': comms,
-        'dtype': dtypes
+        'dtype': dtypes,
+        'dataModel': data_model,
     }
     modelf = vthing_tpl.render(context)
     return modelf

@@ -1,3 +1,4 @@
+import random
 import sys
 import threading
 import subprocess
@@ -14,7 +15,7 @@ REDIS_PATH = r"C:\redis\redis-server.exe"
 
 
 
-def start_redis():
+def redis_start():
     print("[System] Starting Redis server...")
     try:
         proc = subprocess.Popen([REDIS_PATH], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -31,11 +32,22 @@ class SonarRangeMessage(PubSubMessage):
     pubFreq: float
     type: str
     sensor_id: str
+    hfov: float
+    vfov: float
+    distance: float
+    minRange: float
+    maxRange: float
 
 class SonarNode(Node):
     def __init__(self, sensor_id: str = "", *args, **kwargs):
         self.pub_freq = 1.0
         self.sensor_id = sensor_id
+        self.hfov = 60.0
+        self.vfov = 37.9
+        self.distance = 0.0
+        self.minRange = 10.0
+        self.maxRange = 250.0
+
         conn_params = ConnectionParameters()
 
         super().__init__(
@@ -50,6 +62,10 @@ class SonarNode(Node):
             msg_type=SonarRangeMessage,
         )
 
+    def simulate_sonar(self):
+        # TODO: implement actual simulation logic for Sonar
+        return 0.0
+
     def start(self):
         # Start commlib's internal loop in the background (since run() is blocking)
         threading.Thread(target=self.run, daemon=True).start()
@@ -61,7 +77,12 @@ class SonarNode(Node):
             msg = SonarRangeMessage(
                 pubFreq=self.pub_freq,
                 sensor_id=self.sensor_id,
-                type="RangeData"
+                type="RangeData",
+                hfov = self.hfov,
+                vfov = self.vfov,
+                distance = round(random.gauss(self.simulate_sonar(), 1.5), 2),
+                minRange = self.minRange,
+                maxRange = self.maxRange,
             )
             print(f"[SonarNode] Publishing to sensor.rangefinder.sonar.{self.sensor_id}: {msg.model_dump()}")
             self.publisher.publish(msg)
@@ -69,7 +90,7 @@ class SonarNode(Node):
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.sonar sonar_2
 if __name__ == '__main__':
-    start_redis()
+    redis_start()
     try:
         try:
             r = redis.Redis(host='localhost', port=6379)

@@ -58,6 +58,7 @@ RangeFinder:
             ('pubFreq:' pubFreq=FLOAT)?
             ('hfov:' hfov=FLOAT)?
             ('vfov:' vfov=FLOAT)?
+            ('distance:' distance=FLOAT)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
             ('noise:' noise=Noise)?
@@ -74,6 +75,7 @@ LiDAR:
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('distance:' distance=FLOAT)?
             ('minAngle:' minAngle=FLOAT)?
             ('maxAngle:' maxAngle=FLOAT)?
             ('numBeams:' numBeams=FLOAT)?
@@ -92,6 +94,7 @@ Reader:
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('distance:' distance=FLOAT)?
             ('resHeight:' resHeight=FLOAT)?
             ('resWidth:' resWidth=FLOAT)?
             ('hfov:' hfov=FLOAT)?
@@ -111,6 +114,7 @@ Alarm:
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('triggered:' triggered=BOOL)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
             ('hz:' hz=FLOAT)?
@@ -142,7 +146,6 @@ Light:
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxFreq:' maxFreq=FLOAT)?
             ('luminoscity:' luminoscity=FLOAT)?
             ('color:' color=STRING)?
             ('minRange:' minRange=FLOAT)?

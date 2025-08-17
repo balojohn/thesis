@@ -1,3 +1,6 @@
+{% if thing.noise %}
+import random
+{% endif %}
 import sys
 import threading
 import subprocess
@@ -29,7 +32,7 @@ REDIS_PATH = r"C:\redis\redis-server.exe"
     else "actuator." if thing.class == "Actuator"
     else "actor."
 %}
-def start_redis():
+def redis_start():
     print("[System] Starting Redis server...")
     try:
         proc = subprocess.Popen([REDIS_PATH], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -48,7 +51,9 @@ def start_redis():
 {% set msg = endpoint.msg %}
 {% if msg %}
 class {{ msg.name }}(PubSubMessage):
-    {% for prop in msg.properties %}
+    {# Combine properties from the comm message and the data model #}
+    {% set msg_props = msg.properties + dataModel.properties %}
+    {% for prop in msg_props | unique(attribute='name') %}
     {{ prop.name }}: {{ "float" if prop.type.name == "float" else "str" }}
     {% endfor %}
 {% endif %}
@@ -60,6 +65,10 @@ class {{ thing.name }}Node(Node):
     def __init__(self, {{ id_field }}: str = "", *args, **kwargs):
         self.pub_freq = {{ thing.pubFreq }}
         self.{{ id_field }} = {{ id_field }}
+        {% for prop in dataModel.properties %}
+        self.{{ prop.name }} = {{ thing[prop.name] }}
+        {% endfor %}
+
         conn_params = ConnectionParameters()
 
         super().__init__(
@@ -80,6 +89,10 @@ class {{ thing.name }}Node(Node):
         {% endfor %}
         {% endfor %}
 
+    def simulate_{{ type }}(self):
+        # TODO: implement actual simulation logic for {{ thing.type }}
+        return 0.0
+
     def start(self):
         # Start commlib's internal loop in the background (since run() is blocking)
         threading.Thread(target=self.run, daemon=True).start()
@@ -94,7 +107,18 @@ class {{ thing.name }}Node(Node):
             msg = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
                 {{ id_field }}=self.{{ id_field }},
-                type="RangeData"
+                type="{{ thing.dataModel.name }}",
+                {% for prop in dataModel.properties %}
+                {% if prop.name == "range" or prop.name == "distance" %}
+                {% if thing.noise %}
+                {{ prop.name }} = round(random.gauss(self.simulate_{{ type }}(), {{ thing.noise.std }}), 2),
+                {% else %}
+                {{ prop.name }} = self.simulate_{{ type }}(),
+                {% endif %}
+                {% else %}
+                {{ prop.name }} = self.{{ prop.name }},
+                {% endif %}
+                {% endfor %}
             )
             print(f"[{{ thing.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}: {msg.model_dump()}")
             self.publisher.publish(msg)
@@ -105,7 +129,7 @@ class {{ thing.name }}Node(Node):
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.sonar sonar_2
 if __name__ == '__main__':
-    start_redis()
+    redis_start()
     try:
         try:
             r = redis.Redis(host='localhost', port=6379)
