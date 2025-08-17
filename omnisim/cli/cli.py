@@ -10,6 +10,7 @@ from ..lang import (
     get_actor_mm,
     get_thing_mm,
     get_communication_mm,
+    get_datatype_mm,
     get_env_mm
 )
 from ..transformations.thing2entity import thing_to_entity_m2m
@@ -29,7 +30,7 @@ def cli(ctx):
 # [*] How to run the cli:
 # validate: python -m omnisim.cli.cli validate omnisim/models/modelyouwant
 # t2e: python -m omnisim.cli.cli t2e omnisim/models
-# t2vc: python -m omnisim.cli.cli t2vc omnisim/models/things/sonar.thing omnisim/models/communication/mycomms.comm
+# t2vc: python -m omnisim.cli.cli t2vc omnisim/models/things/sonar.thing omnisim/models/communication/mycomms.comm omnisim/models/datatypes/sensors.dtype
 # validate-pose: python -m omnisim.cli.cli validate-pose omnisim/models/environment/myenv.env
 @cli.command("validate")
 @click.argument("model_filepath")
@@ -66,7 +67,7 @@ def t2e(_, model_file):
             tmodel = thing_mm.model_from_file(model_file)
             thing = tmodel.thing
             entity_model = thing_to_entity_m2m(thing)
-            filename = f'{thing.name}.ent'
+            filename = f'{thing.name.lower()}.ent'
         else:
             print(f'[X] Unsupported model file type: {model_filename}')
             raise ValueError()
@@ -86,24 +87,35 @@ def t2e(_, model_file):
 @cli.command("t2vc")
 @click.argument("thing_model_file")
 @click.argument("comms_model_file")
+@click.argument("dtypes_model_file")
 @click.pass_context
-def t2vc(_, thing_model_file, comms_model_file):
+def t2vc(_, thing_model_file, comms_model_file, dtypes_model_file):
     try:
         model_filename = path.basename(thing_model_file)
         if not model_filename.endswith('.thing'):
             print(f'[X] Not a thing model.')
             raise ValueError()
         preload_dtype_models()
+        dtypes_mm = get_datatype_mm()
+        dtypes = dtypes_mm.model_from_file(dtypes_model_file)
         thing_mm = get_thing_mm()
         tmodel = thing_mm.model_from_file(thing_model_file)
         thing = tmodel.thing
-
         communication_mm = get_communication_mm()
-        communication_model = communication_mm.model_from_file(comms_model_file)
-        comms = communication_model
-        gen_code = thing_to_vcode(thing, comms)
+        comms = communication_mm.model_from_file(comms_model_file)
+        
+        # Check the communications and endpoints
+        for comm in comms.communications:
+            print(f"Communication: {comm.name}")
+            for endpoint in comm.endpoints:
+                print(f"  Endpoint URI: {endpoint.uri}, Message: {endpoint.msg.name if endpoint.msg else 'None'}")
+                for p in endpoint.msg.properties:
+                    print(f"    Property: {p.name}, Type: {p.type}")
 
-        filename = f'{thing.name}.py'
+        
+        gen_code = thing_to_vcode(thing, comms, dtypes)
+
+        filename = f'{thing.name.lower()}.py'
         filepath = path.join(t2vc_output_dir, filename)
         with open(filepath, 'w') as fp:
             fp.write(gen_code)

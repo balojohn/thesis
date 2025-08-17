@@ -12,15 +12,16 @@ jinja_env = jinja2.Environment(
 vthing_tpl = jinja_env.get_template('vthing.tpl')
 
 
-def build_vthing(thing, communication):
+def build_vthing(thing, comms, dtypes) -> str:
     context = {
         'thing': thing,
-        'communication': communication
+        'comms': comms,
+        'dtype': dtypes
     }
     modelf = vthing_tpl.render(context)
     return modelf
 
 
-def thing_to_vcode(thing, communication) -> str:
-    vthing_str = build_vthing(thing, communication)
+def thing_to_vcode(thing, comms, dtypes) -> str:
+    vthing_str = build_vthing(thing, comms, dtypes)
     return vthing_str

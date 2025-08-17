@@ -33,7 +33,8 @@ Communication SonarComms
     messages
         TopicMsg SonarRangeMessage
             pubFreq: float
-            type: sensors.RangeData
+            type: str
+            sensor_id: str
         end
     end
 end

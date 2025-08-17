@@ -5,7 +5,7 @@ RangeFinder Sonar
     type: Sonar
     dataModel: RangeData
     shape: Rectangle(2, 2)
-    pubFreq: 100
+    pubFreq: 1
     hfov: 60.0
     vfov: 37.9
     minRange: 10.0
