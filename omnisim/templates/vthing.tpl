@@ -19,6 +19,11 @@ REDIS_PATH = r"C:\redis\redis-server.exe"
 {% set id_field = "actor_id" %}
 {% endif %}
 
+{% set class_prefix = thing.class.lower() %}
+{% set subclass = thing.__class__.__name__.lower() %}
+{% set type = thing.type.lower() %}
+{% set topic_base = class_prefix + '.' + subclass + '.' + type %}
+
 {% set node_prefix =
     "sensor." if thing.class == "Sensor"
     else "actuator." if thing.class == "Actuator"
@@ -39,7 +44,7 @@ def start_redis():
 
 {% for comm in comms.communications %}
 {% for endpoint in comm.endpoints %}
-{% if endpoint.uri.startswith(node_prefix) %}
+{% if endpoint.topic.startswith(node_prefix) %}
 {% set msg = endpoint.msg %}
 {% if msg %}
 class {{ msg.name }}(PubSubMessage):
@@ -65,10 +70,10 @@ class {{ thing.name }}Node(Node):
 
         {% for comm in comms.communications %}
         {% for e in comm.endpoints %}
-        {% if e.__class__.__name__ == "Publisher" and e.uri.startswith(node_prefix) %}
-        # Create dedicated publisher for {{ e.uri }}
-        self.{{ e.uri.replace('.', '_') }}_pub = self.create_publisher(
-            topic='{{ e.uri }}',
+        {% if e.__class__.__name__ == "Publisher" and e.topic.startswith(node_prefix) %}
+        # Create dedicated publisher for {{ e.topic }}
+        self.publisher = self.create_publisher(
+            topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}",
             msg_type={{ e.msg.name }},
         )
         {% endif %}
@@ -84,15 +89,15 @@ class {{ thing.name }}Node(Node):
         while True:
             {% for comm in comms.communications %}
             {% for e in comm.endpoints %}
-            {% if e.__class__.__name__ == "Publisher" and e.uri.startswith(node_prefix) %}
+            {% if e.__class__.__name__ == "Publisher" and e.topic.startswith(node_prefix) %}
             # create the message
             msg = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
                 {{ id_field }}=self.{{ id_field }},
                 type="RangeData"
             )
-            print(f"[{{ thing.name }}Node] Publishing to {{ e.uri }}: {msg.model_dump()}")
-            self.{{ e.uri.replace('.', '_') }}_pub.publish(msg)
+            print(f"[{{ thing.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}: {msg.model_dump()}")
+            self.publisher.publish(msg)
             {% endif %}
             {% endfor %}
             {% endfor %}

@@ -12,6 +12,8 @@ from commlib.utils import Rate
 # Path to your redis-server executable
 REDIS_PATH = r"C:\redis\redis-server.exe"
 
+
+
 def start_redis():
     print("[System] Starting Redis server...")
     try:
@@ -43,8 +45,8 @@ class SonarNode(Node):
         )
 
         # Create dedicated publisher for sensor.rangefinder.sonar
-        self.sensor_rangefinder_sonar_pub = self.create_publisher(
-            topic='sensor.rangefinder.sonar',
+        self.publisher = self.create_publisher(
+            topic=f"sensor.rangefinder.sonar.{self.sensor_id}",
             msg_type=SonarRangeMessage,
         )
 
@@ -52,7 +54,7 @@ class SonarNode(Node):
         # Start commlib's internal loop in the background (since run() is blocking)
         threading.Thread(target=self.run, daemon=True).start()
         time.sleep(0.5)  # Give commlib time to initialize the transport
-        print(f"[{self.__class__.__name__}] Running with sensor_id={self.sensor_id}")
+        print(f"[{self.__class__.__name__}] Running with id={self.sensor_id}")
         rate = Rate(self.pub_freq)
         while True:
             # create the message
@@ -61,8 +63,8 @@ class SonarNode(Node):
                 sensor_id=self.sensor_id,
                 type="RangeData"
             )
-            print(f"[SonarNode] Publishing to sensor.rangefinder.sonar: {msg.model_dump()}")
-            self.sensor_rangefinder_sonar_pub.publish(msg)
+            print(f"[SonarNode] Publishing to sensor.rangefinder.sonar.{self.sensor_id}: {msg.model_dump()}")
+            self.publisher.publish(msg)
             rate.sleep()
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.sonar sonar_2

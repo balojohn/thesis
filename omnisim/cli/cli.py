@@ -108,7 +108,7 @@ def t2vc(_, thing_model_file, comms_model_file, dtypes_model_file):
         for comm in comms.communications:
             print(f"Communication: {comm.name}")
             for endpoint in comm.endpoints:
-                print(f"  Endpoint URI: {endpoint.uri}, Message: {endpoint.msg.name if endpoint.msg else 'None'}")
+                print(f"  Endpoint topic: {endpoint.topic}, Message: {endpoint.msg.name if endpoint.msg else 'None'}")
                 for p in endpoint.msg.properties:
                     print(f"    Property: {p.name}, Type: {p.type}")
 

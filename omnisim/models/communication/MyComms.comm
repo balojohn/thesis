@@ -1,9 +1,7 @@
-import '../datatypes/sensors.dtype' as sensors;
-
 Communication SonarComms
     endpoints
         publisher
-            uri: 'sensor.rangefinder.sonar'
+            topic: 'sensor.rangefinder.sonar'
             msg: SonarRangeMessage
         end
     end
@@ -20,7 +18,7 @@ end
 Communication ButtonComms
     endpoints
         publisher
-            uri: 'actuator.button'
+            topic: 'actuator.button'
             msg: ButtonMessage
         end
     end
@@ -32,26 +30,3 @@ Communication ButtonComms
         end
     end
 end
-
-//Communication PubSubMessage
-//    endpoints
-//        publisher
-//            uri: 'actor.thermostat.thA'
-//            msg: TemperatureMessage
-//        end
-//
-//        subscriber
-//            uri: 'sensor.temperature.sA'
-//            msg: TemperatureMessage
-//        end
-//    end
-//    
-//    messages
-//        TopicMsg TemperatureMessage
-//            temperature: float
-//            range: float
-//            location: str
-//        end
-//    end
-//end
-//

@@ -2,6 +2,7 @@ import '../datatypes/actuators.dtype' as ButtonData;
 
 SingleButton Button
     class: Actuator
+    type: Button
     dataModel: ButtonData
     shape: Rectangle(1,1)
     pubFreq: 1.0

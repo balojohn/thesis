@@ -13,6 +13,7 @@ from commlib.utils import Rate
 REDIS_PATH = r"C:\redis\redis-server.exe"
 
 
+
 def start_redis():
     print("[System] Starting Redis server...")
     try:
@@ -43,8 +44,8 @@ class ButtonNode(Node):
         )
 
         # Create dedicated publisher for actuator.button
-        self.actuator_button_pub = self.create_publisher(
-            topic='actuator.button',
+        self.publisher = self.create_publisher(
+            topic=f"actuator.singlebutton.button.{self.actuator_id}",
             msg_type=ButtonMessage,
         )
 
@@ -61,8 +62,8 @@ class ButtonNode(Node):
                 actuator_id=self.actuator_id,
                 type="RangeData"
             )
-            print(f"[ButtonNode] Publishing to actuator.button: {msg.model_dump()}")
-            self.actuator_button_pub.publish(msg)
+            print(f"[ButtonNode] Publishing to actuator.singlebutton.button.{self.actuator_id}: {msg.model_dump()}")
+            self.publisher.publish(msg)
             rate.sleep()
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.sonar sonar_2

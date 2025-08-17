@@ -25,7 +25,7 @@ Endpoint: Publisher | Subscriber;
 Publisher:
     'publisher'
     (
-        ('uri:' uri=STRING)
+        ('topic:' topic=STRING)
         ('msg:' msg=[PubSubMessage:FQN|^msgs])?
         ('namespace:' namespace=STRING)?
     )#
@@ -35,7 +35,7 @@ Publisher:
 Subscriber:
     'subscriber'
     (
-        ('uri:' uri=STRING)
+        ('topic:' topic=STRING)
         ('msg:' msg=[PubSubMessage:FQN|^msgs])?
         ('namespace:' namespace=STRING)?
     )#
