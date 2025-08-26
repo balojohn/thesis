@@ -1,0 +1,8 @@
+Led Led
+    class: Actuator
+    type: SingleLed
+    dataModel: LedData
+    shape: Circle(1)
+    pubFreq: 1.0
+    color: 200
+end

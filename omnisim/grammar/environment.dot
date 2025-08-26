@@ -55,7 +55,7 @@
 
 2672087155344[ label="{Microphone|name: ID\lclass: ID\lpubFreq: FLOAT\lmode: STRING\lblocked: BOOL\l}"]
 
-2672087156208[ label="{Light|name: ID\lclass: ID\lpubFreq: FLOAT\lluminoscity: FLOAT\lcolor: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+2672087156208[ label="{Light|name: ID\lclass: ID\lpubFreq: FLOAT\lluminosity: FLOAT\lcolor: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
 
 2672087159088[ label="{IMU|name: ID\lclass: ID\ltype: IMUType\lpubFreq: FLOAT\l}"]
 

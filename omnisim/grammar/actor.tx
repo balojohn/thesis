@@ -41,6 +41,7 @@ Actor:
 SoundSource:
     'SoundSource' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
@@ -57,6 +58,8 @@ SoundSource:
 Color:
     'Color' name=ID
         (
+            ('class:' class=ID)
+            ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
@@ -70,6 +73,8 @@ Color:
 Text:
     'Text' name=ID
         (
+            ('class:' class=ID)
+            ('dataModel:' dataModel=[DataType:FQN])
             ('type:' type=[TextType])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
@@ -89,9 +94,10 @@ TextType:
 EnvActor:
     'EnvActor' name=ID
         (
-            ('type:' type=[EnvActorType] 'actor'
-                'that disperses' EnvProperty=EnvironmentalPropertyType
-                'with dispersion' dispersion=DispersionType)?
+            ('class:' class=ID)
+            ('type:' type=[EnvActorType])?
+            ('properties:' '-' EnvProperties+=EnvironmentalPropertyType['-'])?
+            ('dispersion:' dispersion=DispersionType)?
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
@@ -102,26 +108,31 @@ EnvActor:
 EnvActorType: 'Water' | 'Fire';
 
 EnvironmentalPropertyType:
-    'Temperature'  |
-    'AirQuality'   |
-    'SoundLevelDB' |
-    'CO2'          |
-    'Gas'          |
-    'Illumination' |
-    'Humidity'
+    name=EnvironmentalPropertyName ':' value=FLOAT;
+
+EnvironmentalPropertyName:
+    'temperature'     |
+    'airQuality'      |
+    'soundLevelDB'    |
+    'co2'             |
+    'gas'             |
+    'luminosity'     |
+    'humidity'
 ;
 
 Human:
     'Human' name=ID
         (
+            ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])
-            ('freq:' pubFreq=FLOAT)?
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
             ('motion' ':' motion=STRING)?
             ('language' ':' language=STRING)?
             ('speech:' speech=STRING)?
             ('emotion:' emotion=STRING)?
-            ('age:' age=STRING)?
+            ('age:' age=INT)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
         )#

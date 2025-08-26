@@ -40,12 +40,36 @@ PosedActuator:
 ;
 
 Sensor:
+    EnvSensor   |
     RangeFinder |
+    LiDAR       |
     Reader      |
     Alarm       |
     Microphone  |
     Light       |
     IMU
+;
+
+EnvSensor:
+    'EnvSensor' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=[EnvSensorType])?
+            ('dispersion:' dispersion=DispersionType)?
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+        )#
+    'end'
+;
+
+EnvSensorType:
+    'Temperature'   |
+    'Humidity'      |
+    'Gas'           |
+    'CO2'           |
+    'PH'            |
+    'AirQuality'
 ;
 
 RangeFinder:
@@ -132,6 +156,7 @@ Microphone:
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('soundlevelDB:' soundlevelDB=FLOAT)?
             ('mode:' mode=STRING)?
             ('blocked:' blocked=BOOL)?
             ('noise:' noise=Noise)?
@@ -146,7 +171,7 @@ Light:
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('luminoscity:' luminoscity=FLOAT)?
+            ('luminosity:' luminosity=FLOAT)?
             ('color:' color=STRING)?
             ('minRange:' minRange=FLOAT)?
             ('maxRange:' maxRange=FLOAT)?
@@ -194,8 +219,8 @@ EnvDevice:
     'EnvDevice' name=ID
         (
             ('class:' class=ID)
-            ('type:' type=[EnvDeviceType] class=ID
-                'with dispersion' dispersion=DispersionType)?
+            ('type:' type=[EnvDeviceType])?
+            ('dispersion:' dispersion=DispersionType)?
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
@@ -204,10 +229,8 @@ EnvDevice:
 ;
 
 EnvDeviceType:
-    'Temperature' |
-    'Humidity'    |
-    'PH'          |
-    'Gas'
+    'Thermostat' |
+    'Humidifier'
 ;
 
 Relay:
@@ -224,61 +247,50 @@ Relay:
     'end'
 ;
 
-Button: SingleButton | ButtonArray;
+ButtonType: 'SingleButton' | 'ButtonArray';
 
-SingleButton:
-    'SingleButton' name=ID
+Button:
+    'Button' name=ID
         (
             ('class:' class=ID)
-            ('type:' type=[RangeFinderType])?
+            ('type:' type=[ButtonType])?
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             // ('maxFreq:' maxFreq=FLOAT)?
             ('state:' state=INT)?
+            ('size:' size=INT)?
         )#
     'end'
 ;
 
-ButtonArray:
-    'ButtonArray' name=ID
-        (
-            ('class:' class=ID)
-            ('size:' size=INT)
-            ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
-            ('pubFreq:' pubFreq=FLOAT)?
-        )#
-    'end'
-;
+LedType: 'SingleLed' | 'LedArray';
 
-Led: SingleLed | LedArray;
-
-SingleLed:
+Led:
     'Led' name=ID
         (
             ('class:' class=ID)
+            ('type:' type=[LedType])?
             ('dataModel:' dataModel=[DataType:FQN])
-            ('color' ':' color=INT)?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('responseTime:' responseTime=FLOAT)?
+            ('color' ':' color=INT)?
         )#
     'end'
 ;
 
-LedArray:
-    'LedArray' name=ID
-        (
-            ('class:' class=ID)
-            ('size:' size=INT)
-            ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
-            ('pubFreq:' pubFreq=FLOAT)?
-            ('responseTime:' responseTime=FLOAT)?
-        )#
-    'end'
-;
+// LedArray:
+//     'LedArray' name=ID
+//         (
+//             ('class:' class=ID)
+//             ('size:' size=INT)
+//             ('dataModel:' dataModel=[DataType:FQN])
+//             ('shape' ':' shape=Shape)?
+//             ('pubFreq:' pubFreq=FLOAT)?
+//             ('responseTime:' responseTime=FLOAT)?
+//         )#
+//     'end'
+// ;
 
 Speaker:
     'Speaker' name=ID
@@ -287,6 +299,7 @@ Speaker:
             ('dataModel:' dataModel=[DataType:FQN])
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('soundlevelDB:' soundlevelDB=FLOAT)?
         )#
     'end'
 ;

@@ -1,30 +1,58 @@
 import 'geometry.dtype' as geometry;
 
+DataType EnvSensorData
+    value: float // temperature, humidity, gas, co2, ph
+end
+
 DataType RangeData
-    // DataModel for range-finder sensors such as sonar and IR
-    hfov: float
-    vfov: float
     distance: float
+    hfov: int
+    vfov: int
+    minRange: float
+    maxRange: float
+end
+
+DataType LidarData
+    distance: float
+    minAngle: float
+    maxAngle: float
+    numBeams: int
+    minRange: float
+    maxRange: float
+end
+
+DataType ReaderData
+    distance: float
+    resHeight: int
+    resWidth: int
+    hfov: int
+    vfov: int
+end
+
+DataType AlarmData
+    triggered: int
+    minRange: float
+    maxRange: float
+    hz: int
+end
+
+DataType MicrophoneData
+    soundlevelDB: float
+    mode: str
+    blocked: int
+end
+
+DataType LightData
+    luminosity: float
+    color: str
     minRange: float
     maxRange: float
 end
 
 DataType IMUData
-    orientation: RPY
-    angular_vel: Vector3
-    linear_vel: Vector3
-end
-
-DataType LiDARData
-    ranges: float[]
-    min_angle: float
-    max_angle: float
-    distance: float
-    min_range: float
-    max_range: float
-    angle_increment: float
-    time_between_scans: float
-    sensor_id: str
+    // orientation: RPY
+    // angular_vel: Vector3
+    // linear_vel: Vector3
 end
 
 DataType Image

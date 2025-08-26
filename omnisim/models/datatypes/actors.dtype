@@ -1,6 +1,39 @@
 import 'geometry.dtype' as geometry;
 
-DataType TemperatureData
-  temperatures: float[]
-  sensor_id: str
+DataType FireData
+  temperature: float
+  luminosity: float
+  co2: float
+end
+
+DataType WaterData
+  humidity: float
+end
+
+DataType TextData
+  message: str
+end
+
+DataType SoundSourceData
+  language: str
+  speech: str
+  emotion: str
+  minRange: float
+  maxRange: float
+end
+
+DataType ColorData
+  r: int
+  g: int
+  b: int
+end
+
+DataType HumanData
+  motion: str
+  language: str
+  speech: str
+  emotion: str
+  age: int
+  minRange: float
+  maxRange: float
 end

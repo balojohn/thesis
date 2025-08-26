@@ -1,4 +1,3 @@
-{%- set newline = '\n' %}
 {% for sensor in sensors %}
 Entity {{ sensor['name'] }}
     type: {{ sensor['type'] }}
@@ -17,11 +16,11 @@ Entity {{ actor['name'] }}
     topic: {{ actor['topic'] }}
     pubFreq: {{ actor['pubFreq'] }}
     attributes:
-    {% for attr in sensor['attributes'] %}
+    {% for attr in actor['attributes'] %}
         - {{ attr[0] }}: {{ attr[1] }}{% if attr[2] is not none %} = {{ attr[2] }}{% endif %}{{ '\n' }}
     {%- endfor %}
 end
-{% endfor %}
+{% endfor -%}
 
 {% for actuator in actuators %}
 Entity {{ actuator['name'] }}
@@ -29,7 +28,7 @@ Entity {{ actuator['name'] }}
     topic: {{ actuator['topic'] }}
     pubFreq: {{ actuator['pubFreq'] }}
     attributes:
-    {% for attr in sensor['attributes'] %}
+    {% for attr in actuator['attributes'] %}
         - {{ attr[0] }}: {{ attr[1] }}{% if attr[2] is not none %} = {{ attr[2] }}{% endif %}{{ '\n' }}
     {%- endfor %}
 end

@@ -1,0 +1,10 @@
+Light Light
+    class: Sensor
+    dataModel: LightData
+    shape: Circle(1)
+    pubFreq: 1
+    luminosity: 60
+    color: "red"
+    minRange: 0.0
+    maxRange: 10.0
+end

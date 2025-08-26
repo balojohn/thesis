@@ -33,30 +33,39 @@ def build_entity_model(context):
     modelf = entities_tpl.render(context)
     return modelf
 
-def log_thing_info(thing):
+def log_thing_info(model):
     components = []
 
-    print(f'[*] Thing model: {thing.name}')
-    if hasattr(thing, 'sensors') and hasattr(thing, 'actors') and hasattr(thing, 'actuators'):
-        print(f'[*] Installed sensors:')
-        for posed_sensor in thing.sensors:
-            sensor = posed_sensor.ref
-            print(f'    - {sensor.name}: ({sensor.__class__.__name__})')
-            components.append((sensor, posed_sensor.name))
-        # print(f'[*] Installed actors:')
-        # for posed_actor in actor:
-        #     actor = posed_actor.ref
-        #     print(f'    - {actor.name}: ({actor.__class__.__name__})')
-        #     components.append((actor, posed_actor.name))
-        print(f'[*] Installed actuators:')
-        for posed_actuator in thing.actuators:
-            actuator = posed_actuator.ref
-            print(f'    - {actuator.name}: ({actuator.__class__.__name__})')
-            components.append((actuator, posed_actuator.name))
+    print(f'[*] Model: {model.name} ({model.__class__.__name__})')
+
+    # Composite THING: has sensors and/or actuators
+    if hasattr(model, 'sensors') or hasattr(model, 'actuators'):
+        if hasattr(model, 'sensors'):
+            print(f'[*] Installed sensors:')
+            for posed_sensor in model.sensors:
+                sensor = posed_sensor.ref
+                print(f'    - {sensor.name}: ({sensor.__class__.__name__})')
+                components.append((sensor, getattr(posed_sensor, 'name', sensor.name)))
+
+        if hasattr(model, 'actuators'):
+            print(f'[*] Installed actuators:')
+            for posed_actuator in model.actuators:
+                actuator = posed_actuator.ref
+                print(f'    - {actuator.name}: ({actuator.__class__.__name__})')
+                components.append((actuator, getattr(posed_actuator, 'name', actuator.name)))
+
+    # Composite ACTOR: has nested actors only
+    elif hasattr(model, 'actors'):
+        print(f'[*] Installed actors:')
+        for posed_actor in model.actors:
+            actor = posed_actor.ref
+            print(f'    - {actor.name}: ({actor.__class__.__name__})')
+            components.append((actor, getattr(posed_actor, 'name', actor.name)))
+
+    # Atomic
     else:
-        # Atomic thing
-        print(f'[*] Atomic Thing: {thing.name} ({thing.__class__.__name__})')
-        components.append((thing, thing.name))
+        print(f'[*] Atomic: {model.name} ({model.__class__.__name__})')
+        components.append((model, model.name))
 
     return components
 
@@ -82,7 +91,7 @@ def extract_entities(components):
 
     for component, name in components:
         _cls = map_thing_to_entity_type(component)
-        uri = f'{_cls}.{component.__class__.__name__.lower()}.{name.lower()}'
+        uri = f"{_cls}.{component.__class__.__name__.lower()}.{component.name.lower()}"
         pubFreq = getattr(component, 'pubFreq', None)
         attrs = []
 
@@ -105,7 +114,7 @@ def extract_entities(components):
                 attrs.append(("noise_params", "string", component.noise.params))
         
         _entry = {
-            'name': name,
+            'name': name or getattr(component, 'name', 'Unnamed'),
             'type': _cls,
             'topic': uri,
             'pubFreq': pubFreq,
@@ -128,5 +137,13 @@ def extract_entities(components):
 def thing_to_entity_m2m(thing):
     components = log_thing_info(thing)
     ent = extract_entities(components)
-    m = build_entity_model(ent)
+    context = {
+        'entity': thing,                   # <-- critical for rendering composite!
+        'entity_type': 'thing',
+        'sensors': ent['sensors'],
+        'actors': ent['actors'],
+        'actuators': ent['actuators']
+    }
+
+    m = build_entity_model(context)
     return m

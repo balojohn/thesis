@@ -1,19 +1,19 @@
+import random
+import math
 import sys
 import threading
 import subprocess
 import time
 import redis
-import os
-from commlib.msg import MessageHeader, PubSubMessage
+# import os
+from commlib.msg import PubSubMessage # MessageHeader
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
+from ..utils import Dispersion
 
 # Path to your redis-server executable
 REDIS_PATH = r"C:\redis\redis-server.exe"
-
-
-
 def redis_start():
     print("[System] Starting Redis server...")
     try:
@@ -29,15 +29,20 @@ def redis_start():
 
 class ButtonMessage(PubSubMessage):
     pubFreq: float
+    type: str
     actuator_id: str
-    state: str
+    state: int
+
+SIMULATED_PROPS = {
+    "state",
+}
 
 class ButtonNode(Node):
     def __init__(self, actuator_id: str = "", *args, **kwargs):
         self.pub_freq = 1.0
+        self.dispersion = None
         self.actuator_id = actuator_id
         self.state = 1
-
         conn_params = ConnectionParameters()
 
         super().__init__(
@@ -46,15 +51,37 @@ class ButtonNode(Node):
             *args, **kwargs
         )
 
-        # Create dedicated publisher for actuator.button
+        # Create dedicated publisher for actuator.button.singlebutton
         self.publisher = self.create_publisher(
-            topic=f"actuator.singlebutton.button.{self.actuator_id}",
+            topic=f"actuator.button.singlebutton.{self.actuator_id}",
             msg_type=ButtonMessage,
         )
 
-    def simulate_button(self):
-        # TODO: implement actual simulation logic for Button
-        return 0.0
+    def simulate_button(self, name: str):
+        """
+        Simulate dynamic behavior for 'Button' actor.
+        """
+        t = time.time()
+
+        # Default fallback
+        if hasattr(self, name):
+            base = getattr(self, name)
+            if isinstance(base, (int, float)):
+                return random.gauss(base, 1.0)
+            elif isinstance(base, str):
+                # Example: rotate dynamic messages
+                choices = ["Hello", "World", "Barcode", "Active", "Scan"]
+                return random.choice(choices)
+
+    def get_property_value(self, name):
+        if name in SIMULATED_PROPS:
+            val = self.simulate_button(name)
+            if isinstance(val, (int, float)):
+                return round(val, 2)
+            else:
+                return val
+        if hasattr(self, name):
+            return getattr(self, name)
 
     def start(self):
         # Start commlib's internal loop in the background (since run() is blocking)
@@ -63,18 +90,48 @@ class ButtonNode(Node):
         print(f"[{self.__class__.__name__}] Running with id={self.actuator_id}")
         rate = Rate(self.pub_freq)
         while True:
-            # create the message
+            # DEBUG: topic_base = actuator.button.singlebutton
+            # DEBUG: endpoint = Publisher, topic = sensor.envsensor.temperature
+            # DEBUG: endpoint = Publisher, topic = sensor.envsensor.humidity
+            # DEBUG: endpoint = Publisher, topic = sensor.envsensor.gas
+            # DEBUG: endpoint = Publisher, topic = sensor.envsensor.co2
+            # DEBUG: endpoint = Publisher, topic = sensor.envsensor.ph
+            # DEBUG: endpoint = Publisher, topic = sensor.envsensor.airquality
+            # DEBUG: endpoint = Publisher, topic = sensor.rangefinder.sonar
+            # DEBUG: endpoint = Publisher, topic = sensor.rangefinder.ir
+            # DEBUG: endpoint = Publisher, topic = sensor.lidar
+            # DEBUG: endpoint = Publisher, topic = sensor.reader.camera
+            # DEBUG: endpoint = Publisher, topic = sensor.reader.rfid
+            # DEBUG: endpoint = Publisher, topic = sensor.alarm.areaalarm
+            # DEBUG: endpoint = Publisher, topic = sensor.alarm.linearalarm
+            # DEBUG: endpoint = Publisher, topic = sensor.microphone
+            # DEBUG: endpoint = Publisher, topic = sensor.light
+            # DEBUG: endpoint = Publisher, topic = actuator.pantilt
+            # DEBUG: endpoint = Publisher, topic = actuator.envdevice.thermostat
+            # DEBUG: endpoint = Publisher, topic = actuator.envdevice.humidifier
+            # DEBUG: endpoint = Publisher, topic = actuator.relay
+            # DEBUG: endpoint = Publisher, topic = actuator.button.singlebutton
+            # DEBUG: endpoint = Publisher, topic = actuator.button.buttonarray
+            # DEBUG: endpoint = Publisher, topic = actor.envactor.fire
+            # DEBUG: endpoint = Publisher, topic = actor.envactor.water
+            # DEBUG: endpoint = Publisher, topic = actor.text.barcode
+            # DEBUG: endpoint = Publisher, topic = actor.text.qrcode
+            # DEBUG: endpoint = Publisher, topic = actor.text.rfidtag
+            # DEBUG: endpoint = Publisher, topic = actor.text.plaintext
+            # DEBUG: endpoint = Publisher, topic = actor.soundsource
+            # DEBUG: endpoint = Publisher, topic = actor.color
+            # DEBUG: endpoint = Publisher, topic = actor.human
             msg = ButtonMessage(
                 pubFreq=self.pub_freq,
                 actuator_id=self.actuator_id,
                 type="ButtonData",
-                state = self.state,
+                state=int(self.get_property_value("state")),
             )
-            print(f"[ButtonNode] Publishing to actuator.singlebutton.button.{self.actuator_id}: {msg.model_dump()}")
+            print(f"[ButtonNode] Publishing to actuator.button.singlebutton.{self.actuator_id}: {msg.model_dump()}")
             self.publisher.publish(msg)
             rate.sleep()
 
-# Run it from C:\thesis\ by: python -m omnisim.generated_files.sonar sonar_2
+# Run it from C:\thesis\ by: python -m omnisim.generated_files.button name
 if __name__ == '__main__':
     redis_start()
     try:

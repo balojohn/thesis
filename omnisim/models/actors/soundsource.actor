@@ -1,0 +1,11 @@
+SoundSource SoundSource
+    class: Actor
+    dataModel: SoundSourceData
+    shape: Rectangle(5, 2)
+    pubFreq: 1.0
+    language: "Something"
+    speech: "Something"
+    emotion: "Something"
+    minRange: 2.0
+    maxRange: 20.0
+end

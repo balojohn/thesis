@@ -1,0 +1,12 @@
+Reader Camera
+    class: Sensor
+    type: Camera
+    dataModel: ReaderData
+    shape: Rectangle(2, 2)
+    pubFreq: 1
+    resHeight: 360
+    resWidth: 480
+    hfov: 160
+    vfov: 90
+    noise: Gaussian(mean: 0.0, std: 1.5)
+end

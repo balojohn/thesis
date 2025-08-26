@@ -1,0 +1,8 @@
+Relay Relay
+    class: Actuator
+    dataModel: RelayData
+    shape: Rectangle(2, 1)
+    pubFreq: 1
+    state: ""
+    allowed_states: 2
+end

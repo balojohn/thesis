@@ -1,16 +1,245 @@
-Communication SonarComms
+/* ------- SENSORS ------- */
+Communication EnvSensorComms
     endpoints
         publisher
-            topic: 'sensor.rangefinder.sonar'
-            msg: SonarRangeMessage
+            topic: 'sensor.envsensor.temperature'
+            msg: EnvSensorMessage
+        end
+        
+        publisher
+            topic: 'sensor.envsensor.humidity'
+            msg: EnvSensorMessage
+        end
+
+        publisher
+            topic: 'sensor.envsensor.gas'
+            msg: EnvSensorMessage
+        end
+
+        publisher
+            topic: 'sensor.envsensor.co2'
+            msg: EnvSensorMessage
+        end
+
+        publisher
+            topic: 'sensor.envsensor.ph'
+            msg: EnvSensorMessage
+        end
+
+        publisher
+            topic: 'sensor.envsensor.airquality'
+            msg: EnvSensorMessage
         end
     end
 
     messages
-        TopicMsg SonarRangeMessage
+        TopicMsg EnvSensorMessage
+            pubFreq: float
+            sensor_id: str
+            value: float
+        end
+    end
+end
+
+Communication RangeFinderComms
+    endpoints
+        publisher
+            topic: 'sensor.rangefinder.sonar'
+            msg: RangeMessage
+        end
+
+        publisher
+            topic: 'sensor.rangefinder.ir'
+            msg: RangeMessage
+        end
+    end
+
+    messages
+        TopicMsg RangeMessage
             pubFreq: float
             type: str
             sensor_id: str
+            hfov: float
+            vfov: float
+            distance: float
+            minRange: float
+            maxRange: float
+        end
+    end
+end
+
+Communication LidarComms
+    endpoints
+        publisher
+            topic: 'sensor.lidar'
+            msg: LidarMessage
+        end
+    end
+
+    messages
+        TopicMsg LidarMessage
+            pubFreq: float
+            sensor_id: str
+            distance: float
+            minAngle: float
+            maxAngle: float
+            numBeams: int
+            minRange: float
+            maxRange: float
+        end
+    end
+end
+
+Communication ReaderComms
+    endpoints
+        publisher
+            topic: 'sensor.reader.camera'
+            msg: ReaderMessage
+        end
+
+        publisher
+            topic: 'sensor.reader.rfid'
+            msg: ReaderMessage
+        end
+    end
+
+    messages
+        TopicMsg ReaderMessage
+            pubFreq: float
+            type: str
+            sensor_id: str
+            distance: float
+            resHeight: int
+            resWidth: int
+            hfov: int
+            vfov: int
+        end
+    end
+end
+
+Communication AlarmComms
+    endpoints
+        publisher
+            topic: 'sensor.alarm.areaalarm'
+            msg: AlarmMessage
+        end
+
+        publisher
+            topic: 'sensor.alarm.linearalarm'
+            msg: AlarmMessage
+        end
+    end
+
+    messages
+        TopicMsg AlarmMessage
+            pubFreq: float
+            type: str
+            sensor_id: str
+            triggered: int
+            minRange: float
+            maxRange: float
+            hz: int
+        end
+    end
+end
+
+Communication MicrophoneComms
+    endpoints
+        publisher
+            topic: 'sensor.microphone'
+            msg: MicrophoneMessage
+        end
+    end
+
+    messages
+        TopicMsg MicrophoneMessage
+            pubFreq: float
+            type: str
+            sensor_id: str
+            soundlevelDB: float
+            mode: str
+            blocked: int
+        end
+    end
+end
+
+Communication LightComms
+    endpoints
+        publisher
+            topic: 'sensor.light'
+            msg: LightMessage
+        end
+    end
+
+    messages
+        TopicMsg LightMessage
+            pubFreq: float
+            type: str
+            sensor_id: str
+            luminosity: float
+            color: str
+            minRange: float
+            maxRange: float
+        end
+    end
+end
+
+/* ------- ACTUATORS ------- */
+Communication PanTiltComms
+    endpoints
+        publisher
+            topic: 'actuator.pantilt'
+            msg: PanTiltMessage
+        end
+    end
+
+    messages
+        TopicMsg PanTiltMessage
+            pubFreq: float
+            actuator_id: str
+            panAngle: float
+            tiltAngle: float
+        end
+    end
+end
+
+Communication EnvDeviceComms
+    endpoints
+        publisher
+            topic: 'actuator.envdevice.thermostat'
+            msg: EnvDeviceMessage
+        end
+        
+        publisher
+            topic: 'actuator.envdevice.humidifier'
+            msg: EnvDeviceMessage
+        end
+    end
+
+    messages
+        TopicMsg EnvDeviceMessage
+            pubFreq: float
+            actuator_id: str
+            value: float
+        end
+    end
+end
+
+Communication RelayComms
+    endpoints
+        publisher
+            topic: 'actuator.relay'
+            msg: RelayMessage
+        end
+    end
+
+    messages
+        TopicMsg RelayMessage
+            pubFreq: float
+            type: str
+            actuator_id: str
+            state: str
+            allowed_states: float
         end
     end
 end
@@ -18,15 +247,203 @@ end
 Communication ButtonComms
     endpoints
         publisher
-            topic: 'actuator.button'
+            topic: 'actuator.button.singlebutton'
             msg: ButtonMessage
+        end
+
+        publisher
+            topic: 'actuator.button.buttonarray'
+            msg: ButtonArrayMessage
         end
     end
 
     messages
         TopicMsg ButtonMessage
             pubFreq: float
+            type: str
             actuator_id: str
+            state: int
+        end
+
+        TopicMsg ButtonArrayMessage
+            pubFreq: float
+            type: str
+            actuator_id: str
+            state: int
+            size: int
+        end
+    end
+end
+
+Communication LedComms
+    endpoints
+        publisher
+            topic: 'actuator.led.singleled'
+            msg: LedMessage
+        end
+
+        publisher
+            topic: 'actuator.led.ledarray'
+            msg: LedArrayMessage
+        end
+    end
+
+    messages
+        TopicMsg LedMessage
+            pubFreq: float
+            type: str
+            actuator_id: str
+            color: int
+        end
+
+        TopicMsg LedArrayMessage
+            pubFreq: float
+            type: str
+            actuator_id: str
+            color: int
+            size: int
+        end
+    end
+end
+
+Communication SpeakerComms
+    endpoints
+        publisher
+            topic: 'actuator.speaker'
+            msg: SpeakerMessage
+        end
+    end
+
+    messages
+        TopicMsg SpeakerMessage
+            pubFreq: float
+            type: str
+            actuator_id: str
+            soundlevelDB: float
+        end
+    end
+end
+
+/* ------- ACTORS ------- */
+Communication FireComms
+    endpoints
+        publisher
+            topic: 'actor.envactor.fire'
+            msg: FireMessage
+        end
+
+        publisher
+            topic: 'actor.envactor.water'
+            msg: WaterMessage
+        end
+    end
+
+    messages
+        TopicMsg FireMessage
+            pubFreq: float
+            actor_id: str
+        end
+
+        TopicMsg WaterMessage
+            pubFreq: float
+            actor_id: str
+        end
+    end
+end
+
+Communication TextComms
+    endpoints
+        publisher
+            topic: 'actor.text.barcode'
+            msg: TextMessage
+        end
+        
+        publisher
+            topic: 'actor.text.qrcode'
+            msg: TextMessage
+        end
+
+        publisher
+            topic: 'actor.text.rfidtag'
+            msg: TextMessage
+        end
+
+        publisher
+            topic: 'actor.text.plaintext'
+            msg: TextMessage
+        end
+    end
+
+    messages
+        TopicMsg TextMessage
+            pubFreq: float
+            actor_id: str
+            type: str
+            message: str
+        end
+    end
+end
+
+Communication SoundSourceComms
+    endpoints
+        publisher
+            topic: 'actor.soundsource'
+            msg: SoundSourceMessage
+        end
+    end
+
+    messages
+        TopicMsg SoundSourceMessage
+            pubFreq: float
+            actor_id: str
+            type: str
+            language: str
+            speech: str
+            emotion: str
+            minRange: float
+            maxRange: float
+        end
+    end
+end
+
+Communication ColorComms
+    endpoints
+        publisher
+            topic: 'actor.color'
+            msg: ColorMessage
+        end
+    end
+
+    messages
+        TopicMsg ColorMessage
+            pubFreq: float
+            actor_id: str
+            r: int
+            g: int
+            b: int
+        end
+    end
+end
+
+Communication HumanComms
+    endpoints
+        publisher
+            topic: 'actor.human'
+            msg: HumanMessage
+        end
+    end
+
+    messages
+        TopicMsg HumanMessage
+            pubFreq: float
+            actor_id: str
+            motion: str
+            language: str
+            speech: str
+            emotion: str
+            age: int
+            minRange: float
+            maxRange: float
         end
     end
 end

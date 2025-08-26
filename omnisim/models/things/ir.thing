@@ -1,0 +1,12 @@
+RangeFinder IR
+    class: Sensor
+    type: IR
+    dataModel: RangeData
+    shape: Rectangle(2, 2)
+    pubFreq: 1
+    hfov: 60.0
+    vfov: 37.9
+    minRange: 10.0
+    maxRange: 250.0
+    noise: Gaussian(mean: 0.0, std: 1.5)
+end

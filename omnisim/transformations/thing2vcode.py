@@ -9,24 +9,25 @@ jinja_env = jinja2.Environment(
     lstrip_blocks=True
 )
 
-vthing_tpl = jinja_env.get_template('vthing.tpl')
+vnode_tpl = jinja_env.get_template('vnode.tpl')
 
 
-def build_vthing(thing, comms, dtypes) -> str:
-    data_model_name = thing.dataModel.name  # e.g., "RangeData"
+def build_vnode(obj, comms, dtypes) -> str:
+    data_model_name = obj.dataModel.name  # e.g., "RangeData"
     data_model = next((t for t in dtypes.types if t.name == data_model_name), None)
     if data_model is None:
         raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")
     context = {
-        'thing': thing,
+        'thing': obj if obj.__class__.__name__.lower() != "thing" else None,
+        'actor': obj if obj.__class__.__name__.lower() == "actor" else None,
         'comms': comms,
         'dtype': dtypes,
         'dataModel': data_model,
     }
-    modelf = vthing_tpl.render(context)
+    modelf = vnode_tpl.render(context)
     return modelf
 
 
-def thing_to_vcode(thing, comms, dtypes) -> str:
-    vthing_str = build_vthing(thing, comms, dtypes)
-    return vthing_str
+def model_to_vcode(obj, comms, dtypes) -> str:
+    vnode_str = build_vnode(obj, comms, dtypes)
+    return vnode_str

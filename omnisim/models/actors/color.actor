@@ -1,0 +1,9 @@
+Color Color
+    class: Actor
+    dataModel: ColorData
+    shape: Circle(1)
+    pubFreq: 1.0
+    r: 0
+    g: 0
+    b: 0
+end

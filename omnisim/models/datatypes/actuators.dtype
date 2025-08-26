@@ -1,5 +1,34 @@
+DataType EnvDeviceData
+  value: float
+end
+
+DataType RelayData
+  state: str
+  allowed_states: float
+end
+
 DataType ButtonData
-    state: int
+  state: int
+end
+
+DataType LedData
+  color: int
+end
+
+DataType SpeakerData
+  soundlevelDB: float
+end
+
+DataType LedArrayData
+  # N channel motor controller data using velocitty commands
+  size: int
+  colors: int[]  // 0-255
+  intensity: int[]  // 0-255
+end
+
+DataType PanTiltData
+    panAngle: float
+    tiltAngle: float
 end
 
 DataType MotorControllerCmdPwm
@@ -33,16 +62,4 @@ DataType MoveBase
   # N channel motor controller data using velocitty commands
   position: float[]
   orientation: float[]
-end
-
-DataType LedArrayData
-  # N channel motor controller data using velocitty commands
-  size: int
-  colors: int[]  // 0-255
-  intensity: int[]  // 0-255
-end
-
-DataType PanTiltData
-    panAngle: float
-    tiltAngle: float
 end

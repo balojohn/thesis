@@ -15,7 +15,7 @@ from ..lang import (
 )
 from ..transformations.thing2entity import thing_to_entity_m2m
 from ..transformations.actor2entity import actor_to_entity_m2m
-from ..transformations.thing2vcode import thing_to_vcode
+from ..transformations.thing2vcode import model_to_vcode
 
 t2e_output_dir = r'C:\thesis\omnisim\generated_files'
 t2vc_output_dir = r'C:\thesis\omnisim\generated_files'
@@ -59,7 +59,7 @@ def t2e(_, model_file):
             amodel = actor_mm.model_from_file(model_file)
             actor = amodel.actor  # Top-level is 'actor' in actor grammar
             entity_model = actor_to_entity_m2m(actor)
-            filename = f'{actor.name}.ent'
+            filename = f'{actor.name.lower()}.ent'
         elif model_filename.endswith('.thing'):
             print(f'[*] Detected Thing model: {model_filename}')
             preload_dtype_models()
@@ -85,28 +85,35 @@ def t2e(_, model_file):
         raise
 
 @cli.command("t2vc")
-@click.argument("thing_model_file")
+@click.argument("model_file")
 @click.argument("comms_model_file")
 @click.argument("dtypes_model_file")
 @click.pass_context
-def t2vc(_, thing_model_file, comms_model_file, dtypes_model_file):
+def t2vc(ctx, model_file, comms_model_file, dtypes_model_file):
     try:
-        model_filename = path.basename(thing_model_file)
-        if not model_filename.endswith('.thing'):
-            print(f'[X] Not a thing model.')
-            raise ValueError()
         preload_dtype_models()
         dtypes_mm = get_datatype_mm()
         dtypes = dtypes_mm.model_from_file(dtypes_model_file)
-        thing_mm = get_thing_mm()
-        tmodel = thing_mm.model_from_file(thing_model_file)
-        thing = tmodel.thing
+
+        model_filename = path.basename(model_file)
+        # Choose metamodel based on file extension or content
+        if model_filename.endswith('.thing'):
+            mm = get_thing_mm()
+            model = mm.model_from_file(model_file)
+            obj = model.thing
+        elif model_filename.endswith('.actor'):
+            mm = get_actor_mm()
+            model = mm.model_from_file(model_file)
+            obj = model.actor
+        else:
+            print("[X] Unknown model type")
+            return
         communication_mm = get_communication_mm()
         comms = communication_mm.model_from_file(comms_model_file)
         
-        gen_code = thing_to_vcode(thing, comms, dtypes)
+        gen_code = model_to_vcode(obj, comms, dtypes)
 
-        filename = f'{thing.name.lower()}.py'
+        filename = f'{obj.name.lower()}.py'
         filepath = path.join(t2vc_output_dir, filename)
         with open(filepath, 'w') as fp:
             fp.write(gen_code)

@@ -1,8 +1,12 @@
 EnvActor Fire
-    type: Fire actor
-            that disperses Temperature
-                with dispersion Constant(value: 2.0)
-    dataModel: TemperatureData
+    class: Actor
+    type: Fire
+    properties:
+        - temperature: 20   // room temp
+        - luminosity: 50.0 // soft light
+        - co2: 400          // background 
+    dispersion: Constant(value: 2.0)
+    dataModel: FireData
     shape: Rectangle(5, 2)
-    pubFreq: 1
+    pubFreq: 1.0
 end

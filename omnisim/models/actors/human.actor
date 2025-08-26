@@ -1,0 +1,13 @@
+Human Human
+    class: Actor
+    dataModel: HumanData
+    shape: Square(1)
+    pubFreq: 1.0
+    motion: ""
+    language: ""
+    speech: ""
+    emotion: ""
+    age: 24
+    minRange: 2.0
+    maxRange: 20.0
+end
