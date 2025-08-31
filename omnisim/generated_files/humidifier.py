@@ -5,8 +5,7 @@ import threading
 import subprocess
 import time
 import redis
-# import os
-from commlib.msg import PubSubMessage # MessageHeader
+from commlib.msg import PubSubMessage
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
@@ -27,6 +26,11 @@ def redis_start():
         print(f"[ERROR] Could not start Redis: {e}")
         sys.exit(1)
 
+class PoseMessage(PubSubMessage):
+    # Matches your geometry.dtype Pose { position{ x,y,z }, orientation{ roll,pitch,yaw } }
+    position: dict   # {'x': float, 'y': float, 'z': float}
+    orientation: dict  # {'roll': float, 'pitch': float, 'yaw': float}
+
 class EnvDeviceMessage(PubSubMessage):
     pubFreq: float
     actuator_id: str
@@ -37,7 +41,7 @@ SIMULATED_PROPS = {
 }
 
 class HumidifierNode(Node):
-    def __init__(self, actuator_id: str = "", *args, **kwargs):
+    def __init__(self, actuator_id: str = "", initial_pose: dict | None = None, *args, **kwargs):
         self.pub_freq = 1.0
         self.dispersion = Dispersion(
             "Quadratic",
@@ -47,19 +51,47 @@ class HumidifierNode(Node):
         )
         self.actuator_id = actuator_id
         self.value = 0.0
-        conn_params = ConnectionParameters()
-
+        
+        # runtime pose (2D convenience); z/roll/pitch kept 0 for now
+        self.x = (initial_pose or {}).get('x', 0.0)
+        self.y = (initial_pose or {}).get('y', 0.0)
+        self.theta = (initial_pose or {}).get('theta', 0.0)  # degrees
+        
+        # --- simple motion (so pose changes) ---
+        self._last_t = time.monotonic()
+        self.vx = 0.10    # m/s along +x (adjust or set to 0.0 if you want static)
+        self.vy = 0.10    # m/s along +y
+        self.omega = 10.0 # deg/s yaw
+        
         super().__init__(
             node_name="humidifier",
-            connection_params=conn_params,
+            connection_params=ConnectionParameters(),
             *args, **kwargs
         )
 
+        self.pose_publisher = self.create_publisher(
+            topic=f"actuator.envdevice.humidifier.{self.actuator_id}.pose",
+            msg_type=PoseMessage
+        )
+            
         # Create dedicated publisher for actuator.envdevice.humidifier
-        self.publisher = self.create_publisher(
+        self.data_publisher = self.create_publisher(
             topic=f"actuator.envdevice.humidifier.{self.actuator_id}",
             msg_type=EnvDeviceMessage,
         )
+    
+    def _integrate_motion(self):
+        """Very small kinematic integrator so pose updates each tick."""
+        now = time.monotonic()
+        dt = now - self._last_t
+        self._last_t = now
+
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        self.theta += self.omega * dt
+        # keep theta in [0, 360)
+        if self.theta >= 360.0 or self.theta <= -360.0:
+            self.theta = self.theta % 360.0
 
     def simulate_humidifier(self, name: str):
         """
@@ -94,37 +126,22 @@ class HumidifierNode(Node):
         print(f"[{self.__class__.__name__}] Running with id={self.actuator_id}")
         rate = Rate(self.pub_freq)
         while True:
-            # DEBUG: topic_base = actuator.envdevice.humidifier
-            # DEBUG: endpoint = Publisher, topic = sensor.rangefinder.sonar
-            # DEBUG: endpoint = Publisher, topic = sensor.rangefinder.ir
-            # DEBUG: endpoint = Publisher, topic = sensor.lidar
-            # DEBUG: endpoint = Publisher, topic = sensor.reader.camera
-            # DEBUG: endpoint = Publisher, topic = sensor.reader.rfid
-            # DEBUG: endpoint = Publisher, topic = sensor.alarm.areaalarm
-            # DEBUG: endpoint = Publisher, topic = sensor.alarm.linearalarm
-            # DEBUG: endpoint = Publisher, topic = sensor.microphone
-            # DEBUG: endpoint = Publisher, topic = sensor.light
-            # DEBUG: endpoint = Publisher, topic = actuator.pantilt
-            # DEBUG: endpoint = Publisher, topic = actuator.envdevice.thermostat
-            # DEBUG: endpoint = Publisher, topic = actuator.envdevice.humidifier
-            # DEBUG: endpoint = Publisher, topic = actuator.button
-            # DEBUG: endpoint = Publisher, topic = actor.envactor.fire
-            # DEBUG: endpoint = Publisher, topic = actor.envactor.water
-            # DEBUG: endpoint = Publisher, topic = actor.text.barcode
-            # DEBUG: endpoint = Publisher, topic = actor.text.qrcode
-            # DEBUG: endpoint = Publisher, topic = actor.text.rfidtag
-            # DEBUG: endpoint = Publisher, topic = actor.text.plaintext
-            # DEBUG: endpoint = Publisher, topic = actor.soundsource
-            # DEBUG: endpoint = Publisher, topic = actor.color
-            # DEBUG: endpoint = Publisher, topic = actor.human
-            msg = EnvDeviceMessage(
+            # --- update pose then publish pose ---
+            self._integrate_motion()
+            msg_pose = PoseMessage(
+                position={'x': self.x, 'y': self.y, 'z': 0.0},
+                orientation={'roll': 0.0, 'pitch': 0.0, 'yaw': self.theta}
+            )
+            print(f"[HumidifierNode] Publishing to actuator.envdevice.humidifier.{self.actuator_id}.pose: {msg_pose.model_dump()}")
+            self.pose_publisher.publish(msg_pose)
+            msg_data = EnvDeviceMessage(
                 pubFreq=self.pub_freq,
                 actuator_id=self.actuator_id,
                 type="EnvDeviceData",
                 value=float(self.get_property_value("value")),
             )
-            print(f"[HumidifierNode] Publishing to actuator.envdevice.humidifier.{self.actuator_id}: {msg.model_dump()}")
-            self.publisher.publish(msg)
+            print(f"[HumidifierNode] Publishing to actuator.envdevice.humidifier.{self.actuator_id}: {msg_data.model_dump()}")
+            self.data_publisher.publish(msg_data)
             rate.sleep()
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.humidifier name

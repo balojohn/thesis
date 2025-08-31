@@ -11,73 +11,70 @@
     edge[dir=black,arrowtail=empty]
 
 
-2199090417056[ label="{CommunicationModel|}"]
+2563299948304[ label="{CommunicationModel|}"]
 
-2199090421232[ label="{Communication|name: ID\l}"]
+2563299946624[ label="{Communication|name: ID\l}"]
 
-2199090424064[ label="{*Endpoint|}"]
+2563299938224[ label="{*Endpoint|}"]
 
-2199053269184[ label="{Publisher|topic: STRING\lnamespace: STRING\l}"]
+2563300333744[ label="{Publisher|topic: STRING\lnamespace: STRING\l}"]
 
-2199057324496[ label="{Subscriber|topic: STRING\lnamespace: STRING\l}"]
+2563300333696[ label="{Subscriber|topic: STRING\lnamespace: STRING\l}"]
 
-2199090509296[ label="{DataTypeModel|}"]
+2563300339120[ label="{DataTypeModel|}"]
 
-2199090509104[ label="{*DataType|}"]
+2563300339216[ label="{*DataType|}"]
 
-2199090508288[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
+2563300339312[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
 
-2199090506800[ label="{*Property|}"]
+2563300339408[ label="{*Property|}"]
 
-2199090506896[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+2563300339504[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
 
-2199090506992[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+2563300339600[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
 
-2199090506944[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+2563300339744[ label="{Enumeration|name: ID\ldescription: Description\l}"]
 
-2199090507184[ label="{EnumerationElement|name: STRING\l}"]
+2563300340272[ label="{EnumerationElement|name: STRING\l}"]
 
-2199090507232[ label="{PrimitiveDataType|name: ID\l}"]
+2563300340896[ label="{PrimitiveDataType|name: ID\l}"]
 
-2199090507520[ label="{Import|importURI: STRING\lname: ID\l}"]
+2563300341568[ label="{Import|importURI: STRING\lname: ID\l}"]
 
-2199090507808[ label="{MessageModel|}"]
+2563300342240[ label="{MessageModel|}"]
 
-2199090509248[ label="{*Message|}"]
+2563300342336[ label="{*Message|}"]
 
-2199090498016[ label="{PubSubMessage|}"]
+2563300342432[ label="{PubSubMessage|}"]
 
 
 
-2199090417056 -> 2199090507520[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2199090417056 -> 2199090421232[arrowtail=diamond, dir=both, headlabel="communications 0..*"]
-2199090421232 -> 2199090424064[arrowtail=diamond, dir=both, headlabel="endpoints 0..*"]
-2199090421232 -> 2199090509248[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
-2199090424064 -> 2199053269184 [dir=back]
-2199090424064 -> 2199057324496 [dir=back]
-2199053269184 -> 2199090498016[headlabel="msg "]
-2199057324496 -> 2199090498016[headlabel="msg "]
-2199090509296 -> 2199090507520[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2199090509296 -> 2199090509104[arrowtail=diamond, dir=both, headlabel="types 0..*"]
-2199090509296 -> 2199090506944[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
-2199090509104 -> 2199090507232 [dir=back]
-2199090509104 -> 2199090506944 [dir=back]
-2199090509104 -> 2199090508288 [dir=back]
-2199090508288 -> 2199090506800[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
-2199090506800 -> 2199090506992 [dir=back]
-2199090506800 -> 2199090506896 [dir=back]
-2199090506896 -> 2199090509104[headlabel="type "]
-2199090506992 -> 2199090509104[headlabel="type "]
-2199090506944 -> 2199090507184[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
-2199090507808 -> 2199090507520[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2199090507808 -> 2199090509248[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
-2199090509248 -> 2199090506800[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
-2199090509248 -> 2199090509104[headlabel="dataType "]
-2199090509248 -> 2199090498016 [dir=back]
+2563299948304 -> 2563300341568[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2563299948304 -> 2563299946624[arrowtail=diamond, dir=both, headlabel="communications 0..*"]
+2563299946624 -> 2563299938224[arrowtail=diamond, dir=both, headlabel="endpoints 0..*"]
+2563299946624 -> 2563300342336[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+2563299938224 -> 2563300333744 [dir=back]
+2563299938224 -> 2563300333696 [dir=back]
+2563300333744 -> 2563300342432[headlabel="msg "]
+2563300333696 -> 2563300342432[headlabel="msg "]
+2563300339120 -> 2563300341568[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2563300339120 -> 2563300339216[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2563300339120 -> 2563300339744[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2563300339216 -> 2563300340896 [dir=back]
+2563300339216 -> 2563300339744 [dir=back]
+2563300339216 -> 2563300339312 [dir=back]
+2563300339312 -> 2563300339408[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2563300339408 -> 2563300339600 [dir=back]
+2563300339408 -> 2563300339504 [dir=back]
+2563300339504 -> 2563300339216[headlabel="type "]
+2563300339600 -> 2563300339216[headlabel="type "]
+2563300339744 -> 2563300340272[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+2563300342240 -> 2563300341568[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2563300342240 -> 2563300342336[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+2563300342336 -> 2563300339408[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2563300342336 -> 2563300339216[headlabel="dataType "]
+2563300342336 -> 2563300342432 [dir=back]
 match_rules [ shape=plaintext, label=< <table>
-	<tr>
-		<td><b>EndpointType</b></td><td>Publisher|Subscriber</td>
-	</tr>
 	<tr>
 		<td><b>Comment</b></td><td></td>
 	</tr>

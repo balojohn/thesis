@@ -9,13 +9,15 @@ from ..lang import (
     preload_actor_models,
     get_actor_mm,
     get_thing_mm,
+    get_env_mm,
     get_communication_mm,
     get_datatype_mm,
     get_env_mm
 )
 from ..transformations.thing2entity import thing_to_entity_m2m
 from ..transformations.actor2entity import actor_to_entity_m2m
-from ..transformations.thing2vcode import model_to_vcode
+from ..transformations.node2vcode import model_to_vcode
+from ..transformations.node2vcode import env_to_vcode
 
 t2e_output_dir = r'C:\thesis\omnisim\generated_files'
 t2vc_output_dir = r'C:\thesis\omnisim\generated_files'
@@ -95,23 +97,40 @@ def t2vc(ctx, model_file, comms_model_file, dtypes_model_file):
         dtypes_mm = get_datatype_mm()
         dtypes = dtypes_mm.model_from_file(dtypes_model_file)
 
-        model_filename = path.basename(model_file)
+        model_filename = path.basename(model_file).lower()
         # Choose metamodel based on file extension or content
         if model_filename.endswith('.thing'):
             mm = get_thing_mm()
             model = mm.model_from_file(model_file)
             obj = model.thing
+            model_kind = "thing"
         elif model_filename.endswith('.actor'):
             mm = get_actor_mm()
             model = mm.model_from_file(model_file)
             obj = model.actor
+            model_kind = "actor"
+        elif model_filename.endswith(".env"):
+            preload_thing_models()
+            preload_actor_models()
+            mm = get_env_mm()
+            model = mm.model_from_file(model_file)
+            obj = model.environment
+            model_kind = "environment"
         else:
-            print("[X] Unknown model type")
+            print("[X] Unknown model type (expected .thing, .actor, or .env)")
             return
+
+        # Parse communications
         communication_mm = get_communication_mm()
         comms = communication_mm.model_from_file(comms_model_file)
         
-        gen_code = model_to_vcode(obj, comms, dtypes)
+        # Generate code
+        if model_kind == "environment":
+            gen_code = env_to_vcode(obj, comms, dtypes)  # uses environment_node.tpl
+            filename = f"{obj.name.lower()}_env.py"
+        else:
+            gen_code = model_to_vcode(obj, comms, dtypes)  # uses node.tpl
+            filename = f"{obj.name.lower()}.py"
 
         filename = f'{obj.name.lower()}.py'
         filepath = path.join(t2vc_output_dir, filename)

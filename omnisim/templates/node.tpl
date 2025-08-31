@@ -5,14 +5,13 @@ import threading
 import subprocess
 import time
 import redis
-# import os
-from commlib.msg import PubSubMessage # MessageHeader
+from commlib.msg import PubSubMessage
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
 from ..utils import Dispersion
 
-{% set obj = thing if thing is defined else actor %}
+{% set obj = thing|default(actor)|default(environment) %}
 {%- set class_prefix = obj.class.lower() %}
 {%- set subclass = obj.__class__.__name__.lower() %}
 {% if obj.type is defined %}
@@ -72,6 +71,11 @@ def redis_start():
         print(f"[ERROR] Could not start Redis: {e}")
         sys.exit(1)
 
+class PoseMessage(PubSubMessage):
+    # Matches your geometry.dtype Pose { position{ x,y,z }, orientation{ roll,pitch,yaw } }
+    position: dict   # {'x': float, 'y': float, 'z': float}
+    orientation: dict  # {'roll': float, 'pitch': float, 'yaw': float}
+
 {% for comm in comms.communications %}
     {% for endpoint in comm.endpoints %}
         {% if endpoint.__class__.__name__ == "Publisher" and endpoint.topic.startswith(topic_base) %}
@@ -106,7 +110,7 @@ SIMULATED_PROPS = {
 }
 
 class {{ obj.name }}Node(Node):
-    def __init__(self, {{ id_field }}: str = "", *args, **kwargs):
+    def __init__(self, {{ id_field }}: str = "", initial_pose: dict | None = None, *args, **kwargs):
         self.pub_freq = {{ obj.pubFreq }}
         {% if obj.dispersion %}
         self.dispersion = Dispersion(
@@ -127,25 +131,53 @@ class {{ obj.name }}Node(Node):
         self.{{ prop.name }} = {{ val if val is not none else 0.0 }}
         {% endif %}
         {% endfor %}
-        conn_params = ConnectionParameters()
-
+        
+        # runtime pose (2D convenience); z/roll/pitch kept 0 for now
+        self.x = (initial_pose or {}).get('x', 0.0)
+        self.y = (initial_pose or {}).get('y', 0.0)
+        self.theta = (initial_pose or {}).get('theta', 0.0)  # degrees
+        
+        # --- simple motion (so pose changes) ---
+        self._last_t = time.monotonic()
+        self.vx = 0.10    # m/s along +x (adjust or set to 0.0 if you want static)
+        self.vy = 0.10    # m/s along +y
+        self.omega = 10.0 # deg/s yaw
+        
         super().__init__(
             node_name="{{ obj.name.lower() }}",
-            connection_params=conn_params,
+            connection_params=ConnectionParameters(),
             *args, **kwargs
         )
 
+        self.pose_publisher = self.create_publisher(
+            topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose",
+            msg_type=PoseMessage
+        )
+            
         {% for comm in comms.communications %}
         {% for e in comm.endpoints %}
         {% if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
         # Create dedicated publisher for {{ e.topic }}
-        self.publisher = self.create_publisher(
+        self.data_publisher = self.create_publisher(
             topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}",
             msg_type={{ e.msg.name }},
         )
         {% endif %}
         {% endfor %}
         {% endfor %}
+    
+    def _integrate_motion(self):
+        """Very small kinematic integrator so pose updates each tick."""
+        now = time.monotonic()
+        dt = now - self._last_t
+        self._last_t = now
+
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        self.theta += self.omega * dt
+        # keep theta in [0, 360)
+        if self.theta >= 360.0 or self.theta <= -360.0:
+            self.theta = self.theta % 360.0
 
     def simulate_{{ obj.name.lower() }}(self, name: str):
         """
@@ -232,16 +264,18 @@ class {{ obj.name }}Node(Node):
         print(f"[{self.__class__.__name__}] Running with id={self.{{ id_field }}}")
         rate = Rate(self.pub_freq)
         while True:
-            # DEBUG: topic_base = {{ topic_base }}
-            {% for comm in comms.communications %}
-            {% for e in comm.endpoints %}
-            # DEBUG: endpoint = {{ e.__class__.__name__ }}, topic = {{ e.topic }}
-            {% endfor %}
-            {% endfor %}
+            # --- update pose then publish pose ---
+            self._integrate_motion()
+            msg_pose = PoseMessage(
+                position={'x': self.x, 'y': self.y, 'z': 0.0},
+                orientation={'roll': 0.0, 'pitch': 0.0, 'yaw': self.theta}
+            )
+            print(f"[{{ obj.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose: {msg_pose.model_dump()}")
+            self.pose_publisher.publish(msg_pose)
             {% for comm in comms.communications %}
             {% for e in comm.endpoints %}
             {% if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
-            msg = {{ e.msg.name }}(
+            msg_data = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
                 {{ id_field }}=self.{{ id_field }},
                 type="{{ obj.dataModel.name }}",
@@ -255,8 +289,8 @@ class {{ obj.name }}Node(Node):
                 {% endif %}
                 {% endfor %}
             )
-            print(f"[{{ obj.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}: {msg.model_dump()}")
-            self.publisher.publish(msg)
+            print(f"[{{ obj.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}: {msg_data.model_dump()}")
+            self.data_publisher.publish(msg_data)
             {% endif %}
             {% endfor %}
             {% endfor %}

@@ -41,4 +41,3 @@ Subscriber:
     )#
     'end'
 ;
-EndpointType: 'Publisher' | 'Subscriber';

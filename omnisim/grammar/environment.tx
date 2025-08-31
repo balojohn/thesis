@@ -12,14 +12,17 @@ Model:
 
 ThingPlacement:
     ref=[Thing:FQN] '@' pose=Pose
+    ('topic:' poseTopic=STRING)?
 ;
 
 ActorPlacement:
     ref=[Actor:FQN] '@' pose=Pose
+    ('topic:' poseTopic=STRING)?
 ;
 
 ObstaclePlacement:
     ref=[Obstacle:FQN] '@' pose=Pose
+    ('topic:' poseTopic=STRING)?
 ;
 
 Environment:
@@ -34,7 +37,10 @@ Environment:
         'end'
         )
         ('things'
-            (things*=ThingPlacement)
+            ('sensors:'
+                things*=ThingPlacement['-'])?
+            ('actuators:'
+                things*=ThingPlacement['-'])?
         'end'
         )?
         ('actors'
@@ -62,22 +68,18 @@ Obstacle:
         'shape:' shape=Shape
     'end'
 ;
-/*
-PerceivableEntity:
-    'PerceivableEntity'
-        'properties:' '-' properties*=PerceptionProperty['-']
-        'shape:' shape=Shape
-    'end'
-;
-
-PerceptionProperty:
-    type=EnvironmentalPropertyType ':' value=FLOAT ('with range' range=FLOAT)?
-;
-*/
 
 EnvironmentalProperty:
-    type=EnvironmentalPropertyType ':' value=FLOAT
-        ('with dispersion' dispersion=DispersionType)?
+    (type=EnvPropertyType ':' value=FLOAT)
+;
+
+EnvPropertyType:
+    'temperature' |
+    'humidity'    |
+    'gas'         |
+    'co2'         |
+    'ph'          |
+    'airquality'
 ;
 
 FQN: ID('.'ID)*;

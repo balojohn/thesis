@@ -5,8 +5,7 @@ import threading
 import subprocess
 import time
 import redis
-# import os
-from commlib.msg import PubSubMessage # MessageHeader
+from commlib.msg import PubSubMessage
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
@@ -27,6 +26,11 @@ def redis_start():
         print(f"[ERROR] Could not start Redis: {e}")
         sys.exit(1)
 
+class PoseMessage(PubSubMessage):
+    # Matches your geometry.dtype Pose { position{ x,y,z }, orientation{ roll,pitch,yaw } }
+    position: dict   # {'x': float, 'y': float, 'z': float}
+    orientation: dict  # {'roll': float, 'pitch': float, 'yaw': float}
+
 class AlarmMessage(PubSubMessage):
     pubFreq: float
     type: str
@@ -44,7 +48,7 @@ SIMULATED_PROPS = {
 }
 
 class AreaAlarmNode(Node):
-    def __init__(self, sensor_id: str = "", *args, **kwargs):
+    def __init__(self, sensor_id: str = "", initial_pose: dict | None = None, *args, **kwargs):
         self.pub_freq = 1.0
         self.dispersion = None
         self.sensor_id = sensor_id
@@ -52,19 +56,47 @@ class AreaAlarmNode(Node):
         self.minRange = 1.0
         self.maxRange = 10.0
         self.hz = 3000.0
-        conn_params = ConnectionParameters()
-
+        
+        # runtime pose (2D convenience); z/roll/pitch kept 0 for now
+        self.x = (initial_pose or {}).get('x', 0.0)
+        self.y = (initial_pose or {}).get('y', 0.0)
+        self.theta = (initial_pose or {}).get('theta', 0.0)  # degrees
+        
+        # --- simple motion (so pose changes) ---
+        self._last_t = time.monotonic()
+        self.vx = 0.10    # m/s along +x (adjust or set to 0.0 if you want static)
+        self.vy = 0.10    # m/s along +y
+        self.omega = 10.0 # deg/s yaw
+        
         super().__init__(
             node_name="areaalarm",
-            connection_params=conn_params,
+            connection_params=ConnectionParameters(),
             *args, **kwargs
         )
 
+        self.pose_publisher = self.create_publisher(
+            topic=f"sensor.alarm.areaalarm.{self.sensor_id}.pose",
+            msg_type=PoseMessage
+        )
+            
         # Create dedicated publisher for sensor.alarm.areaalarm
-        self.publisher = self.create_publisher(
+        self.data_publisher = self.create_publisher(
             topic=f"sensor.alarm.areaalarm.{self.sensor_id}",
             msg_type=AlarmMessage,
         )
+    
+    def _integrate_motion(self):
+        """Very small kinematic integrator so pose updates each tick."""
+        now = time.monotonic()
+        dt = now - self._last_t
+        self._last_t = now
+
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        self.theta += self.omega * dt
+        # keep theta in [0, 360)
+        if self.theta >= 360.0 or self.theta <= -360.0:
+            self.theta = self.theta % 360.0
 
     def simulate_areaalarm(self, name: str):
         """
@@ -99,25 +131,15 @@ class AreaAlarmNode(Node):
         print(f"[{self.__class__.__name__}] Running with id={self.sensor_id}")
         rate = Rate(self.pub_freq)
         while True:
-            # DEBUG: topic_base = sensor.alarm.areaalarm
-            # DEBUG: endpoint = Publisher, topic = sensor.rangefinder.sonar
-            # DEBUG: endpoint = Publisher, topic = sensor.rangefinder.ir
-            # DEBUG: endpoint = Publisher, topic = sensor.lidar
-            # DEBUG: endpoint = Publisher, topic = sensor.reader.camera
-            # DEBUG: endpoint = Publisher, topic = sensor.reader.rfid
-            # DEBUG: endpoint = Publisher, topic = sensor.alarm.areaalarm
-            # DEBUG: endpoint = Publisher, topic = sensor.alarm.linearalarm
-            # DEBUG: endpoint = Publisher, topic = actuator.button
-            # DEBUG: endpoint = Publisher, topic = actor.envactor.fire
-            # DEBUG: endpoint = Publisher, topic = actor.envactor.water
-            # DEBUG: endpoint = Publisher, topic = actor.text.barcode
-            # DEBUG: endpoint = Publisher, topic = actor.text.qrcode
-            # DEBUG: endpoint = Publisher, topic = actor.text.rfidtag
-            # DEBUG: endpoint = Publisher, topic = actor.text.plaintext
-            # DEBUG: endpoint = Publisher, topic = actor.soundsource
-            # DEBUG: endpoint = Publisher, topic = actor.color
-            # DEBUG: endpoint = Publisher, topic = actor.human
-            msg = AlarmMessage(
+            # --- update pose then publish pose ---
+            self._integrate_motion()
+            msg_pose = PoseMessage(
+                position={'x': self.x, 'y': self.y, 'z': 0.0},
+                orientation={'roll': 0.0, 'pitch': 0.0, 'yaw': self.theta}
+            )
+            print(f"[AreaAlarmNode] Publishing to sensor.alarm.areaalarm.{self.sensor_id}.pose: {msg_pose.model_dump()}")
+            self.pose_publisher.publish(msg_pose)
+            msg_data = AlarmMessage(
                 pubFreq=self.pub_freq,
                 sensor_id=self.sensor_id,
                 type="AlarmData",
@@ -126,8 +148,8 @@ class AreaAlarmNode(Node):
                 maxRange=float(self.get_property_value("maxRange")),
                 hz=int(self.get_property_value("hz")),
             )
-            print(f"[AreaAlarmNode] Publishing to sensor.alarm.areaalarm.{self.sensor_id}: {msg.model_dump()}")
-            self.publisher.publish(msg)
+            print(f"[AreaAlarmNode] Publishing to sensor.alarm.areaalarm.{self.sensor_id}: {msg_data.model_dump()}")
+            self.data_publisher.publish(msg_data)
             rate.sleep()
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.areaalarm name

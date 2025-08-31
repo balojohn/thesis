@@ -1,3 +1,20 @@
+import '../datatypes/geometry.dtype';
+
+Communication DynamicPose
+    endpoints
+        subscriber
+            topic: 'sensor.envsensor.temperature'
+            msg: PoseMsg
+        end
+    end
+
+    messages
+        TopicMsg PoseMsg
+            type: Pose
+        end
+    end
+end
+
 /* ------- SENSORS ------- */
 Communication EnvSensorComms
     endpoints

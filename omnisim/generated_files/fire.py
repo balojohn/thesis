@@ -5,8 +5,7 @@ import threading
 import subprocess
 import time
 import redis
-# import os
-from commlib.msg import PubSubMessage # MessageHeader
+from commlib.msg import PubSubMessage
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
@@ -27,6 +26,11 @@ def redis_start():
         print(f"[ERROR] Could not start Redis: {e}")
         sys.exit(1)
 
+class PoseMessage(PubSubMessage):
+    # Matches your geometry.dtype Pose { position{ x,y,z }, orientation{ roll,pitch,yaw } }
+    position: dict   # {'x': float, 'y': float, 'z': float}
+    orientation: dict  # {'roll': float, 'pitch': float, 'yaw': float}
+
 class FireMessage(PubSubMessage):
     pubFreq: float
     actor_id: str
@@ -38,7 +42,7 @@ SIMULATED_PROPS = {
 }
 
 class FireNode(Node):
-    def __init__(self, actor_id: str = "", *args, **kwargs):
+    def __init__(self, actor_id: str = "", initial_pose: dict | None = None, *args, **kwargs):
         self.pub_freq = 1.0
         self.dispersion = Dispersion(
             "Constant",
@@ -48,19 +52,47 @@ class FireNode(Node):
         self.temperature = 20.0
         self.luminosity = 50.0
         self.co2 = 400.0
-        conn_params = ConnectionParameters()
-
+        
+        # runtime pose (2D convenience); z/roll/pitch kept 0 for now
+        self.x = (initial_pose or {}).get('x', 0.0)
+        self.y = (initial_pose or {}).get('y', 0.0)
+        self.theta = (initial_pose or {}).get('theta', 0.0)  # degrees
+        
+        # --- simple motion (so pose changes) ---
+        self._last_t = time.monotonic()
+        self.vx = 0.10    # m/s along +x (adjust or set to 0.0 if you want static)
+        self.vy = 0.10    # m/s along +y
+        self.omega = 10.0 # deg/s yaw
+        
         super().__init__(
             node_name="fire",
-            connection_params=conn_params,
+            connection_params=ConnectionParameters(),
             *args, **kwargs
         )
 
+        self.pose_publisher = self.create_publisher(
+            topic=f"actor.envactor.fire.{self.actor_id}.pose",
+            msg_type=PoseMessage
+        )
+            
         # Create dedicated publisher for actor.envactor.fire
-        self.publisher = self.create_publisher(
+        self.data_publisher = self.create_publisher(
             topic=f"actor.envactor.fire.{self.actor_id}",
             msg_type=FireMessage,
         )
+    
+    def _integrate_motion(self):
+        """Very small kinematic integrator so pose updates each tick."""
+        now = time.monotonic()
+        dt = now - self._last_t
+        self._last_t = now
+
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        self.theta += self.omega * dt
+        # keep theta in [0, 360)
+        if self.theta >= 360.0 or self.theta <= -360.0:
+            self.theta = self.theta % 360.0
 
     def simulate_fire(self, name: str):
         """
@@ -93,12 +125,14 @@ class FireNode(Node):
             self._sim_state["co2"] = min(10000.0, self._sim_state["co2"] + delta)
             return self._sim_state["co2"]
 
-        return 0.0
 
     def get_property_value(self, name):
         if name in SIMULATED_PROPS:
             val = self.simulate_fire(name)
-            return round(val, 2)
+            if isinstance(val, (int, float)):
+                return round(val, 2)
+            else:
+                return val
         if hasattr(self, name):
             return getattr(self, name)
 
@@ -109,19 +143,27 @@ class FireNode(Node):
         print(f"[{self.__class__.__name__}] Running with id={self.actor_id}")
         rate = Rate(self.pub_freq)
         while True:
-            msg = FireMessage(
+            # --- update pose then publish pose ---
+            self._integrate_motion()
+            msg_pose = PoseMessage(
+                position={'x': self.x, 'y': self.y, 'z': 0.0},
+                orientation={'roll': 0.0, 'pitch': 0.0, 'yaw': self.theta}
+            )
+            print(f"[FireNode] Publishing to actor.envactor.fire.{self.actor_id}.pose: {msg_pose.model_dump()}")
+            self.pose_publisher.publish(msg_pose)
+            msg_data = FireMessage(
                 pubFreq=self.pub_freq,
                 actor_id=self.actor_id,
                 type="FireData",
-                temperature=self.get_property_value("temperature"),
-                luminosity=self.get_property_value("luminosity"),
-                co2=self.get_property_value("co2"),
+                temperature=float(self.get_property_value("temperature")),
+                luminosity=float(self.get_property_value("luminosity")),
+                co2=float(self.get_property_value("co2")),
             )
-            print(f"[FireNode] Publishing to actor.envactor.fire.{self.actor_id}: {msg.model_dump()}")
-            self.publisher.publish(msg)
+            print(f"[FireNode] Publishing to actor.envactor.fire.{self.actor_id}: {msg_data.model_dump()}")
+            self.data_publisher.publish(msg_data)
             rate.sleep()
 
-# Run it from C:\thesis\ by: python -m omnisim.generated_files.sonar sonar_2
+# Run it from C:\thesis\ by: python -m omnisim.generated_files.fire name
 if __name__ == '__main__':
     redis_start()
     try:
