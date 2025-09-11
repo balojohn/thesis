@@ -12,17 +12,14 @@ Model:
 
 ThingPlacement:
     ref=[Thing:FQN] '@' pose=Pose
-    ('topic:' poseTopic=STRING)?
 ;
 
 ActorPlacement:
     ref=[Actor:FQN] '@' pose=Pose
-    ('topic:' poseTopic=STRING)?
 ;
 
 ObstaclePlacement:
     ref=[Obstacle:FQN] '@' pose=Pose
-    ('topic:' poseTopic=STRING)?
 ;
 
 Environment:

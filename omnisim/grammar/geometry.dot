@@ -11,46 +11,38 @@
     edge[dir=black,arrowtail=empty]
 
 
-2583892562368[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+2186026627584[ label="{Point|x: FLOAT\ly: FLOAT\l}"]
 
-2583892564672[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+2186026625040[ label="{Transformation|dx: FLOAT\ldy: FLOAT\ldtheta: FLOAT\l}"]
 
-2583892342928[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
+2186026626720[ label="{Pose|x: FLOAT\ly: FLOAT\lyaw: FLOAT\l}"]
 
-2583892335488[ label="{Transformation|}"]
+2186026627776[ label="{*Shape|}"]
 
-2583892344704[ label="{Pose|}"]
+2186026626816[ label="{ComplexShape|}"]
 
-2583892339760[ label="{*Shape|}"]
+2186026628208[ label="{*PredefinedShape|}"]
 
-2583892344272[ label="{ComplexShape|}"]
+2186026828912[ label="{Circle|radius: FLOAT\l}"]
 
-2583892341728[ label="{*PredefinedShape|}"]
+2186026838752[ label="{Square|length: FLOAT\l}"]
 
-2583892341248[ label="{Circle|radius: FLOAT\l}"]
+2186026838656[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
 
-2583892340144[ label="{Square|length: FLOAT\l}"]
+2186026838704[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
 
-2583892341392[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
-
-2583892334864[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
-
-2583892343216[ label="{ArbitraryShape|}"]
+2186026831792[ label="{ArbitraryShape|}"]
 
 
 
-2583892335488 -> 2583892564672[arrowtail=diamond, dir=both, headlabel="translation "]
-2583892335488 -> 2583892342928[arrowtail=diamond, dir=both, headlabel="rotation "]
-2583892344704 -> 2583892564672[arrowtail=diamond, dir=both, headlabel="translation "]
-2583892344704 -> 2583892342928[arrowtail=diamond, dir=both, headlabel="rotation "]
-2583892339760 -> 2583892341728 [dir=back]
-2583892339760 -> 2583892343216 [dir=back]
-2583892339760 -> 2583892344272 [dir=back]
-2583892344272 -> 2583892339760[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
-2583892341728 -> 2583892341248 [dir=back]
-2583892341728 -> 2583892340144 [dir=back]
-2583892341728 -> 2583892341392 [dir=back]
-2583892341728 -> 2583892334864 [dir=back]
-2583892343216 -> 2583892562368[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+2186026627776 -> 2186026628208 [dir=back]
+2186026627776 -> 2186026831792 [dir=back]
+2186026627776 -> 2186026626816 [dir=back]
+2186026626816 -> 2186026627776[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
+2186026628208 -> 2186026828912 [dir=back]
+2186026628208 -> 2186026838752 [dir=back]
+2186026628208 -> 2186026838656 [dir=back]
+2186026628208 -> 2186026838704 [dir=back]
+2186026831792 -> 2186026627584[arrowtail=diamond, dir=both, headlabel="points 0..*"]
 
 }

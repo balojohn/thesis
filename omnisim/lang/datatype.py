@@ -2,7 +2,7 @@ from os.path import join
 
 from textx import metamodel_from_file
 
-from ..utils import THIS_DIR
+from ..utils.utils import THIS_DIR
 from ..mm_classes.datatype import type_builtins, PrimitiveDataType
 
 from .shared_globals import SHARED_GLOBAL_REPO

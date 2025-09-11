@@ -2,8 +2,8 @@ PanTilt PanTilt
     class: Actuator
     dataModel: PanTiltData
     joints:
-        - Transform(Translation(0, 0), Rotation(0, 0))
-        - Transform(Translation(0, 0), Rotation(0, 45))
+        - Transform(0, 0, 0)
+        - Transform(0, 0, 45)
     shape: Rectangle(2, 1)
     pubFreq: 1
 end

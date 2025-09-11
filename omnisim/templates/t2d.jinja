@@ -1,0 +1,28 @@
+{# thing2datatype.jinja #}
+{% if thing.dataModel is defined %}
+DataType {{ thing.dataModel.name }}
+    {% for p in thing.dataModel.properties %}
+    {{ p.name }}: {{ p.type }}
+    {% endfor %}
+end
+{% elif thing.sensors is defined %}
+    {# Composite thing with nested sensors #}
+    {% for sensor in thing.sensors | map(attribute="ref.dataModel") | unique %}
+DataType {{ sensor.name }}
+    {% for p in sensor.properties %}
+    {{ p.name }}: {{ p.type }}
+    {% endfor %}
+end
+
+    {% endfor %}
+{% elif thing.actuators is defined %}
+    {# Composite thing with nested actuators #}
+    {% for actuator in thing.actuators | map(attribute="ref.dataModel") | unique %}
+DataType {{ actuator.name }}
+    {% for p in actuator.properties %}
+    {{ p.name }}: {{ p.type }}
+    {% endfor %}
+end
+
+    {% endfor %}
+{% endif %}

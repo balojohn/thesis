@@ -38,6 +38,37 @@ Actor:
     Human        
 ;
 
+EnvActor:
+    'EnvActor' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=[EnvActorType])?
+            // ('properties:' '-' EnvProperties+=EnvironmentalPropertyType['-'])?
+            // ('dispersion:' dispersion=DispersionType)?
+            ('dataModel:' dataModel=[DataType:FQN])
+            ('shape' ':' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('min_value:' min_value=FLOAT)?
+            ('max_value:' max_value=FLOAT)?
+        )#
+    'end'
+;
+
+EnvActorType: 'Water' | 'Fire';
+
+EnvironmentalPropertyType:
+    name=EnvironmentalPropertyName ':' value=FLOAT;
+
+EnvironmentalPropertyName:
+    'temperature'     |
+    'airQuality'      |
+    'soundLevelDB'    |
+    'co2'             |
+    'gas'             |
+    'luminosity'     |
+    'humidity'
+;
+
 SoundSource:
     'SoundSource' name=ID
         (
@@ -89,35 +120,6 @@ TextType:
     'QR'          |
     'RFIDTag'     |
     'PlainText'
-;
-
-EnvActor:
-    'EnvActor' name=ID
-        (
-            ('class:' class=ID)
-            ('type:' type=[EnvActorType])?
-            ('properties:' '-' EnvProperties+=EnvironmentalPropertyType['-'])?
-            ('dispersion:' dispersion=DispersionType)?
-            ('dataModel:' dataModel=[DataType:FQN])
-            ('shape' ':' shape=Shape)?
-            ('pubFreq:' pubFreq=FLOAT)?
-        )#
-    'end'
-;
-
-EnvActorType: 'Water' | 'Fire';
-
-EnvironmentalPropertyType:
-    name=EnvironmentalPropertyName ':' value=FLOAT;
-
-EnvironmentalPropertyName:
-    'temperature'     |
-    'airQuality'      |
-    'soundLevelDB'    |
-    'co2'             |
-    'gas'             |
-    'luminosity'     |
-    'humidity'
 ;
 
 Human:

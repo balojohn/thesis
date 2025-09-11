@@ -1,9 +1,5 @@
-import 'geometry.dtype' as geometry;
-
 DataType FireData
   temperature: float
-  luminosity: float
-  co2: float
 end
 
 DataType WaterData

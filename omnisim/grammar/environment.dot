@@ -11,271 +11,277 @@
     edge[dir=black,arrowtail=empty]
 
 
-2371357892800[ label="{Model|}"]
+1728189290144[ label="{Model|}"]
 
-2371357686960[ label="{ThingPlacement|poseTopic: STRING\l}"]
+1728189290624[ label="{ThingPlacement|poseTopic: STRING\l}"]
 
-2371357678128[ label="{ActorPlacement|poseTopic: STRING\l}"]
+1728188394352[ label="{ActorPlacement|poseTopic: STRING\l}"]
 
-2371357682496[ label="{ObstaclePlacement|poseTopic: STRING\l}"]
+1728189231808[ label="{ObstaclePlacement|poseTopic: STRING\l}"]
 
-2371357806896[ label="{Environment|name: ID\l}"]
+1728189233968[ label="{Environment|name: ID\l}"]
 
-2371357812512[ label="{Grid|width: FLOAT\lheight: FLOAT\lcellSizeCm: FLOAT\l}"]
+1728189224992[ label="{Grid|width: FLOAT\lheight: FLOAT\lcellSizeCm: FLOAT\l}"]
 
-2371357812848[ label="{Obstacle|name: ID\l}"]
+1728189542768[ label="{Obstacle|name: ID\l}"]
 
-2371356452160[ label="{EnvironmentalProperty|type: EnvPropertyType\lvalue: FLOAT\l}"]
+1728189539456[ label="{EnvironmentalProperty|type: EnvPropertyType\lvalue: FLOAT\l}"]
 
-2371356456336[ label="{Import|importURI: STRING\lname: ID\l}"]
+1728188087712[ label="{Import|importURI: STRING\lname: ID\l}"]
 
-2371356454464[ label="{Model|}"]
+1728188188192[ label="{Model|}"]
 
-2371356454560[ label="{*Thing|}"]
+1728188187328[ label="{*Thing|}"]
 
-2371356454656[ label="{CompositeThing|name: ID\l}"]
+1728188188816[ label="{CompositeThing|name: ID\l}"]
 
-2371356454704[ label="{*PosedThing|}"]
+1728188188096[ label="{Robot|name: ID\l}"]
 
-2371356454848[ label="{PosedCThing|}"]
+1728188186704[ label="{*PosedThing|}"]
 
-2371356455568[ label="{PosedSensor|name: ID\l}"]
+1728188186800[ label="{PosedCThing|}"]
 
-2371356456000[ label="{PosedActuator|name: ID\l}"]
+1728188186848[ label="{PosedSensor|name: ID\l}"]
 
-2371356456144[ label="{*Sensor|}"]
+1728188186992[ label="{PosedActuator|name: ID\l}"]
 
-2371356456624[ label="{EnvSensor|name: ID\lclass: ID\ltype: EnvSensorType\lpubFreq: FLOAT\l}"]
+1728188187280[ label="{*Sensor|}"]
 
-2371356456816[ label="{RangeFinder|name: ID\lclass: ID\ltype: RangeFinderType\lpubFreq: FLOAT\lhfov: FLOAT\lvfov: FLOAT\ldistance: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+1728189292208[ label="{EnvSensor|name: ID\lclass: ID\ltype: EnvSensorType\lpubFreq: FLOAT\l}"]
 
-2371356456960[ label="{LiDAR|name: ID\lclass: ID\lpubFreq: FLOAT\ldistance: FLOAT\lminAngle: FLOAT\lmaxAngle: FLOAT\lnumBeams: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+1728188187184[ label="{RangeFinder|name: ID\lclass: ID\ltype: RangeFinderType\lpubFreq: FLOAT\lhfov: FLOAT\lvfov: FLOAT\ldistance: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
 
-2371356457104[ label="{Reader|name: ID\lclass: ID\ltype: ReaderType\lpubFreq: FLOAT\ldistance: FLOAT\lresHeight: FLOAT\lresWidth: FLOAT\lhfov: FLOAT\lvfov: FLOAT\l}"]
+1728189357696[ label="{LiDAR|name: ID\lclass: ID\lpubFreq: FLOAT\ldistance: FLOAT\lminAngle: FLOAT\lmaxAngle: FLOAT\lnumBeams: FLOAT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
 
-2371356457392[ label="{Alarm|name: ID\lclass: ID\ltype: AlarmType\lpubFreq: FLOAT\ltriggered: BOOL\lminRange: FLOAT\lmaxRange: FLOAT\lhz: FLOAT\l}"]
+1728188188576[ label="{Reader|name: ID\lclass: ID\ltype: ReaderType\lpubFreq: FLOAT\ldistance: FLOAT\lresHeight: FLOAT\lresWidth: FLOAT\lhfov: FLOAT\lvfov: FLOAT\l}"]
 
-2371356457584[ label="{Microphone|name: ID\lclass: ID\lpubFreq: FLOAT\lsoundlevelDB: FLOAT\lmode: STRING\lblocked: BOOL\l}"]
+1728188189344[ label="{Alarm|name: ID\lclass: ID\ltype: AlarmType\lpubFreq: FLOAT\ltriggered: BOOL\lminRange: FLOAT\lmaxRange: FLOAT\lhz: FLOAT\l}"]
 
-2371356457680[ label="{Light|name: ID\lclass: ID\lpubFreq: FLOAT\lluminosity: FLOAT\lcolor: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+1728188189488[ label="{Microphone|name: ID\lclass: ID\lpubFreq: FLOAT\lsoundlevelDB: FLOAT\lmode: STRING\lblocked: BOOL\l}"]
 
-2371356457776[ label="{IMU|name: ID\lclass: ID\ltype: IMUType\lpubFreq: FLOAT\l}"]
+1728188189536[ label="{Light|name: ID\lclass: ID\lpubFreq: FLOAT\lluminosity: FLOAT\lcolor: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
 
-2371356457968[ label="{*Actuator|}"]
+1728188189632[ label="{IMU|name: ID\lclass: ID\ltype: IMUType\lpubFreq: FLOAT\l}"]
 
-2371356458064[ label="{PanTilt|name: ID\lclass: ID\lpubFreq: FLOAT\l}"]
+1728188189824[ label="{*Actuator|}"]
 
-2371356458112[ label="{EnvDevice|name: ID\lclass: ID\ltype: EnvDeviceType\lpubFreq: FLOAT\l}"]
+1728188079696[ label="{PanTilt|name: ID\lclass: ID\lpubFreq: FLOAT\l}"]
 
-2371356458304[ label="{Relay|name: ID\lclass: ID\lpubFreq: FLOAT\lstate: STRING\lallowed_states: FLOAT\l}"]
+1728188189968[ label="{EnvDevice|name: ID\lclass: ID\ltype: EnvDeviceType\lpubFreq: FLOAT\l}"]
 
-2371356458496[ label="{Button|name: ID\lclass: ID\ltype: ButtonType\lpubFreq: FLOAT\lstate: INT\lsize: INT\l}"]
+1728188190160[ label="{Relay|name: ID\lclass: ID\lpubFreq: FLOAT\lstate: STRING\lallowed_states: FLOAT\l}"]
 
-2371356458640[ label="{Led|name: ID\lclass: ID\ltype: LedType\lpubFreq: FLOAT\lcolor: INT\l}"]
+1728188190352[ label="{Button|name: ID\lclass: ID\ltype: ButtonType\lpubFreq: FLOAT\lstate: INT\lsize: INT\l}"]
 
-2371356458736[ label="{Speaker|name: ID\lclass: ID\lpubFreq: FLOAT\lsoundlevelDB: FLOAT\l}"]
+1728188190496[ label="{Led|name: ID\lclass: ID\ltype: LedType\lpubFreq: FLOAT\lcolor: INT\l}"]
 
-2371356458832[ label="{*Noise|}"]
+1728188190592[ label="{Speaker|name: ID\lclass: ID\lpubFreq: FLOAT\lsoundlevelDB: FLOAT\l}"]
 
-2371356458928[ label="{Gaussian|mean: FLOAT\lstd: FLOAT\l}"]
+1728188190688[ label="{*Noise|}"]
 
-2371356590160[ label="{Uniform|min: FLOAT\lmax: FLOAT\l}"]
+1728189356448[ label="{Gaussian|mean: FLOAT\lstd: FLOAT\l}"]
 
-2371356590256[ label="{CustomNoise|type: STRING\lparams: STRING\l}"]
+1728188190832[ label="{Uniform|min: FLOAT\lmax: FLOAT\l}"]
 
-2371356590304[ label="{DTransformation|}"]
+1728188190880[ label="{CustomNoise|type: STRING\lparams: STRING\l}"]
 
-2371356590400[ label="{*DispersionType|}"]
+1728188190976[ label="{DTransformation|}"]
 
-2371356590496[ label="{Constant|value: FLOAT\l}"]
+1728188191072[ label="{*DispersionType|}"]
 
-2371356590592[ label="{Linear|startingPoint: FLOAT\lstep: FLOAT\l}"]
+1728188191168[ label="{Constant|value: FLOAT\l}"]
 
-2371356590688[ label="{Quadratic|a: FLOAT\lb: FLOAT\lc: FLOAT\l}"]
+1728188191264[ label="{Linear|startingPoint: FLOAT\lstep: FLOAT\l}"]
 
-2371356590784[ label="{Exponential|base: FLOAT\lyIntercept: FLOAT\l}"]
+1728188191360[ label="{Quadratic|a: FLOAT\lb: FLOAT\lc: FLOAT\l}"]
 
-2371356590880[ label="{Logarithmic|base: FLOAT\lalpha: FLOAT\l}"]
+1728188191408[ label="{Exponential|base: FLOAT\lyIntercept: FLOAT\l}"]
 
-2371356590976[ label="{Model|}"]
+1728188191504[ label="{Logarithmic|base: FLOAT\lalpha: FLOAT\l}"]
 
-2371356591072[ label="{CompositeActor|name: ID\l}"]
+1728188191600[ label="{Model|}"]
 
-2371356591168[ label="{PosedActor|name: ID\l}"]
+1728188191696[ label="{CompositeActor|name: ID\l}"]
 
-2371356591264[ label="{PosedCActor|}"]
+1728188191792[ label="{PosedActor|name: ID\l}"]
 
-2371356591360[ label="{*Actor|}"]
+1728188191888[ label="{PosedCActor|}"]
 
-2371356591408[ label="{SoundSource|name: ID\lclass: ID\lpubFreq: FLOAT\llanguage: STRING\lspeech: STRING\lemotion: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+1728188191984[ label="{*Actor|}"]
 
-2371356591504[ label="{Color|name: ID\lclass: ID\lpubFreq: FLOAT\lr: INT\lg: INT\lb: INT\l}"]
+1728188192080[ label="{SoundSource|name: ID\lclass: ID\lpubFreq: FLOAT\llanguage: STRING\lspeech: STRING\lemotion: STRING\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
 
-2371356591600[ label="{Text|name: ID\lclass: ID\ltype: TextType\lpubFreq: FLOAT\lmessage: STRING\l}"]
-
-2371356591792[ label="{EnvActor|name: ID\lclass: ID\ltype: EnvActorType\lpubFreq: FLOAT\l}"]
-
-2371356591984[ label="{EnvironmentalPropertyType|name: EnvironmentalPropertyName\lvalue: FLOAT\l}"]
-
-2371356592176[ label="{Human|name: ID\lclass: ID\lpubFreq: FLOAT\lmotion: STRING\llanguage: STRING\lspeech: STRING\lemotion: STRING\lage: INT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
-
-2371356592272[ label="{*DispersionType|}"]
-
-2371356592368[ label="{Constant|value: FLOAT\l}"]
-
-2371356592464[ label="{Linear|startingPoint: FLOAT\lstep: FLOAT\l}"]
-
-2371356592560[ label="{Quadratic|a: FLOAT\lb: FLOAT\lc: FLOAT\l}"]
-
-2371317960192[ label="{Exponential|base: FLOAT\lyIntercept: FLOAT\l}"]
-
-2371356592656[ label="{Logarithmic|base: FLOAT\lalpha: FLOAT\l}"]
-
-2371356592752[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
-
-2371356592848[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
-
-2371356592944[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
-
-2371356593040[ label="{Transformation|}"]
-
-2371356593136[ label="{Pose|}"]
-
-2371356593232[ label="{*Shape|}"]
-
-2371356593328[ label="{ComplexShape|}"]
-
-2371356593424[ label="{*PredefinedShape|}"]
-
-2371356593472[ label="{Circle|radius: FLOAT\l}"]
-
-2371356593568[ label="{Square|length: FLOAT\l}"]
-
-2371356593664[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
-
-2371356593760[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
-
-2371356593856[ label="{ArbitraryShape|}"]
-
-
-
-2371357892800 -> 2371356456336[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
-2371357892800 -> 2371357806896[arrowtail=diamond, dir=both, headlabel="environment "]
-2371357892800 -> 2371357812848[arrowtail=diamond, dir=both, headlabel="obstacles 0..*"]
-2371357686960 -> 2371356454560[headlabel="ref "]
-2371357686960 -> 2371356593136[arrowtail=diamond, dir=both, headlabel="pose "]
-2371357678128 -> 2371356591360[headlabel="ref "]
-2371357678128 -> 2371356593136[arrowtail=diamond, dir=both, headlabel="pose "]
-2371357682496 -> 2371357812848[headlabel="ref "]
-2371357682496 -> 2371356593136[arrowtail=diamond, dir=both, headlabel="pose "]
-2371357806896 -> 2371357812512[arrowtail=diamond, dir=both, headlabel="grid 0..*"]
-2371357806896 -> 2371356452160[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
-2371357806896 -> 2371357686960[arrowtail=diamond, dir=both, headlabel="things 0..*"]
-2371357806896 -> 2371357678128[arrowtail=diamond, dir=both, headlabel="actors 0..*"]
-2371357806896 -> 2371357682496[arrowtail=diamond, dir=both, headlabel="obstacles 0..*"]
-2371357812848 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356454464 -> 2371356454560[arrowtail=diamond, dir=both, headlabel="thing "]
-2371356454560 -> 2371356456144 [dir=back]
-2371356454560 -> 2371356457968 [dir=back]
-2371356454560 -> 2371356454656 [dir=back]
-2371356454656 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356454656 -> 2371356455568[arrowtail=diamond, dir=both, headlabel="sensors 1..*"]
-2371356454656 -> 2371356456000[arrowtail=diamond, dir=both, headlabel="actuators 1..*"]
-2371356454656 -> 2371356454848[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
-2371356454704 -> 2371356455568 [dir=back]
-2371356454704 -> 2371356456000 [dir=back]
-2371356454704 -> 2371356454848 [dir=back]
-2371356454848 -> 2371356454656[headlabel="ref "]
-2371356454848 -> 2371356590304[arrowtail=diamond, dir=both, headlabel="transformation "]
-2371356455568 -> 2371356456144[headlabel="ref "]
-2371356455568 -> 2371356590304[arrowtail=diamond, dir=both, headlabel="transformation "]
-2371356456000 -> 2371356457968[headlabel="ref "]
-2371356456000 -> 2371356590304[arrowtail=diamond, dir=both, headlabel="transformation "]
-2371356456144 -> 2371356456624 [dir=back]
-2371356456144 -> 2371356456816 [dir=back]
-2371356456144 -> 2371356456960 [dir=back]
-2371356456144 -> 2371356457104 [dir=back]
-2371356456144 -> 2371356457392 [dir=back]
-2371356456144 -> 2371356457584 [dir=back]
-2371356456144 -> 2371356457680 [dir=back]
-2371356456144 -> 2371356457776 [dir=back]
-2371356456624 -> 2371356590400[arrowtail=diamond, dir=both, headlabel="dispersion "]
-2371356456624 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356456816 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356456816 -> 2371356458832[arrowtail=diamond, dir=both, headlabel="noise "]
-2371356456960 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356456960 -> 2371356458832[arrowtail=diamond, dir=both, headlabel="noise "]
-2371356457104 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356457104 -> 2371356458832[arrowtail=diamond, dir=both, headlabel="noise "]
-2371356457392 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356457392 -> 2371356458832[arrowtail=diamond, dir=both, headlabel="noise "]
-2371356457584 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356457584 -> 2371356458832[arrowtail=diamond, dir=both, headlabel="noise "]
-2371356457680 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356457776 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356457776 -> 2371356458832[arrowtail=diamond, dir=both, headlabel="noise "]
-2371356457968 -> 2371356458064 [dir=back]
-2371356457968 -> 2371356458112 [dir=back]
-2371356457968 -> 2371356458304 [dir=back]
-2371356457968 -> 2371356458496 [dir=back]
-2371356457968 -> 2371356458640 [dir=back]
-2371356457968 -> 2371356458736 [dir=back]
-2371356458064 -> 2371356593040[arrowtail=diamond, dir=both, headlabel="joints 0..*"]
-2371356458064 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356458112 -> 2371356590400[arrowtail=diamond, dir=both, headlabel="dispersion "]
-2371356458112 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356458304 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356458496 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356458640 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356458736 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356458832 -> 2371356458928 [dir=back]
-2371356458832 -> 2371356590160 [dir=back]
-2371356458832 -> 2371356590256 [dir=back]
-2371356590304 -> 2371356593040[arrowtail=diamond, dir=both, headlabel="transformation "]
-2371356590304 -> 2371356454704[headlabel="parentThing "]
-2371356590400 -> 2371356590496 [dir=back]
-2371356590400 -> 2371356590592 [dir=back]
-2371356590400 -> 2371356590688 [dir=back]
-2371356590400 -> 2371356590784 [dir=back]
-2371356590400 -> 2371356590880 [dir=back]
-2371356590976 -> 2371356591360[arrowtail=diamond, dir=both, headlabel="actor "]
-2371356591072 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356591072 -> 2371356591168[arrowtail=diamond, dir=both, headlabel="actors 1..*"]
-2371356591072 -> 2371356591264[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
-2371356591168 -> 2371356591360[headlabel="ref "]
-2371356591168 -> 2371356593040[arrowtail=diamond, dir=both, headlabel="transformation "]
-2371356591264 -> 2371356591072[headlabel="ref "]
-2371356591264 -> 2371356593040[arrowtail=diamond, dir=both, headlabel="transformation "]
-2371356591360 -> 2371356591408 [dir=back]
-2371356591360 -> 2371356591504 [dir=back]
-2371356591360 -> 2371356591600 [dir=back]
-2371356591360 -> 2371356591792 [dir=back]
-2371356591360 -> 2371356592176 [dir=back]
-2371356591408 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356591504 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356591600 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356591792 -> 2371356591984[arrowtail=diamond, dir=both, headlabel="EnvProperties 1..*"]
-2371356591792 -> 2371356592272[arrowtail=diamond, dir=both, headlabel="dispersion "]
-2371356591792 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356592176 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shape "]
-2371356592272 -> 2371356592368 [dir=back]
-2371356592272 -> 2371356592464 [dir=back]
-2371356592272 -> 2371356592560 [dir=back]
-2371356592272 -> 2371317960192 [dir=back]
-2371356592272 -> 2371356592656 [dir=back]
-2371356593040 -> 2371356592848[arrowtail=diamond, dir=both, headlabel="translation "]
-2371356593040 -> 2371356592944[arrowtail=diamond, dir=both, headlabel="rotation "]
-2371356593136 -> 2371356592848[arrowtail=diamond, dir=both, headlabel="translation "]
-2371356593136 -> 2371356592944[arrowtail=diamond, dir=both, headlabel="rotation "]
-2371356593232 -> 2371356593424 [dir=back]
-2371356593232 -> 2371356593856 [dir=back]
-2371356593232 -> 2371356593328 [dir=back]
-2371356593328 -> 2371356593232[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
-2371356593424 -> 2371356593472 [dir=back]
-2371356593424 -> 2371356593568 [dir=back]
-2371356593424 -> 2371356593664 [dir=back]
-2371356593424 -> 2371356593760 [dir=back]
-2371356593856 -> 2371356592752[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+1728188192176[ label="{Color|name: ID\lclass: ID\lpubFreq: FLOAT\lr: INT\lg: INT\lb: INT\l}"]
+
+1728188192272[ label="{Text|name: ID\lclass: ID\ltype: TextType\lpubFreq: FLOAT\lmessage: STRING\l}"]
+
+1728188192464[ label="{EnvActor|name: ID\lclass: ID\ltype: EnvActorType\lpubFreq: FLOAT\l}"]
+
+1728188192656[ label="{EnvironmentalPropertyType|name: EnvironmentalPropertyName\lvalue: FLOAT\l}"]
+
+1728188192752[ label="{Human|name: ID\lclass: ID\lpubFreq: FLOAT\lmotion: STRING\llanguage: STRING\lspeech: STRING\lemotion: STRING\lage: INT\lminRange: FLOAT\lmaxRange: FLOAT\l}"]
+
+1728188192800[ label="{*DispersionType|}"]
+
+1728188192896[ label="{Constant|value: FLOAT\l}"]
+
+1728188192992[ label="{Linear|startingPoint: FLOAT\lstep: FLOAT\l}"]
+
+1728188193088[ label="{Quadratic|a: FLOAT\lb: FLOAT\lc: FLOAT\l}"]
+
+1728188193184[ label="{Exponential|base: FLOAT\lyIntercept: FLOAT\l}"]
+
+1728188193280[ label="{Logarithmic|base: FLOAT\lalpha: FLOAT\l}"]
+
+1728188193376[ label="{Point|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+1728188193472[ label="{Translation|x: FLOAT\ly: FLOAT\lz: FLOAT\l}"]
+
+1728188193568[ label="{Rotation|yaw: FLOAT\lpitch: FLOAT\lroll: FLOAT\l}"]
+
+1728188193664[ label="{Transformation|}"]
+
+1728188078256[ label="{Pose|}"]
+
+1728188193808[ label="{*Shape|}"]
+
+1728188193904[ label="{ComplexShape|}"]
+
+1728188193952[ label="{*PredefinedShape|}"]
+
+1728188194048[ label="{Circle|radius: FLOAT\l}"]
+
+1728188194144[ label="{Square|length: FLOAT\l}"]
+
+1728188194240[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
+
+1728188194336[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
+
+1728188194384[ label="{ArbitraryShape|}"]
+
+
+
+1728189290144 -> 1728188087712[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1728189290144 -> 1728189233968[arrowtail=diamond, dir=both, headlabel="environment "]
+1728189290144 -> 1728189542768[arrowtail=diamond, dir=both, headlabel="obstacles 0..*"]
+1728189290624 -> 1728188187328[headlabel="ref "]
+1728189290624 -> 1728188078256[arrowtail=diamond, dir=both, headlabel="pose "]
+1728188394352 -> 1728188191984[headlabel="ref "]
+1728188394352 -> 1728188078256[arrowtail=diamond, dir=both, headlabel="pose "]
+1728189231808 -> 1728189542768[headlabel="ref "]
+1728189231808 -> 1728188078256[arrowtail=diamond, dir=both, headlabel="pose "]
+1728189233968 -> 1728189224992[arrowtail=diamond, dir=both, headlabel="grid 0..*"]
+1728189233968 -> 1728189539456[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1728189233968 -> 1728189290624[arrowtail=diamond, dir=both, headlabel="things 0..*"]
+1728189233968 -> 1728188394352[arrowtail=diamond, dir=both, headlabel="actors 0..*"]
+1728189233968 -> 1728189231808[arrowtail=diamond, dir=both, headlabel="obstacles 0..*"]
+1728189542768 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188188192 -> 1728188187328[arrowtail=diamond, dir=both, headlabel="thing "]
+1728188187328 -> 1728188187280 [dir=back]
+1728188187328 -> 1728188189824 [dir=back]
+1728188187328 -> 1728188188816 [dir=back]
+1728188188816 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188188816 -> 1728188186848[arrowtail=diamond, dir=both, headlabel="sensors 1..*"]
+1728188188816 -> 1728188186992[arrowtail=diamond, dir=both, headlabel="actuators 1..*"]
+1728188188816 -> 1728188186800[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+1728188188096 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188188096 -> 1728188186848[arrowtail=diamond, dir=both, headlabel="sensors 1..*"]
+1728188188096 -> 1728188186992[arrowtail=diamond, dir=both, headlabel="actuators 1..*"]
+1728188188096 -> 1728188186800[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+1728188186704 -> 1728188186848 [dir=back]
+1728188186704 -> 1728188186992 [dir=back]
+1728188186704 -> 1728188186800 [dir=back]
+1728188186800 -> 1728188188816[headlabel="ref "]
+1728188186800 -> 1728188190976[arrowtail=diamond, dir=both, headlabel="transformation "]
+1728188186848 -> 1728188187280[headlabel="ref "]
+1728188186848 -> 1728188190976[arrowtail=diamond, dir=both, headlabel="transformation "]
+1728188186992 -> 1728188189824[headlabel="ref "]
+1728188186992 -> 1728188190976[arrowtail=diamond, dir=both, headlabel="transformation "]
+1728188187280 -> 1728189292208 [dir=back]
+1728188187280 -> 1728188187184 [dir=back]
+1728188187280 -> 1728189357696 [dir=back]
+1728188187280 -> 1728188188576 [dir=back]
+1728188187280 -> 1728188189344 [dir=back]
+1728188187280 -> 1728188189488 [dir=back]
+1728188187280 -> 1728188189536 [dir=back]
+1728188187280 -> 1728188189632 [dir=back]
+1728189292208 -> 1728188191072[arrowtail=diamond, dir=both, headlabel="dispersion "]
+1728189292208 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188187184 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188187184 -> 1728188190688[arrowtail=diamond, dir=both, headlabel="noise "]
+1728189357696 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728189357696 -> 1728188190688[arrowtail=diamond, dir=both, headlabel="noise "]
+1728188188576 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188188576 -> 1728188190688[arrowtail=diamond, dir=both, headlabel="noise "]
+1728188189344 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188189344 -> 1728188190688[arrowtail=diamond, dir=both, headlabel="noise "]
+1728188189488 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188189488 -> 1728188190688[arrowtail=diamond, dir=both, headlabel="noise "]
+1728188189536 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188189632 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188189632 -> 1728188190688[arrowtail=diamond, dir=both, headlabel="noise "]
+1728188189824 -> 1728188079696 [dir=back]
+1728188189824 -> 1728188189968 [dir=back]
+1728188189824 -> 1728188190160 [dir=back]
+1728188189824 -> 1728188190352 [dir=back]
+1728188189824 -> 1728188190496 [dir=back]
+1728188189824 -> 1728188190592 [dir=back]
+1728188079696 -> 1728188193664[arrowtail=diamond, dir=both, headlabel="joints 0..*"]
+1728188079696 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188189968 -> 1728188191072[arrowtail=diamond, dir=both, headlabel="dispersion "]
+1728188189968 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188190160 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188190352 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188190496 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188190592 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188190688 -> 1728189356448 [dir=back]
+1728188190688 -> 1728188190832 [dir=back]
+1728188190688 -> 1728188190880 [dir=back]
+1728188190976 -> 1728188193664[arrowtail=diamond, dir=both, headlabel="transformation "]
+1728188190976 -> 1728188186704[headlabel="parentThing "]
+1728188191072 -> 1728188191168 [dir=back]
+1728188191072 -> 1728188191264 [dir=back]
+1728188191072 -> 1728188191360 [dir=back]
+1728188191072 -> 1728188191408 [dir=back]
+1728188191072 -> 1728188191504 [dir=back]
+1728188191600 -> 1728188191984[arrowtail=diamond, dir=both, headlabel="actor "]
+1728188191696 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188191696 -> 1728188191792[arrowtail=diamond, dir=both, headlabel="actors 1..*"]
+1728188191696 -> 1728188191888[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+1728188191792 -> 1728188191984[headlabel="ref "]
+1728188191792 -> 1728188193664[arrowtail=diamond, dir=both, headlabel="transformation "]
+1728188191888 -> 1728188191696[headlabel="ref "]
+1728188191888 -> 1728188193664[arrowtail=diamond, dir=both, headlabel="transformation "]
+1728188191984 -> 1728188192080 [dir=back]
+1728188191984 -> 1728188192176 [dir=back]
+1728188191984 -> 1728188192272 [dir=back]
+1728188191984 -> 1728188192464 [dir=back]
+1728188191984 -> 1728188192752 [dir=back]
+1728188192080 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188192176 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188192272 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188192464 -> 1728188192656[arrowtail=diamond, dir=both, headlabel="EnvProperties 1..*"]
+1728188192464 -> 1728188192800[arrowtail=diamond, dir=both, headlabel="dispersion "]
+1728188192464 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188192752 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shape "]
+1728188192800 -> 1728188192896 [dir=back]
+1728188192800 -> 1728188192992 [dir=back]
+1728188192800 -> 1728188193088 [dir=back]
+1728188192800 -> 1728188193184 [dir=back]
+1728188192800 -> 1728188193280 [dir=back]
+1728188193664 -> 1728188193472[arrowtail=diamond, dir=both, headlabel="translation "]
+1728188193664 -> 1728188193568[arrowtail=diamond, dir=both, headlabel="rotation "]
+1728188078256 -> 1728188193472[arrowtail=diamond, dir=both, headlabel="translation "]
+1728188078256 -> 1728188193568[arrowtail=diamond, dir=both, headlabel="rotation "]
+1728188193808 -> 1728188193952 [dir=back]
+1728188193808 -> 1728188194384 [dir=back]
+1728188193808 -> 1728188193904 [dir=back]
+1728188193904 -> 1728188193808[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
+1728188193952 -> 1728188194048 [dir=back]
+1728188193952 -> 1728188194144 [dir=back]
+1728188193952 -> 1728188194240 [dir=back]
+1728188193952 -> 1728188194336 [dir=back]
+1728188194384 -> 1728188193376[arrowtail=diamond, dir=both, headlabel="points 0..*"]
 match_rules [ shape=plaintext, label=< <table>
 	<tr>
 		<td><b>EnvActorType</b></td><td>Water|Fire</td>

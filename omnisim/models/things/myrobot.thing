@@ -5,7 +5,9 @@ import '../datatypes/actuators.dtype' as ButtonData;
 CThing MyRobot
     shape: Rectangle(10, 8)
     sensors:
-        - Sonar @ Transform(Translation(2, 1), Rotation(0, 0))
+        - Sonar @ Transform(2, 1, 0)
     actuators:
-        - Button @ Transform(Translation(7, 3), Rotation(0, 0))
+        - Button @ Transform(7, 3, 0)
+    composites:
+        - Arm @ Transform(5, 2, 90)
 end

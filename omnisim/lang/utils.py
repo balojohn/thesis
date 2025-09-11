@@ -1,5 +1,5 @@
 from os.path import join, basename
-from ..utils import MODEL_REPO_PATH
+from ..utils.utils import MODEL_REPO_PATH
 
 from ..lang import (
     get_actor_mm,
@@ -33,6 +33,10 @@ def preload_actor_models():
 
 def build_model(model_fpath):
     model_filename = basename(model_fpath)
+    # preload datatypes and things so comm references can resolve
+    preload_dtype_models()
+    preload_thing_models()
+    preload_actor_models()
     
     if model_filename.endswith('.comm'):
         mm = get_communication_mm()

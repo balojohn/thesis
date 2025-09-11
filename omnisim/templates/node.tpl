@@ -9,7 +9,6 @@ from commlib.msg import PubSubMessage
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
-from ..utils import Dispersion
 
 {% set obj = thing|default(actor)|default(environment) %}
 {%- set class_prefix = obj.class.lower() %}
@@ -113,14 +112,13 @@ class {{ obj.name }}Node(Node):
     def __init__(self, {{ id_field }}: str = "", initial_pose: dict | None = None, *args, **kwargs):
         self.pub_freq = {{ obj.pubFreq }}
         {% if obj.dispersion %}
-        self.dispersion = Dispersion(
-            "{{ obj.dispersion.__class__.__name__ }}",{{ '\n' }}
-            {%- for attr, val in obj.dispersion.__dict__.items() if attr not in ['_tx_model', '_tx_position', '_tx_position_end', 'parent'] %}
-            {{ attr }}={{ val }},{{ '\n' }}
-            {%- endfor %}
-        )
-        {% else %}
-        self.dispersion = None
+        self.dispersion_type = "{{ obj.dispersion.__class__.__name__ }}"
+        self.dispersion_params = {
+            {% for attr, val in obj.dispersion.__dict__.items() 
+                if attr not in ['_tx_model', '_tx_position', '_tx_position_end', 'parent'] %}
+            "{{ attr }}": {{ val }},
+            {% endfor %}
+        }
         {% endif %}
         self.{{ id_field }} = {{ id_field }}
         {% for prop in dataModel.properties %}
@@ -148,12 +146,11 @@ class {{ obj.name }}Node(Node):
             connection_params=ConnectionParameters(),
             *args, **kwargs
         )
-
+        {% if obj.class == "Sensor" %}
         self.pose_publisher = self.create_publisher(
             topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose",
             msg_type=PoseMessage
         )
-            
         {% for comm in comms.communications %}
         {% for e in comm.endpoints %}
         {% if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
@@ -165,6 +162,7 @@ class {{ obj.name }}Node(Node):
         {% endif %}
         {% endfor %}
         {% endfor %}
+        {% endif %}
     
     def _integrate_motion(self):
         """Very small kinematic integrator so pose updates each tick."""
@@ -264,6 +262,7 @@ class {{ obj.name }}Node(Node):
         print(f"[{self.__class__.__name__}] Running with id={self.{{ id_field }}}")
         rate = Rate(self.pub_freq)
         while True:
+            {% if obj.class == "Sensor" %}
             # --- update pose then publish pose ---
             self._integrate_motion()
             msg_pose = PoseMessage(
@@ -294,6 +293,7 @@ class {{ obj.name }}Node(Node):
             {% endif %}
             {% endfor %}
             {% endfor %}
+            {% endif %}
             rate.sleep()
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.{{ obj.name.lower() }} name

@@ -1,6 +1,6 @@
 import jinja2
 
-from ..utils import TEMPLATES_PATH
+from ..utils.utils import TEMPLATES_PATH
 from ..lang import build_model
 
 jinja_env = jinja2.Environment(
@@ -30,6 +30,20 @@ def build_node(obj, comms, dtypes) -> str:
 def model_to_vcode(obj, comms, dtypes) -> str:
     node_str = build_node(obj, comms, dtypes)
     return node_str
+
+# ---------- Composites (Robots & others) ----------
+composite_tpl = jinja_env.get_template("composites.tpl")
+def build_composite(composite, comms, dtypes):
+    context = {
+        "composite": composite,
+        "comms": comms,
+        "dtype": dtypes
+    }
+    return composite_tpl.render(context)
+
+def composite_to_vcode(robot, comms, dtypes) -> str:
+    robot_str = build_composite(robot, comms, dtypes)
+    return robot_str
 
 # ---------- Environment ----------
 envnode_tpl = jinja_env.get_template("environment.tpl")

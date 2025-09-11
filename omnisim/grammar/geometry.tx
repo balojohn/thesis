@@ -1,21 +1,16 @@
 Point:
-    'Point' '(' x=FLOAT ',' y=FLOAT (',' z=FLOAT)? ')'
+    'Point' '(' x=FLOAT ',' y=FLOAT ')'
 ;
 
-Translation:
-    'Translation' '(' x=FLOAT ',' y=FLOAT (',' z=FLOAT)? ')'
-;
-
-Rotation:
-    'Rotation' '(' yaw=FLOAT ',' pitch=FLOAT (',' roll=FLOAT)? ')'
-;
-
+// For composite objects. dx refers to the distance from the pose of the object
+// e.g. for a robot at 2, 2, 0, a pantilt transform(2, 2, 30) means that pantilt
+// is on (4, 4, 30)
 Transformation:
-    'Transform' '(' translation=Translation ',' rotation=Rotation ')'
+    'Transform' '(' dx=FLOAT ',' dy=FLOAT ',' dtheta=FLOAT ')'
 ;
 
 Pose:
-    'Pose' '(' translation=Translation ',' rotation=Rotation ')'
+    'Pose' '(' x=FLOAT ',' y=FLOAT ',' theta=FLOAT ')'
 ;
 
 Shape: PredefinedShape | ArbitraryShape | ComplexShape;

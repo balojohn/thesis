@@ -1,20 +1,3 @@
-import '../datatypes/geometry.dtype';
-
-Communication DynamicPose
-    endpoints
-        subscriber
-            topic: 'sensor.envsensor.temperature'
-            msg: PoseMsg
-        end
-    end
-
-    messages
-        TopicMsg PoseMsg
-            type: Pose
-        end
-    end
-end
-
 /* ------- SENSORS ------- */
 Communication EnvSensorComms
     endpoints
@@ -76,9 +59,9 @@ Communication RangeFinderComms
             pubFreq: float
             type: str
             sensor_id: str
+            distance: float
             hfov: float
             vfov: float
-            distance: float
             minRange: float
             maxRange: float
         end
@@ -342,125 +325,125 @@ Communication SpeakerComms
 end
 
 /* ------- ACTORS ------- */
-Communication FireComms
-    endpoints
-        publisher
-            topic: 'actor.envactor.fire'
-            msg: FireMessage
-        end
+// Communication FireComms
+//     endpoints
+//         publisher
+//             topic: 'actor.envactor.fire'
+//             msg: FireMessage
+//         end
+// 
+//         publisher
+//             topic: 'actor.envactor.water'
+//             msg: WaterMessage
+//         end
+//     end
+// 
+//     messages
+//         TopicMsg FireMessage
+//             pubFreq: float
+//             actor_id: str
+//         end
+// 
+//         TopicMsg WaterMessage
+//             pubFreq: float
+//             actor_id: str
+//         end
+//     end
+// end
 
-        publisher
-            topic: 'actor.envactor.water'
-            msg: WaterMessage
-        end
-    end
-
-    messages
-        TopicMsg FireMessage
-            pubFreq: float
-            actor_id: str
-        end
-
-        TopicMsg WaterMessage
-            pubFreq: float
-            actor_id: str
-        end
-    end
-end
-
-Communication TextComms
-    endpoints
-        publisher
-            topic: 'actor.text.barcode'
-            msg: TextMessage
-        end
-        
-        publisher
-            topic: 'actor.text.qrcode'
-            msg: TextMessage
-        end
-
-        publisher
-            topic: 'actor.text.rfidtag'
-            msg: TextMessage
-        end
-
-        publisher
-            topic: 'actor.text.plaintext'
-            msg: TextMessage
-        end
-    end
-
-    messages
-        TopicMsg TextMessage
-            pubFreq: float
-            actor_id: str
-            type: str
-            message: str
-        end
-    end
-end
-
-Communication SoundSourceComms
-    endpoints
-        publisher
-            topic: 'actor.soundsource'
-            msg: SoundSourceMessage
-        end
-    end
-
-    messages
-        TopicMsg SoundSourceMessage
-            pubFreq: float
-            actor_id: str
-            type: str
-            language: str
-            speech: str
-            emotion: str
-            minRange: float
-            maxRange: float
-        end
-    end
-end
-
-Communication ColorComms
-    endpoints
-        publisher
-            topic: 'actor.color'
-            msg: ColorMessage
-        end
-    end
-
-    messages
-        TopicMsg ColorMessage
-            pubFreq: float
-            actor_id: str
-            r: int
-            g: int
-            b: int
-        end
-    end
-end
-
-Communication HumanComms
-    endpoints
-        publisher
-            topic: 'actor.human'
-            msg: HumanMessage
-        end
-    end
-
-    messages
-        TopicMsg HumanMessage
-            pubFreq: float
-            actor_id: str
-            motion: str
-            language: str
-            speech: str
-            emotion: str
-            age: int
-            minRange: float
-            maxRange: float
-        end
-    end
-end
+// Communication TextComms
+//     endpoints
+//         publisher
+//             topic: 'actor.text.barcode'
+//             msg: TextMessage
+//         end
+//         
+//         publisher
+//             topic: 'actor.text.qrcode'
+//             msg: TextMessage
+//         end
+// 
+//         publisher
+//             topic: 'actor.text.rfidtag'
+//             msg: TextMessage
+//         end
+// 
+//         publisher
+//             topic: 'actor.text.plaintext'
+//             msg: TextMessage
+//         end
+//     end
+// 
+//     messages
+//         TopicMsg TextMessage
+//             pubFreq: float
+//             actor_id: str
+//             type: str
+//             message: str
+//         end
+//     end
+// end
+// 
+// Communication SoundSourceComms
+//     endpoints
+//         publisher
+//             topic: 'actor.soundsource'
+//             msg: SoundSourceMessage
+//         end
+//     end
+// 
+//     messages
+//         TopicMsg SoundSourceMessage
+//             pubFreq: float
+//             actor_id: str
+//             type: str
+//             language: str
+//             speech: str
+//             emotion: str
+//             minRange: float
+//             maxRange: float
+//         end
+//     end
+// end
+// 
+// Communication ColorComms
+//     endpoints
+//         publisher
+//             topic: 'actor.color'
+//             msg: ColorMessage
+//         end
+//     end
+// 
+//     messages
+//         TopicMsg ColorMessage
+//             pubFreq: float
+//             actor_id: str
+//             r: int
+//             g: int
+//             b: int
+//         end
+//     end
+// end
+// 
+// Communication HumanComms
+//     endpoints
+//         publisher
+//             topic: 'actor.human'
+//             msg: HumanMessage
+//         end
+//     end
+// 
+//     messages
+//         TopicMsg HumanMessage
+//             pubFreq: float
+//             actor_id: str
+//             motion: str
+//             language: str
+//             speech: str
+//             emotion: str
+//             age: int
+//             minRange: float
+//             maxRange: float
+//         end
+//     end
+// end

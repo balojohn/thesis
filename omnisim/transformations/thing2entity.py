@@ -4,15 +4,15 @@ import jinja2
 # from omnisim.lang import build_model
 # from omnisim.lang import get_entity_mm
 
-from ..utils import TEMPLATES_PATH
+from ..utils.utils import TEMPLATES_PATH
 
 SENSOR_CLASSES = [
         'rangefinder', 'reader', 'alarm', 'microphone', 'light', 'imu', 'lidar'
     ]
 
 ACTUATOR_CLASSES = [
-    'pantilt', 'envdevice', 'relay', 'singlebutton', 'buttonarray',
-    'led', 'singleled', 'ledarray', 'speaker'
+    'pantilt', 'envdevice', 'relay', 'button', 'buttonarray',
+    'led', 'ledarray', 'speaker'
 ]
 
 ACTOR_CLASSES = [
@@ -38,32 +38,33 @@ def log_thing_info(model):
 
     print(f'[*] Model: {model.name} ({model.__class__.__name__})')
 
-    # Composite THING: has sensors and/or actuators
-    if hasattr(model, 'sensors') or hasattr(model, 'actuators'):
-        if hasattr(model, 'sensors'):
-            print(f'[*] Installed sensors:')
-            for posed_sensor in model.sensors:
-                sensor = posed_sensor.ref
-                print(f'    - {sensor.name}: ({sensor.__class__.__name__})')
-                components.append((sensor, getattr(posed_sensor, 'name', sensor.name)))
+    # Sensors
+    if hasattr(model, 'sensors'):
+        print(f'[*] Installed sensors:')
+        for posed_sensor in model.sensors:
+            sensor = posed_sensor.ref
+            print(f'    - {sensor.name}: ({sensor.__class__.__name__})')
+            components.append((sensor, getattr(posed_sensor, 'name', sensor.name)))
 
-        if hasattr(model, 'actuators'):
-            print(f'[*] Installed actuators:')
-            for posed_actuator in model.actuators:
-                actuator = posed_actuator.ref
-                print(f'    - {actuator.name}: ({actuator.__class__.__name__})')
-                components.append((actuator, getattr(posed_actuator, 'name', actuator.name)))
+    # Actuators
+    if hasattr(model, 'actuators'):
+        print(f'[*] Installed actuators:')
+        for posed_actuator in model.actuators:
+            actuator = posed_actuator.ref
+            print(f'    - {actuator.name}: ({actuator.__class__.__name__})')
+            components.append((actuator, getattr(posed_actuator, 'name', actuator.name)))
 
-    # Composite ACTOR: has nested actors only
-    elif hasattr(model, 'actors'):
-        print(f'[*] Installed actors:')
-        for posed_actor in model.actors:
-            actor = posed_actor.ref
-            print(f'    - {actor.name}: ({actor.__class__.__name__})')
-            components.append((actor, getattr(posed_actor, 'name', actor.name)))
+    # Nested Composites
+    if hasattr(model, 'composites'):
+        print(f'[*] Nested composites:')
+        for posed_cthing in model.composites:
+            cthing = posed_cthing.ref
+            print(f'    - {cthing.name}: ({cthing.__class__.__name__})')
+            # recurse to dive into its children
+            components.extend(log_thing_info(cthing))
 
-    # Atomic
-    else:
+    # Atomic fallback
+    if not (hasattr(model, 'sensors') or hasattr(model, 'actuators') or hasattr(model, 'composites')):
         print(f'[*] Atomic: {model.name} ({model.__class__.__name__})')
         components.append((model, model.name))
 

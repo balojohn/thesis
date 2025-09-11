@@ -1,0 +1,7 @@
+CThing Arm
+    shape: Rectangle(3, 1)
+    actuators:
+        - Button @ Transform(1, 0, 0)
+    sensors:
+        - Sonar @ Transform(2, 0, 0)
+end
