@@ -1,9 +1,0 @@
-
-
-Entity Button
-    type: actuator
-    topic: actuator.singlebutton.button
-    pubFreq: 1.0
-    attributes:
-        - state: int = 1
-end
