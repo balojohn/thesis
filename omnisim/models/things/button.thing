@@ -1,7 +1,7 @@
 Button Button
     class: Actuator
     type: SingleButton
-    dataModel: ButtonData
+    // dataModel: ButtonData
     shape: Rectangle(1,1)
     pubFreq: 1.0
     state: 1

@@ -1,11 +1,9 @@
-import '../datatypes/sensors.dtype' as RangeData;
-
 RangeFinder Sonar
     class: Sensor
     type: Sonar
-    dataModel: RangeData
     shape: Rectangle(2, 2)
     pubFreq: 1
+    distance: 0
     hfov: 60.0
     vfov: 37.9
     minRange: 10.0

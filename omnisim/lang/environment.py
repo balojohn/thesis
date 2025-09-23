@@ -19,12 +19,15 @@ def get_env_mm(debug=False):
     mm.register_scope_providers(
         {
             "ObstaclePlacement.ref": scoping_providers.FQNGlobalRepo(
-                join(MODEL_REPO_PATH, 'environment', '*.env')
+                join(MODEL_REPO_PATH, 'environments', '*.env')
             ),
             "ActorPlacement.ref": scoping_providers.FQNGlobalRepo(
                 join(MODEL_REPO_PATH, 'actors', '*.actor')
             ),
             "ThingPlacement.ref": scoping_providers.FQNGlobalRepo(
+                join(MODEL_REPO_PATH, 'things', '*.thing')
+            ),
+            "CompositePlacement.ref": scoping_providers.FQNGlobalRepo(
                 join(MODEL_REPO_PATH, 'things', '*.thing')
             ),
         }

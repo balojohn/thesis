@@ -3,26 +3,34 @@ Communication {{ thing.name }}Comms
         {# Case 1: composite with sensors #}
         {% if thing.sensors is defined %}
             {% for sensor in thing.sensors %}
+                {% set subclass = sensor.ref.__class__.__name__|lower %}
+                {% set typ = sensor.ref.type|lower if sensor.ref.type else "" %}
         publisher
-            topic: 'sensor.{{ sensor.ref.__class__.__name__|lower }}.{{ sensor.ref.type|lower }}'
-            msg: {{ sensor.ref.dataModel.name }}Message
+            topic: 'sensor.{{ subclass }}{{ "." ~ typ if typ else "" }}'
+            msg: {{ sensor.ref.name }}Message
         end
             {% endfor %}
         {% endif %}
+
         {# Case 2: composite with actuators #}
         {% if thing.actuators is defined %}
             {% for actuator in thing.actuators %}
+                {% set subclass = actuator.ref.__class__.__name__|lower %}
+                {% set typ = actuator.ref.type|lower if actuator.ref.type else "" %}
         publisher
-            topic: 'actuator.{{ actuator.ref.__class__.__name__|lower }}.{{ actuator.ref.type|lower }}'
-            msg: {{ actuator.ref.dataModel.name }}Message
+            topic: 'actuator.{{ subclass }}{{ "." ~ typ if typ else "" }}'
+            msg: {{ actuator.ref.name }}Message
         end
             {% endfor %}
         {% endif %}
         {# Case 3: atomic thing directly a sensor/actuator #}
-        {% if thing.dataModel is defined %}
+        {% if (not thing.sensors or thing.sensors|length == 0)
+            and (not thing.actuators or thing.actuators|length == 0) %}
+            {% set subclass = thing.__class__.__name__|lower %}
+            {% set typ = thing.type|lower if thing.type else "" %}
         publisher
-            topic: '{{ thing.class|lower }}.{{ thing.__class__.__name__|lower }}.{{ thing.type|lower }}'
-            msg: {{ thing.dataModel.name }}Message
+            topic: '{{ thing.class|lower }}.{{ subclass }}{{ "." ~ typ if typ else "" }}'
+            msg: {{ thing.name }}Message
         end
         {% endif %}
     end
@@ -30,36 +38,45 @@ Communication {{ thing.name }}Comms
     messages
         {% if thing.sensors is defined %}
             {% for sensor in thing.sensors %}
-        TopicMsg {{ sensor.ref.dataModel.name }}Message
+        TopicMsg {{ sensor.ref.name }}Message
             pubFreq: float
             type: str
             {{ thing.class|lower }}_id: str
-            {% for p in sensor.ref.dataModel.properties %}
+            {% if dtype %}
+                {% for p in dtype.properties %}
             {{ p.name }}: {{ p.type }}
-            {% endfor %}
+                {% endfor %}
+            {% endif %}
         end
             {% endfor %}
         {% endif %}
-        {% if thing.actuators is defined %}
+        
+        {% if thing.actuators and thing.actuators|length > 0 %}
             {% for actuator in thing.actuators %}
-        TopicMsg {{ actuator.ref.dataModel.name }}Message
+        TopicMsg {{ actuator.ref.name }}Message
             pubFreq: float
             type: str
             {{ thing.class|lower }}_id: str
-            {% for p in actuator.ref.dataModel.properties %}
+            {% if dtype %}
+                {% for p in dtype.properties %}
             {{ p.name }}: {{ p.type }}
-            {% endfor %}
+                {% endfor %}
+            {% endif %}
         end
             {% endfor %}
         {% endif %}
-        {% if thing.dataModel is defined %}
-        TopicMsg {{ thing.dataModel.name }}Message
+        
+        {% if (not thing.sensors or thing.sensors|length == 0) 
+              and (not thing.actuators or thing.actuators|length == 0) %}
+        TopicMsg {{ thing.name }}Message
             pubFreq: float
             type: str
             {{ thing.class|lower }}_id: str
-            {% for p in thing.dataModel.properties %}
+            {% if dtype %}
+                {% for p in dtype.properties %}
             {{ p.name }}: {{ p.type }}
-            {% endfor %}
+                {% endfor %}
+            {% endif %}
         end
         {% endif %}
     end

@@ -1,6 +1,6 @@
 SoundSource SoundSource
     class: Actor
-    dataModel: SoundSourceData
+    // dataModel: SoundSourceData
     shape: Rectangle(5, 2)
     pubFreq: 1.0
     language: "Something"

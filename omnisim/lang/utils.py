@@ -1,5 +1,5 @@
 from os.path import join, basename
-from ..utils.utils import MODEL_REPO_PATH
+from ..utils.utils import MODEL_REPO_PATH, GENFILES_REPO_PATH
 
 from ..lang import (
     get_actor_mm,
@@ -18,7 +18,7 @@ def preload_models(mm, pattern):
 
 def preload_dtype_models():
     mm = get_datatype_mm()
-    preload_models(mm, join(MODEL_REPO_PATH, 'datatypes', '*.dtype'))
+    preload_models(mm, join(GENFILES_REPO_PATH, 'datatypes', '*.dtype'))
     return mm
 
 def preload_thing_models():
@@ -33,12 +33,8 @@ def preload_actor_models():
 
 def build_model(model_fpath):
     model_filename = basename(model_fpath)
-    # preload datatypes and things so comm references can resolve
-    preload_dtype_models()
-    preload_thing_models()
-    preload_actor_models()
-    
     if model_filename.endswith('.comm'):
+        # preload_dtype_models()
         mm = get_communication_mm()
     
     elif model_filename.endswith('.dtype'):
@@ -48,23 +44,19 @@ def build_model(model_fpath):
         mm = get_entity_mm()
     
     elif model_filename.endswith('.env'):
-        # STEP 1: Preload all dependencies so they’re in SHARED_GLOBAL_REPO
+        # preload datatypes and things so comm references can resolve
         preload_dtype_models()
-        preload_actor_models()
-        preload_thing_models()  # ensure things are known first
-        
-        # STEP 2: Now that all are registered, build env metamodel
+        preload_thing_models()
+        preload_actor_models()    
         mm = get_env_mm()
-
-        # STEP 3: Then preload env models
         preload_models(mm, join(MODEL_REPO_PATH, 'environment', '*.env'))
     
     elif model_filename.endswith('.actor'):
-        preload_dtype_models()
+        # preload_dtype_models()
         mm = get_actor_mm()
     
     elif model_filename.endswith('.thing'):
-        preload_dtype_models()  # this internally preloads datatypes
+        # preload_dtype_models()
         mm = get_thing_mm()
     
     else:

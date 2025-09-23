@@ -1,6 +1,6 @@
 Microphone Microphone
     class: Sensor
-    dataModel: MicrophoneData
+    // dataModel: MicrophoneData
     shape: Circle(1)
     pubFreq: 1
     mode: ""

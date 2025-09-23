@@ -1,8 +1,12 @@
 import jinja2
-
-from ..utils.utils import TEMPLATES_PATH
-from ..lang import build_model
-
+import os
+from ..utils.utils import TEMPLATES_PATH, GENFILES_REPO_PATH
+from ..lang import (
+    build_model,
+    preload_models,
+    preload_dtype_models,
+    get_datatype_mm
+)
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(TEMPLATES_PATH),
     extensions=['jinja2.ext.do'],
@@ -12,10 +16,11 @@ jinja_env = jinja2.Environment(
 
 comms_tpl = jinja_env.get_template('t2c.jinja')
 
-def build_comms_model(obj) -> str:
+def build_comms_model(obj, dtype=None) -> str:
     context = {
         'thing': obj if obj.__class__.__name__.lower() != "thing" else None,
         'actor': obj if obj.__class__.__name__.lower() == "actor" else None,
+        "dtype": dtype,
     }
     modelf = comms_tpl.render(context)
     return modelf
@@ -59,5 +64,23 @@ def log_node_info(model):
 
 def node_to_comms_m2m(thing) -> str:
     log_node_info(thing)
-    cmodel_str = build_comms_model(thing)
+    # Load dtype if it exists
+    dtype = None
+    try:
+        dtype_filename = f"{thing.name.lower()}.dtype"
+        dtype_path = os.path.join(GENFILES_REPO_PATH, "datatypes", dtype_filename)
+
+        if os.path.exists(dtype_path):
+            dtypes_mm = get_datatype_mm()
+            dtype_model = dtypes_mm.model_from_file(dtype_path)
+            # each .dtype file has at least one DataType
+            dtype = dtype_model.types[0]
+            print(f"[*] Using dtype model: {dtype_path}")
+        else:
+            print(f"[!] No dtype file found for {thing.name}, skipping extra properties")
+    except Exception as e:
+        print(f"[X] Failed to load dtype for {thing.name}: {e}")
+
+    # Render comms
+    cmodel_str = build_comms_model(thing, dtype)
     return cmodel_str

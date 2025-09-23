@@ -1,28 +1,34 @@
-{# thing2datatype.jinja #}
-{% if thing.dataModel is defined %}
-DataType {{ thing.dataModel.name }}
-    {% for p in thing.dataModel.properties %}
-    {{ p.name }}: {{ p.type }}
-    {% endfor %}
+{# t2d.jinja #}
+{%- set excluded = [
+    "class", "type", "shape", "pubFreq", "noise",
+    "_tx_position", "_tx_position_end", "_tx_model",
+    "parent", "name", "dataModel"
+] -%}
+{# === Atomic Thing (Sensor/Actuator) === #}
+{% if thing and not (thing.sensors is defined or thing.actuators is defined) %}
+DataType {{ thing.dataModel if thing.dataModel else thing.name ~ "Data" }}
+{% for attr, val in thing.__dict__.items() if attr not in excluded %}
+    {{ attr }}: {{ "float" if val is number else "str" }}
+{% endfor %}
 end
-{% elif thing.sensors is defined %}
-    {# Composite thing with nested sensors #}
-    {% for sensor in thing.sensors | map(attribute="ref.dataModel") | unique %}
-DataType {{ sensor.name }}
-    {% for p in sensor.properties %}
-    {{ p.name }}: {{ p.type }}
-    {% endfor %}
+{% endif %}
+{# === Composite Thing with nested sensors === #}
+{% if thing and thing.sensors is defined %}
+{% for sensor in thing.sensors | map(attribute="ref") | unique %}
+DataType {{ sensor.dataModel if sensor.dataModel else sensor.name ~ "Data" }}
+{% for attr, val in sensor.__dict__.items() if attr not in excluded %}
+    {{ attr }}: {{ "float" if val is number else "str" }}
+{% endfor %}
 end
-
-    {% endfor %}
-{% elif thing.actuators is defined %}
-    {# Composite thing with nested actuators #}
-    {% for actuator in thing.actuators | map(attribute="ref.dataModel") | unique %}
-DataType {{ actuator.name }}
-    {% for p in actuator.properties %}
-    {{ p.name }}: {{ p.type }}
-    {% endfor %}
+{% endfor %}
+{% endif %}
+{# === Composite Thing with nested actuators === #}
+{% if thing and thing.actuators is defined %}
+{% for actuator in thing.actuators | map(attribute="ref") | unique %}
+DataType {{ actuator.dataModel if actuator.dataModel else actuator.name ~ "Data" }}
+{% for attr, val in actuator.__dict__.items() if attr not in excluded %}
+    {{ attr }}: {{ "float" if val is number else "str" }}
+{% endfor %}
 end
-
-    {% endfor %}
+{% endfor %}
 {% endif %}

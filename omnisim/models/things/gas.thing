@@ -1,7 +1,7 @@
 EnvSensor Gas
     class: Sensor
     type: Gas
-    dataModel: EnvSensorData
+    // dataModel: EnvSensorData
     shape: Rectangle(5, 2)
     pubFreq: 1
 end

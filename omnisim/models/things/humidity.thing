@@ -1,7 +1,7 @@
 EnvSensor Humidity
     class: Sensor
     type: Humidity
-    dataModel: EnvSensorData
+    // dataModel: EnvSensorData
     shape: Rectangle(5, 2)
     pubFreq: 1
 end

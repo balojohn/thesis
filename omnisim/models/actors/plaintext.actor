@@ -1,7 +1,7 @@
 Text PlainText
     class: Actor
     type: PlainText
-    dataModel: TextData
+    // dataModel: TextData
     shape: Rectangle(5, 2)
     pubFreq: 1.0
     message: "Something"

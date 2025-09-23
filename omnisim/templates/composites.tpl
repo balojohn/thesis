@@ -33,6 +33,7 @@ class {{ composite.name }}Node(Node):
 
         # --- Children ---
         self.children = {}
+        self.running = True
 
         {% for posed_sensor in composite.sensors %}
         {% set tf = posed_sensor.transformation.transformation if posed_sensor.transformation else None %}
@@ -75,24 +76,33 @@ class {{ composite.name }}Node(Node):
         self.theta = (self.theta + self.omega * dt) % 360.0
 
     def start(self):
-        # Launch commlib’s loop in the background
+        # Launch commlib's loop in the background
         threading.Thread(target=self.run, daemon=True).start()
         time.sleep(0.5)
 
         print(f"[Composite] Running {{ composite.name }} with id={self.composite_id}")
-        try:
-            # Start child nodes
-            for name, node in self.children.items():
-                print(f"  -> starting child {name}")
-                threading.Thread(target=node.start, daemon=True).start()
+        # Start child nodes
+        for name, node in self.children.items():
+            print(f"  -> starting child {name}")
+            node.running = True
+            threading.Thread(target=node.start, daemon=True).start()
 
-            # Main loop: update composite pose
-            while True:
-                self._integrate_motion()
-                time.sleep(1.0)
-        except KeyboardInterrupt:
-            print(f"\n[Composite] {{ composite.name }} stopped by user.")
-            self.stop()
+        # Main loop: update composite pose
+        while self.running:
+            self._integrate_motion()
+            time.sleep(1.0)
+    
+    def stop(self):
+        print(f"[Composite] Stopping MyRobot and children...")
+        self.running = False
+        for node in self.children.values():
+            node.running = False  # stop loop first
+        time.sleep(0.2)  # small grace
+        for node in self.children.values():
+            try:
+                node.stop()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

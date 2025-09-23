@@ -13,9 +13,10 @@ jinja_env = jinja2.Environment(
 dtypes_tpl = jinja_env.get_template('t2d.jinja')
 
 def build_dtypes_model(obj) -> str:
+    cls = obj.__class__.__name__.lower()
     context = {
-        'thing': obj if obj.__class__.__name__.lower() != "thing" else None,
-        'actor': obj if obj.__class__.__name__.lower() == "actor" else None,
+        'thing': obj if cls != "actor" else None,
+        'actor': obj if cls == "actor" else None,
     }
     modelf = dtypes_tpl.render(context)
     return modelf

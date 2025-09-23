@@ -1,7 +1,7 @@
 Alarm AreaAlarm
     class: Sensor
     type: AreaAlarm
-    dataModel: AlarmData
+    // dataModel: AlarmData
     shape: Circle(1)
     pubFreq: 1
     triggered: 0

@@ -1,6 +1,6 @@
 Speaker Speaker
     class: Actuator
-    dataModel: SpeakerData
+    // dataModel: SpeakerData
     shape: Circle(1)
     pubFreq: 1.0
     soundlevelDB: 50.0

@@ -9,8 +9,12 @@ from commlib.msg import PubSubMessage
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
+from ...utils.geometry import PoseMessage
 
 {% set obj = thing|default(actor)|default(environment) %}
+{# Find the matching datatype for this object #}
+{% set dtype_name = obj.name + "Data" %}
+{% set data_type = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
 {%- set class_prefix = obj.class.lower() %}
 {%- set subclass = obj.__class__.__name__.lower() %}
 {% if obj.type is defined %}
@@ -48,9 +52,11 @@ from commlib.utils import Rate
         {% set _ = prop_values.update({p.name: p.value}) %}
     {% endfor %}
 {% else %}
-    {% for prop in dataModel.properties %}
+    {% for prop in data_type.properties %}
         {% if obj[prop.name] is defined %}
             {% set _ = prop_values.update({prop.name: obj[prop.name]}) %}
+        {% else %}
+            {% set _ = prop_values.update({prop.name: None}) %}
         {% endif %}
     {% endfor %}
 {% endif -%}
@@ -71,9 +77,10 @@ def redis_start():
         sys.exit(1)
 
 class PoseMessage(PubSubMessage):
-    # Matches your geometry.dtype Pose { position{ x,y,z }, orientation{ roll,pitch,yaw } }
-    position: dict   # {'x': float, 'y': float, 'z': float}
-    orientation: dict  # {'roll': float, 'pitch': float, 'yaw': float}
+    """2D pose message."""
+    x: float      # x position in meters
+    y: float      # y position in meters
+    theta: float  # orientation in degrees (yaw)
 
 {% for comm in comms.communications %}
     {% for endpoint in comm.endpoints %}
@@ -84,33 +91,25 @@ class {{ msg.name }}(PubSubMessage):
     {% for prop in msg.properties | unique(attribute='name') %}
     {{ prop.name }}: {{ pytype(prop.type.name) }}
     {% endfor %}
-            {% else %}
-# [WARN] No message found for topic '{{ topic_base }}'
             {% endif %}
         {% endif %}
     {% endfor %}
 {% endfor %}
 
 SIMULATED_PROPS = {
-{#
-    {% if obj.__class__.__name__ == "EnvActor" %}
-        {% for prop in dataModel.properties if prop.type.name != "str" %}
+    {% for comm in comms.communications %}
+    {% for e in comm.endpoints if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
+    {% for prop in e.msg.properties %}
     "{{ prop.name }}",
-        {% endfor %}
-    {% elif obj.name == "Sonar" %}
-        {% for prop in dataModel.properties %}
-    "{{ prop.name }}",
-        {% endfor %}
-    {% endif %}
-#}
-    {% for prop in dataModel.properties %}
-    "{{ prop.name }}",
+    {% endfor %}
+    {% endfor %}
     {% endfor %}
 }
 
 class {{ obj.name }}Node(Node):
     def __init__(self, {{ id_field }}: str = "", initial_pose: dict | None = None, *args, **kwargs):
         self.pub_freq = {{ obj.pubFreq }}
+        self.running = True
         {% if obj.dispersion %}
         self.dispersion_type = "{{ obj.dispersion.__class__.__name__ }}"
         self.dispersion_params = {
@@ -120,26 +119,32 @@ class {{ obj.name }}Node(Node):
             {% endfor %}
         }
         {% endif %}
+
         self.{{ id_field }} = {{ id_field }}
-        {% for prop in dataModel.properties %}
+        
+        {% for prop in data_type.properties %}
         {% set val = prop_values.get(prop.name) %}
         {% if prop.type.name == "str" %}
         self.{{ prop.name }} = {{ '"' ~ (val | string | replace('"', '\\"')) ~ '"' if val is not none else '""' }}
+        {% elif prop.type.name == "int" %}
+        self.{{ prop.name }} = {{ val if val is not none else 0 }}
         {% else %}
         self.{{ prop.name }} = {{ val if val is not none else 0.0 }}
         {% endif %}
         {% endfor %}
         
-        # runtime pose (2D convenience); z/roll/pitch kept 0 for now
+        # pose (2D convenience); z/roll/pitch kept 0 for now
         self.x = (initial_pose or {}).get('x', 0.0)
         self.y = (initial_pose or {}).get('y', 0.0)
         self.theta = (initial_pose or {}).get('theta', 0.0)  # degrees
         
+        {% if obj.__class__.__name__ == "Robot" %}
         # --- simple motion (so pose changes) ---
         self._last_t = time.monotonic()
-        self.vx = 0.10    # m/s along +x (adjust or set to 0.0 if you want static)
+        self.vx = 0.10    # m/s along +x
         self.vy = 0.10    # m/s along +y
         self.omega = 10.0 # deg/s yaw
+        {% endif %}
         
         super().__init__(
             node_name="{{ obj.name.lower() }}",
@@ -163,20 +168,20 @@ class {{ obj.name }}Node(Node):
         {% endfor %}
         {% endfor %}
         {% endif %}
-    
+    {% if obj.__class__.__name__ == "Robot" %}
     def _integrate_motion(self):
         """Very small kinematic integrator so pose updates each tick."""
         now = time.monotonic()
         dt = now - self._last_t
         self._last_t = now
 
-        self.x += self.vx * dt
-        self.y += self.vy * dt
-        self.theta += self.omega * dt
+        self.x += round(self.vx * dt, 2)
+        self.y += round(self.vy * dt, 2)
+        self.theta += round(self.omega * dt, 2)
         # keep theta in [0, 360)
         if self.theta >= 360.0 or self.theta <= -360.0:
-            self.theta = self.theta % 360.0
-
+            self.theta %= 360.0
+    {% endif %}
     def simulate_{{ obj.name.lower() }}(self, name: str):
         """
         Simulate dynamic behavior for '{{ obj.name }}' actor.
@@ -184,13 +189,10 @@ class {{ obj.name }}Node(Node):
         t = time.time()
 
         {% if obj.name == "Sonar" %}
-        # Simulate range oscillation (Sonar)
         amplitude = (self.maxRange - self.minRange) / 2
         center = (self.maxRange + self.minRange) / 2
-        wave = amplitude * math.sin(t)
-        base = center + wave
-        return max(self.minRange, min(self.maxRange, base))
-
+        return max(self.minRange, min(self.maxRange, center + amplitude * math.sin(t)))
+        {#
         {% elif obj.name == "Fire" %}
         # Simulate fire behavior (temperature, luminosity, co2)
         if not hasattr(self, "_sim_state"):
@@ -199,7 +201,7 @@ class {{ obj.name }}Node(Node):
                 "luminosity": self.luminosity,
                 "co2": self.co2,
             }
-
+        
         if name == "temperature":
             delta = random.uniform(5, 20)
             self._sim_state["temperature"] = min(1000.0, self._sim_state["temperature"] + delta)
@@ -216,6 +218,7 @@ class {{ obj.name }}Node(Node):
             delta = random.uniform(50, 200)
             self._sim_state["co2"] = min(10000.0, self._sim_state["co2"] + delta)
             return self._sim_state["co2"]
+        #}
 
         {% else %}
         # Default fallback
@@ -260,32 +263,39 @@ class {{ obj.name }}Node(Node):
         threading.Thread(target=self.run, daemon=True).start()
         time.sleep(0.5)  # Give commlib time to initialize the transport
         print(f"[{self.__class__.__name__}] Running with id={self.{{ id_field }}}")
+        
         rate = Rate(self.pub_freq)
-        while True:
+        while self.running:
             {% if obj.class == "Sensor" %}
+            {% if obj.__class__.__name__ == "Robot" %}
             # --- update pose then publish pose ---
             self._integrate_motion()
+            {% endif %}
             msg_pose = PoseMessage(
-                position={'x': self.x, 'y': self.y, 'z': 0.0},
-                orientation={'roll': 0.0, 'pitch': 0.0, 'yaw': self.theta}
+                x=self.x,
+                y=self.y,
+                theta=self.theta
             )
-            print(f"[{{ obj.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose: {msg_pose.model_dump()}")
+            print(f"\n[{{ obj.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose: {msg_pose.model_dump()}")
             self.pose_publisher.publish(msg_pose)
+
             {% for comm in comms.communications %}
             {% for e in comm.endpoints %}
             {% if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
             msg_data = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
                 {{ id_field }}=self.{{ id_field }},
-                type="{{ obj.dataModel.name }}",
-                {% for prop in dataModel.properties %}
-                {% if pytype(prop.type.name) == "int" %}
+                type="{{ dtype_name }}",
+                {% for prop in data_type.properties %}
+                    {% if pytype(prop.type.name) == "int" %}
                 {{ prop.name }}=int(self.get_property_value("{{ prop.name }}")),
-                {% elif pytype(prop.type.name) == "float" %}
+                    {% elif pytype(prop.type.name) == "float" %}
                 {{ prop.name }}=float(self.get_property_value("{{ prop.name }}")),
-                {% elif pytype(prop.type.name) == "str" %}
+                    {% elif pytype(prop.type.name) == "str" %}
                 {{ prop.name }}=str(self.get_property_value("{{ prop.name }}")),
-                {% endif %}
+                    {% elif pytype(prop.type.name) == "bool" %}
+                {{ prop.name }}=bool(self.get_property_value("{{ prop.name }}")),
+                    {% endif %}
                 {% endfor %}
             )
             print(f"[{{ obj.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}: {msg_data.model_dump()}")
@@ -295,20 +305,29 @@ class {{ obj.name }}Node(Node):
             {% endfor %}
             {% endif %}
             rate.sleep()
+    
+    def stop(self):
+        print(f"[{self.__class__.__name__}] stopping...")
+        self.running = False
+        try:
+            super().stop()
+        except Exception as e:
+            print(f"[{self.__class__.__name__}] commlib stop error ignored: {e}")
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.{{ obj.name.lower() }} name
 if __name__ == '__main__':
     redis_start()
     try:
-        try:
-            r = redis.Redis(host='localhost', port=6379)
-            r.ping()
-            print("[Redis] Connected successfully.")
-        except redis.exceptions.ConnectionError:
-            print("[Redis] Not running. Start Redis server first.")
-            exit(1)
-        {{ id_field }} = sys.argv[1] if len(sys.argv) > 1 else "{{ obj.name.lower() }}_1"
-        node = {{ obj.name }}Node({{ id_field }}={{ id_field }})
+        r = redis.Redis(host='localhost', port=6379)
+        r.ping()
+        print("[Redis] Connected successfully.")
+    except redis.exceptions.ConnectionError:
+        print("[Redis] Not running. Start Redis server first.")
+        exit(1)
+    
+    {{ id_field }} = sys.argv[1] if len(sys.argv) > 1 else "{{ obj.name.lower() }}_1"
+    node = {{ obj.name }}Node({{ id_field }}={{ id_field }})
+    try:
         node.start()
     except KeyboardInterrupt:
         print(f"\n[{{ obj.name }}] Stopped by user.")

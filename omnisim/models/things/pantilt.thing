@@ -1,6 +1,6 @@
 PanTilt PanTilt
     class: Actuator
-    dataModel: PanTiltData
+    // dataModel: PanTiltData
     joints:
         - Transform(0, 0, 0)
         - Transform(0, 0, 45)

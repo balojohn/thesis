@@ -1,7 +1,7 @@
 Text QRcode
     class: Actor
     type: QRcode
-    dataModel: TextData
+    // dataModel: TextData
     shape: Rectangle(5, 2)
     pubFreq: 1.0
     message: "Something"

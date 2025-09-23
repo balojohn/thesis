@@ -1,7 +1,7 @@
 EnvActor Fire
     class: Actor
     type: Fire
-    dataModel: FireData
+    // dataModel: FireData
     shape: Rectangle(5, 2)
     pubFreq: 1.0
     min_value: 100

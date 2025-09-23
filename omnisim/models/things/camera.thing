@@ -1,7 +1,7 @@
 Reader Camera
     class: Sensor
     type: Camera
-    dataModel: ReaderData
+    // dataModel: ReaderData
     shape: Rectangle(2, 2)
     pubFreq: 1
     resHeight: 360

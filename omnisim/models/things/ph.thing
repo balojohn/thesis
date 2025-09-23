@@ -1,7 +1,7 @@
 EnvSensor PH
     class: Sensor
     type: PH
-    dataModel: EnvSensorData
+    // dataModel: EnvSensorData
     shape: Rectangle(5, 2)
     pubFreq: 1
 end

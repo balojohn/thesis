@@ -1,6 +1,6 @@
 Human Human
     class: Actor
-    dataModel: HumanData
+    // dataModel: HumanData
     shape: Square(1)
     pubFreq: 1.0
     motion: ""

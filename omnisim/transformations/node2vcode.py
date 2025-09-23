@@ -12,7 +12,7 @@ jinja_env = jinja2.Environment(
 # ---------- Things / Actors ----------
 node_tpl = jinja_env.get_template('node.tpl')
 def build_node(obj, comms, dtypes) -> str:
-    data_model_name = obj.dataModel.name  # e.g., "RangeData"
+    data_model_name = f"{obj.name}Data"
     data_model = next((t for t in dtypes.types if t.name == data_model_name), None)
     if data_model is None:
         raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")
@@ -21,7 +21,6 @@ def build_node(obj, comms, dtypes) -> str:
         'actor': obj if obj.__class__.__name__.lower() == "actor" else None,
         'comms': comms,
         'dtype': dtypes,
-        'dataModel': data_model,
     }
     modelf = node_tpl.render(context)
     return modelf
@@ -59,11 +58,23 @@ def build_envnode(env, comms, dtypes) -> str:
         placements.extend(env.things)
     if getattr(env, "actors", None):
         placements.extend(env.actors)
+    
+    mount_offsets = {}
+    for p in placements:
+        if hasattr(p, "transformation") and p.transformation is not None:
+            mount_offsets[p.ref.name] = {
+                "dx": p.transformation.x,
+                "dy": p.transformation.y,
+                "dtheta": p.transformation.theta,
+            }
+        else:
+            mount_offsets[p.ref.name] = {"dx": 0.0, "dy": 0.0, "dtheta": 0.0}
     context = {
         "environment": env,
         "comms": comms,
         "dtype": dtypes,
-        "placements": placements
+        "placements": placements,
+        "mount_offsets": mount_offsets
     }
     envf = envnode_tpl.render(context)
     return envf

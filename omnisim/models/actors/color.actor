@@ -1,6 +1,6 @@
 Color Color
     class: Actor
-    dataModel: ColorData
+    // dataModel: ColorData
     shape: Circle(1)
     pubFreq: 1.0
     r: 0

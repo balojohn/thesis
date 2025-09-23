@@ -45,7 +45,7 @@ EnvActor:
             ('type:' type=[EnvActorType])?
             // ('properties:' '-' EnvProperties+=EnvironmentalPropertyType['-'])?
             // ('dispersion:' dispersion=DispersionType)?
-            ('dataModel:' dataModel=[DataType:FQN])
+            ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('min_value:' min_value=FLOAT)?
@@ -73,7 +73,7 @@ SoundSource:
     'SoundSource' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])
+            ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
@@ -90,7 +90,7 @@ Color:
     'Color' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])
+            ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
@@ -105,7 +105,7 @@ Text:
     'Text' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])
+            ('dataModel:' dataModel=[DataType:FQN])?
             ('type:' type=[TextType])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
@@ -126,7 +126,7 @@ Human:
     'Human' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])
+            ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?

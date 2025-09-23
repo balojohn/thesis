@@ -1,8 +1,4 @@
-// CompositeThing: Robot
-import '../datatypes/sensors.dtype' as RangeData;
-import '../datatypes/actuators.dtype' as ButtonData;
-
-CThing MyRobot
+CThing Robot
     shape: Rectangle(10, 8)
     sensors:
         - Sonar @ Transform(2, 1, 0)

@@ -2,7 +2,7 @@ EnvDevice Thermostat
     class: Actuator
     type: Thermostat
     dispersion: Quadratic(a: 1, b: 0, c: 0)
-    dataModel: EnvDeviceData
+    // dataModel: EnvDeviceData
     shape: Rectangle(5, 2)
     pubFreq: 1
 end

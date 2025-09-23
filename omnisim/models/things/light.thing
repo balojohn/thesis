@@ -1,6 +1,6 @@
 Light Light
     class: Sensor
-    dataModel: LightData
+    // dataModel: LightData
     shape: Circle(1)
     pubFreq: 1
     luminosity: 60

@@ -1,6 +1,6 @@
 LiDAR LiDAR
     class: Sensor
-    dataModel: LidarData
+    // dataModel: LidarData
     shape: Cylinder(1, 1)
     pubFreq: 1
     minAngle: 0
