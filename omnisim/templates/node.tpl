@@ -110,6 +110,7 @@ class {{ obj.name }}Node(Node):
     def __init__(self, {{ id_field }}: str = "", initial_pose: dict | None = None, *args, **kwargs):
         self.pub_freq = {{ obj.pubFreq }}
         self.running = True
+        self.thread = None
         {% if obj.dispersion %}
         self.dispersion_type = "{{ obj.dispersion.__class__.__name__ }}"
         self.dispersion_params = {
@@ -260,7 +261,8 @@ class {{ obj.name }}Node(Node):
 
     def start(self):
         # Start commlib's internal loop in the background (since run() is blocking)
-        threading.Thread(target=self.run, daemon=True).start()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
         time.sleep(0.5)  # Give commlib time to initialize the transport
         print(f"[{self.__class__.__name__}] Running with id={self.{{ id_field }}}")
         
@@ -311,8 +313,11 @@ class {{ obj.name }}Node(Node):
         self.running = False
         try:
             super().stop()
+            if hasattr(self, "_executor"):
+                self._executor.shutdown(wait=False, cancel_futures=True)
         except Exception as e:
             print(f"[{self.__class__.__name__}] commlib stop error ignored: {e}")
+
 
 # Run it from C:\thesis\ by: python -m omnisim.generated_files.{{ obj.name.lower() }} name
 if __name__ == '__main__':
@@ -323,12 +328,15 @@ if __name__ == '__main__':
         print("[Redis] Connected successfully.")
     except redis.exceptions.ConnectionError:
         print("[Redis] Not running. Start Redis server first.")
-        exit(1)
+        sys.exit(1)
     
     {{ id_field }} = sys.argv[1] if len(sys.argv) > 1 else "{{ obj.name.lower() }}_1"
     node = {{ obj.name }}Node({{ id_field }}={{ id_field }})
+    node.start()
     try:
-        node.start()
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print(f"\n[{{ obj.name }}] Stopped by user.")
         node.stop()
+        sys.exit(0)

@@ -95,19 +95,6 @@ def node_pose_callback(self, category: str, node: dict):
     )
 
 def composite_pose_callback(self, node: dict):
-    """
-    Callback function to handle updates to the pose of a composite thing.
-    This updates the absolute positions and orientations of the composite
-    and all its associated devices (sensors, actuators, nested composites).
-    It also handles pan-tilt units inside composites.
-
-    Args:
-        node (dict): A dictionary containing the composite's pose info:
-            - 'name' (str): The name of the composite.
-            - 'x' (float): The x-coordinate of the composite's position.
-            - 'y' (float): The y-coordinate of the composite's position.
-            - 'theta' (float): The orientation (theta) of the composite.
-    """
     comp_name = node["name"]
 
     # Initialize entry if missing
@@ -120,15 +107,26 @@ def composite_pose_callback(self, node: dict):
             node["theta"] == self.poses["composites"][comp_name]["theta"]):
             return
 
-    # Update composite pose
-    self.poses["composites"][comp_name]["x"] = node["x"]
-    self.poses["composites"][comp_name]["y"] = node["y"]
-    self.poses["composites"][comp_name]["theta"] = node["theta"]
+    # ✅ Update composite itself
+    self.poses["composites"][comp_name].update(
+        {"x": node["x"], "y": node["y"], "theta": node["theta"]}
+    )
+
+    base_pose = self.poses["composites"][comp_name]
+    base_theta = base_pose["theta"]
 
     if comp_name not in self.tree:
-        return # no devices on this composite
+        return  # no devices on this composite
 
+    # Update children
     for d in self.tree[comp_name]:
+        # pan-tilts handled separately
+        if d in self.pantilts:
+            pan_now = self.pantilts[d]["pan"]
+            self.update_pan_tilt({"name": d}, pan_now)
+            continue
+
+        # category detection
         if d in self.poses["sensors"]:
             cat = "sensors"
         elif d in self.poses["actuators"]:
@@ -137,40 +135,16 @@ def composite_pose_callback(self, node: dict):
             cat = "composites"
         else:
             continue
-        # Update absolute position
-        self.poses[cat][d]["x"] = self.poses["composites"][comp_name]["x"]
-        self.poses[cat][d]["y"] = self.poses["composites"][comp_name]["y"]
 
-        # Update orientation if not pan-tilt
-        offset = self.mount_offsets.get(d, {"dtheta": 0.0})
-        if self.poses["composites"][d]["theta"] is not None and d not in self.pantilts:
-            self.poses["composites"][d]["theta"] = (
-                self.poses["composites"][comp_name]["theta"] +
-                offset["dtheta"]
-            )
+        offset = self.mount_offsets.get(d, {"dx": 0.0, "dy": 0.0, "dtheta": 0.0})
+        self.poses[cat][d]["x"] = base_pose["x"] + offset["dx"]
+        self.poses[cat][d]["y"] = base_pose["y"] + offset["dy"]
+        self.poses[cat][d]["theta"] = base_theta + offset["dtheta"]
 
-        # Handle pan-tilts
-        if d in self.pantilts:
-            if d not in self.tree:
-                continue  # no devices on this pan-tilt
-            pt_devices = self.tree[d]
-            for device in pt_devices:
-                self.poses["composites"][device]["x"] = self.poses["composites"][comp_name]["x"]
-                self.poses["composites"][device]["y"] = self.poses["composites"][comp_name]["y"]
-            pan_now = self.pantilts[d]["pan"]
-            self.update_pan_tilt(d, pan_now)
+        self.log.info(f"Updated {cat[:-1]} {d} pose -> {self.poses[cat][d]}")
+
 
 def update_pan_tilt(self, node: dict, pan: float):
-    """
-    Update the pan-tilt mechanism's absolute theta value and notify the UI.
-    This uses the robot's pose as the base and applies the pan-tilt's mounting offset
-    plus the current pan value. Devices mounted on the pan-tilt inherit the updated pose.
-
-    Args:
-        node (dict): A dictionary describing the pan-tilt node:
-            - 'name' (str): The name of the pan-tilt mechanism.
-        pan (float): The pan value to add to the pan-tilt's mount orientation.
-    """
     pt_name = node["name"]
 
     # Find the host robot (the parent of this pan-tilt in self.tree)
@@ -186,13 +160,13 @@ def update_pan_tilt(self, node: dict, pan: float):
     base_pose = self.poses["composites"][robot_name]
 
     # Pan-tilt absolute orientation = robot theta + its mount offset + pan
-    mount_offset = self.mount_offsets.get(pt_name, {"dtheta": 0.0})
+    mount_offset = self.mount_offsets.get(pt_name, {"dx": 0.0, "dy": 0.0, "dtheta": 0.0})
     abs_pt_theta = base_pose["theta"] + mount_offset["dtheta"] + pan
 
     self.poses["actuators"][pt_name]["x"] = base_pose["x"] + mount_offset["dx"]
     self.poses["actuators"][pt_name]["y"] = base_pose["y"] + mount_offset["dy"]
     self.poses["actuators"][pt_name]["theta"] = abs_pt_theta
-    
+
     self.log.info(f"Updated pan-tilt {pt_name}: {self.poses['actuators'][pt_name]}")
 
     # Update devices mounted on this pan-tilt
@@ -206,10 +180,10 @@ def update_pan_tilt(self, node: dict, pan: float):
                     break
             if category is None:
                 continue
-            
+
             dev_offset = self.mount_offsets.get(dev, {"dx": 0.0, "dy": 0.0, "dtheta": 0.0})
-            self.poses["sensors"][dev]["x"] = self.poses["actuators"][pt_name]["x"] + dev_offset["dx"]
-            self.poses["sensors"][dev]["y"] = self.poses["actuators"][pt_name]["y"] + dev_offset["dy"]
-            self.poses["sensors"][dev]["theta"] = abs_pt_theta + dev_offset["dtheta"]
+            self.poses[category][dev]["x"] = self.poses["actuators"][pt_name]["x"] + dev_offset["dx"]
+            self.poses[category][dev]["y"] = self.poses["actuators"][pt_name]["y"] + dev_offset["dy"]
+            self.poses[category][dev]["theta"] = abs_pt_theta + dev_offset["dtheta"]
 
             self.log.info(f"Updated {dev} pose -> {self.poses[category][dev]}")

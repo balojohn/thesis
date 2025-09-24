@@ -1,7 +1,5 @@
 CThing Robot
     shape: Rectangle(10, 8)
-    sensors:
-        - Sonar @ Transform(2, 1, 0)
     actuators:
         - Button @ Transform(7, 3, 0)
     composites:

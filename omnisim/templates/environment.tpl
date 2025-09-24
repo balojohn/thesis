@@ -6,15 +6,26 @@ from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from ...utils.utils import *
 from ...utils.geometry import PoseMessage
+{% macro topic_prefix(obj) -%}
+    {%- if obj.class is defined and obj.class == "Sensor" -%}
+        sensor.{{ obj.type|lower }}
+    {%- elif obj.class is defined and obj.class == "Actuator" -%}
+        actuator.{{ obj.type|lower }}
+    {%- elif obj.__class__.__name__ == "CompositeThing" -%}
+        composite.{{ obj.name|lower }}
+    {%- elif obj.__class__.__name__ == "CompositeThing" and obj.name == "Robot" -%}
+        composite.robot
+    {%- elif obj.__class__.__name__ == "EnvActor" -%}
+        actor.{{ obj.name|lower }}
+    {%- else -%}
+        {{ obj.__class__.__name__|lower }}
+    {%- endif -%}
+{%- endmacro %}
 {# --- imports for messages actually used in this env --- #}
-{% set ns = namespace(imported=[]) %}
 {% set placements = (environment.things or []) + (environment.actors or []) + (environment.composites or []) %}
 {% for p in placements %}
   {% set ref = p.ref %}
-  {% set subclass = ref.__class__.__name__ | lower %}
-  {% set type_seg = ('.' ~ (ref.type | lower)) if (ref.type is defined and ref.type) else '' %}
-  {% set base_default = subclass ~ type_seg %}
-  {% set base = p.poseTopic if p.poseTopic else base_default %}
+  {% set base = p.poseTopic if p.poseTopic else topic_prefix(ref) %}
   {# now match comms publishers #}
   {% for comm in comms.communications %}
     {% for e in comm.endpoints %}
@@ -52,85 +63,92 @@ class {{ environment.name }}Node(Node):
         
         {# ---- atomic entities directly in the env ---- #}
         {% for t in environment.things or [] %}
+            {% set inst = t.instance_id if t.instance_id else t.ref.name|lower %}
             {% if t.ref.class == "Sensor" %}
-        self.poses["sensors"]["{{ t.ref.name|lower }}"] = {
+        self.poses["sensors"]["{{ t.instance_id }}"] = {
             "x": {{ t.pose.x }},
             "y": {{ t.pose.y }},
             "theta": {{ t.pose.theta }}
         }
-        self.tree[self.env_name.lower()].append("{{ t.ref.name|lower }}")
+        self.tree[self.env_name.lower()].append("{{ t.instance_id }}")
             {% elif t.ref.class == "Actuator" %}
         
-        self.poses["actuators"]["{{ t.ref.name|lower }}"] = {
+        self.poses["actuators"]["{{ t.instance_id }}"] = {
             "x": {{ t.pose.x }},
             "y": {{ t.pose.y }},
             "theta": {{ t.pose.theta }}
         }
-        self.tree[self.env_name.lower()].append("{{ t.ref.name|lower }}")
+        self.tree[self.env_name.lower()].append("{{ t.instance_id }}")
             {% endif %}
         {% endfor %}
 
         {% for a in environment.actors or [] %}
-        self.poses["actors"]["{{ a.ref.name|lower }}"] = {
+        {% set inst = a.instance_id if a.instance_id else a.ref.name|lower %}
+        self.poses["actors"]["{{ inst }}"] = {
             "x": {{ a.pose.x }},
             "y": {{ a.pose.y }},
             "theta": {{ a.pose.theta }}
         }
-        self.tree[self.env_name.lower()].append("{{ a.ref.name|lower }}")
+        self.tree[self.env_name.lower()].append("{{ a.instance_id }}")
         {% endfor %}
 
         {% for o in environment.obstacles or [] %}
-        self.poses["obstacles"]["{{ o.ref.name|lower }}"] = {
+        {% set inst = o.instance_id if o.instance_id else o.ref.name|lower %}
+        self.poses["obstacles"]["{{ inst }}"] = {
             "x": {{ o.pose.x }},
             "y": {{ o.pose.y }},
             "theta": {{ o.pose.theta }}
         }
-        self.tree[self.env_name.lower()].append("{{ o.ref.name|lower }}")
+        self.tree[self.env_name.lower()].append("{{ inst }}")
         {% endfor %}
         
         {# ---- composites with children ---- #}
         {% for c in environment.things if c.__class__.__name__ == "CompositePlacement" %}
-        self.poses["composites"]["{{ c.ref.name|lower }}"] = {
+            {% set inst = c.instance_id if c.instance_id else c.ref.name|lower %}
+        self.poses["composites"]["{{ inst }}"] = {
             "x": {{ c.pose.x }},
             "y": {{ c.pose.y }},
             "theta": {{ c.pose.theta }}
         }
-        self.tree[self.env_name.lower()].append("{{ c.ref.name|lower }}")
-        self.tree["{{ c.ref.name|lower }}"] = []
+        self.tree[self.env_name.lower()].append("{{ inst }}")
+        self.tree["{{ inst }}"] = []
             {% for child in c.sensors or [] %}
-        self.poses["sensors"]["{{ child.ref.name|lower }}"] = {
+                {% set child_inst = child.instance_id if child.instance_id else child.ref.name|lower %}
+        self.poses["sensors"]["{{ child_inst }}"] = {
             "x": {{ child.pose.x }},
             "y": {{ child.pose.y }},
             "theta": {{ child.pose.theta }}
         }
-        self.tree["{{ c.ref.name|lower }}"].append("{{ child.ref.name|lower }}")
-        self.mount_offsets["{{ child.ref.name|lower }}"] = {
+        self.tree["{{ inst }}"].append("{{ child_inst }}")
+        self.mount_offsets["{{ child_inst }}"] = {
             "dx": {{ child.transformation.x }},
             "dy": {{ child.transformation.y }},
             "dtheta": {{ child.transformation.theta }}
         }
             {% endfor %}
             {% for child in c.actuators or [] %}
-        self.poses["actuators"]["{{ child.ref.name|lower }}"] = {
+                {% set child_inst = child.instance_id if child.instance_id else child.ref.name|lower %}
+        self.poses["actuators"]["{{ child_inst }}"] = {
             "x": {{ child.pose.x }},
             "y": {{ child.pose.y }},
             "theta": {{ child.pose.theta }}
         }
-        self.tree["{{ c.ref.name|lower }}"].append("{{ child.ref.name|lower }}")
-        self.mount_offsets["{{ child.ref.name|lower }}"] = {
+        self.tree["{{ inst }}"].append("{{ child_inst }}")
+        self.mount_offsets["{{ child_inst }}"] = {
             "dx": {{ child.transformation.x }},
             "dy": {{ child.transformation.y }},
             "dtheta": {{ child.transformation.theta }}
         }
             {% endfor %}
             {% for child in c.composites or [] %}
-        self.poses["composites"]["{{ child.ref.name|lower }}"] = {
+                {% set child_inst = child.instance_id if child.instance_id else child.ref.name|lower %}
+        self.poses["composites"]["{{ child_inst }}"] = {
             "x": {{ child.pose.x }},
             "y": {{ child.pose.y }},
             "theta": {{ child.pose.theta }}
         }
-        self.tree["{{ c.ref.name|lower }}"].append("{{ child.ref.name|lower }}")
-        self.mount_offsets["{{ child.ref.name|lower }}"] = {
+        self.tree["{{ inst }}"].append("{{ child_inst }}")
+        self.mount_offsets["{{ child_inst }}"] = {
             "dx": {{ child.transformation.x }},
             "dy": {{ child.transformation.y }},
             "dtheta": {{ child.transformation.theta }}
@@ -138,26 +156,20 @@ class {{ environment.name }}Node(Node):
             {% endfor %}
         {% endfor %}            
         {% for t in environment.things or [] %}
-            {% set inst = t.instance_id if t.instance_id %}
-            {% set category =
-                "sensors" if t.ref.class == "Sensor"
-                else "actuators" if t.ref.class == "Actuator"
-                else "composites" if t.ref.__class__.__name__ == "CompositeThing"
-                else "actors"
-            %}
-            {% set prefix =
-                ("sensor." + t.ref.__class__.__name__|lower)
-                if t.ref.class == "Sensor"
-                else ("actuator." + t.ref.__class__.__name__|lower)
-                if t.ref.class == "Actuator"
-                else ("composite." + t.ref.name|lower)
-                if t.ref.__class__.__name__ == "CompositeThing"
-                else ("actor." + t.ref.__class__.__name__|lower)
-            %}
-            {% set type_seg = ("." + t.ref.type|lower) if t.ref.type is defined and t.ref.type else "" %}
-
+            {# Always define a usable instance name #}
+            {% set inst = t.instance_id if t.instance_id else t.ref.name|lower %}
+            {# Resolve category #}
+            {% if t.__class__.__name__ == "CompositePlacement" %}
+                {% set category = "composites" %}
+            {% elif t.ref.class == "Sensor" %}
+                {% set category = "sensors" %}
+            {% elif t.ref.class == "Actuator" %}
+                {% set category = "actuators" %}
+            {% else %}
+                {% set category = "actors" %}
+            {% endif %}
         self.{{ inst }}_pose_sub = self.create_subscriber(
-            topic=f"{{ prefix }}{{ type_seg }}.{{ inst }}.pose",
+            topic=f"{{ topic_prefix(t.ref) }}.{{ inst }}.pose",
             msg_type=PoseMessage,
             on_message=lambda msg, name="{{ inst }}": \
                 self.node_pose_callback(
