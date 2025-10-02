@@ -3,9 +3,9 @@ SoundSource SoundSource
     // dataModel: SoundSourceData
     shape: Rectangle(5, 2)
     pubFreq: 1.0
-    language: "Something"
-    speech: "Something"
-    emotion: "Something"
-    minRange: 2.0
-    maxRange: 20.0
+    sound: 1
+    language: "EN"
+    speech: "Hi there"
+    emotion: "happy"
+    range: 10
 end

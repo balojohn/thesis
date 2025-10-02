@@ -1,8 +1,8 @@
 Text RFIDTag
     class: Actor
-    type: RFIDTag
+    type: Text
     // dataModel: TextData
-    shape: Rectangle(5, 2)
+    shape: Rectangle(1, 2)
     pubFreq: 1.0
-    message: "Something"
+    message: "This is an RFID tag"
 end

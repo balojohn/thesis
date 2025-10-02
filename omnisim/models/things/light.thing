@@ -4,7 +4,5 @@ Light Light
     shape: Circle(1)
     pubFreq: 1
     luminosity: 60
-    color: "red"
-    minRange: 0.0
-    maxRange: 10.0
+    range: 10.0
 end

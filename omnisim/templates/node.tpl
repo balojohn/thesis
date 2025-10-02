@@ -81,12 +81,12 @@ class PoseMessage(PubSubMessage):
     x: float      # x position in meters
     y: float      # y position in meters
     theta: float  # orientation in degrees (yaw)
-
-{% for comm in comms.communications %}
-    {% for endpoint in comm.endpoints %}
-        {% if endpoint.__class__.__name__ == "Publisher" and endpoint.topic.startswith(topic_base) %}
-            {% set msg = endpoint.msg %}
-            {% if msg %}
+{% if obj.class == "Sensor" and comms is defined and comms.communications %}
+    {% for comm in comms.communications %}
+        {% for endpoint in comm.endpoints %}
+            {% if endpoint.__class__.__name__ == "Publisher" and endpoint.topic.startswith(topic_base) %}
+                {% set msg = endpoint.msg %}
+                {% if msg %}
 class {{ msg.name }}(PubSubMessage):
     {% for prop in msg.properties | unique(attribute='name') %}
     {{ prop.name }}: {{ pytype(prop.type.name) }}
@@ -95,15 +95,18 @@ class {{ msg.name }}(PubSubMessage):
         {% endif %}
     {% endfor %}
 {% endfor %}
+{% endif %}
 
 SIMULATED_PROPS = {
-    {% for comm in comms.communications %}
-    {% for e in comm.endpoints if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
-    {% for prop in e.msg.properties %}
+    {% if obj.class == "Sensor" and comms is defined and comms.communications %}
+        {% for comm in comms.communications %}
+            {% for e in comm.endpoints if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
+                {% for prop in e.msg.properties %}
     "{{ prop.name }}",
-    {% endfor %}
-    {% endfor %}
-    {% endfor %}
+                {% endfor %}
+            {% endfor %}
+        {% endfor %}
+    {% endif %}    
 }
 
 class {{ obj.name }}Node(Node):
@@ -120,15 +123,19 @@ class {{ obj.name }}Node(Node):
             {% endfor %}
         }
         {% endif %}
-
         self.{{ id_field }} = {{ id_field }}
-        
         {% for prop in data_type.properties %}
         {% set val = prop_values.get(prop.name) %}
         {% if prop.type.name == "str" %}
         self.{{ prop.name }} = {{ '"' ~ (val | string | replace('"', '\\"')) ~ '"' if val is not none else '""' }}
         {% elif prop.type.name == "int" %}
         self.{{ prop.name }} = {{ val if val is not none else 0 }}
+        {% elif prop.type.name == "Transformation" %}
+        self.{{ prop.name }} = {
+            "dx": {{ val.dx if val is not none else 0.0 }},
+            "dy": {{ val.dy if val is not none else 0.0 }},
+            "dtheta": {{ val.dtheta if val is not none else 0.0 }}
+        }
         {% else %}
         self.{{ prop.name }} = {{ val if val is not none else 0.0 }}
         {% endif %}
@@ -152,7 +159,7 @@ class {{ obj.name }}Node(Node):
             connection_params=ConnectionParameters(),
             *args, **kwargs
         )
-        {% if obj.class == "Sensor" %}
+        {% if obj.class == "Sensor" and comms is defined and comms.communications %}
         self.pose_publisher = self.create_publisher(
             topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose",
             msg_type=PoseMessage
@@ -281,6 +288,7 @@ class {{ obj.name }}Node(Node):
             print(f"\n[{{ obj.name }}Node] Publishing to {{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose: {msg_pose.model_dump()}")
             self.pose_publisher.publish(msg_pose)
 
+            {% if obj.class == "Sensor" and comms is defined and comms.communications %}
             {% for comm in comms.communications %}
             {% for e in comm.endpoints %}
             {% if e.__class__.__name__ == "Publisher" and e.topic == topic_base %}
@@ -305,6 +313,7 @@ class {{ obj.name }}Node(Node):
             {% endif %}
             {% endfor %}
             {% endfor %}
+            {% endif %}
             {% endif %}
             rate.sleep()
     

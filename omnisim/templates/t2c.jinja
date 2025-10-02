@@ -11,21 +11,8 @@ Communication {{ thing.name }}Comms
         end
             {% endfor %}
         {% endif %}
-
-        {# Case 2: composite with actuators #}
-        {% if thing.actuators is defined %}
-            {% for actuator in thing.actuators %}
-                {% set subclass = actuator.ref.__class__.__name__|lower %}
-                {% set typ = actuator.ref.type|lower if actuator.ref.type else "" %}
-        publisher
-            topic: 'actuator.{{ subclass }}{{ "." ~ typ if typ else "" }}'
-            msg: {{ actuator.ref.name }}Message
-        end
-            {% endfor %}
-        {% endif %}
-        {# Case 3: atomic thing directly a sensor/actuator #}
-        {% if (not thing.sensors or thing.sensors|length == 0)
-            and (not thing.actuators or thing.actuators|length == 0) %}
+        {# Case 2: atomic thing (sensor) #}
+        {% if (not thing.sensors or thing.sensors|length == 0) and thing.class == "Sensor" %}
             {% set subclass = thing.__class__.__name__|lower %}
             {% set typ = thing.type|lower if thing.type else "" %}
         publisher
@@ -50,24 +37,7 @@ Communication {{ thing.name }}Comms
         end
             {% endfor %}
         {% endif %}
-        
-        {% if thing.actuators and thing.actuators|length > 0 %}
-            {% for actuator in thing.actuators %}
-        TopicMsg {{ actuator.ref.name }}Message
-            pubFreq: float
-            type: str
-            {{ thing.class|lower }}_id: str
-            {% if dtype %}
-                {% for p in dtype.properties %}
-            {{ p.name }}: {{ p.type }}
-                {% endfor %}
-            {% endif %}
-        end
-            {% endfor %}
-        {% endif %}
-        
-        {% if (not thing.sensors or thing.sensors|length == 0) 
-              and (not thing.actuators or thing.actuators|length == 0) %}
+        {% if (not thing.sensors or thing.sensors|length == 0) and thing.class == "Sensor" %}
         TopicMsg {{ thing.name }}Message
             pubFreq: float
             type: str

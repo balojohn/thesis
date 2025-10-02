@@ -40,14 +40,6 @@ PosedActuator:
     ref=[Actuator:FQN|+m:thing] ('('name=ID')')? (transformation=DTransformation)?
 ;
 
-Affection:
-    target=[Thing:FQN]
-    'variable' ':' variable=ID
-    ('factor' ':' factor=FLOAT)?
-    ('offset' ':' offset=FLOAT)?
-    ('dispersion' ':' dispersion=DispersionType)?
-;
-
 
 Sensor:
     EnvSensor   |
@@ -65,12 +57,11 @@ EnvSensor:
         (
             ('class:' class=ID)
             ('type:' type=[EnvSensorType])?
-            ('dispersion:' dispersion=DispersionType)?
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
-            ('affects' ':' '-' affects+=Affection['-'])?
-            ('isAffectedBy' ':' '-' isAffectedBy+=Affection['-'])?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('noise:' noise=Noise)?
+            ('range:' range=FLOAT)?
         )#
     'end'
 ;
@@ -92,11 +83,9 @@ RangeFinder:
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('hfov:' hfov=FLOAT)?
-            ('vfov:' vfov=FLOAT)?
+            ('fov:' fov=FLOAT)?
             ('distance:' distance=FLOAT)?
-            ('minRange:' minRange=FLOAT)?
-            ('maxRange:' maxRange=FLOAT)?
+            ('range:' range=FLOAT)?
             ('noise:' noise=Noise)?
         )#
     'end'
@@ -130,11 +119,10 @@ Reader:
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('distance:' distance=FLOAT)?
+            ('range:' range=FLOAT)?
             ('resHeight:' resHeight=FLOAT)?
             ('resWidth:' resWidth=FLOAT)?
-            ('hfov:' hfov=FLOAT)?
-            ('vfov:' vfov=FLOAT)?
+            ('fov:' fov=FLOAT)?
             ('noise:' noise=Noise)?
         )#
     'end'
@@ -150,11 +138,9 @@ Alarm:
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('triggered:' triggered=BOOL)?
-            ('minRange:' minRange=FLOAT)?
-            ('maxRange:' maxRange=FLOAT)?
+            ('triggered:' triggered=INT)?
+            ('range:' range=FLOAT)?
             ('hz:' hz=FLOAT)?
-            ('noise:' noise=Noise)?
         )#
     'end'
 ;
@@ -168,9 +154,10 @@ Microphone:
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('soundlevelDB:' soundlevelDB=FLOAT)?
+            ('range:' range=FLOAT)?
+            ('soundLevel:' soundLevel=FLOAT)?
             ('mode:' mode=STRING)?
-            ('blocked:' blocked=BOOL)?
+            ('blocked:' blocked=INT)?
             ('noise:' noise=Noise)?
         )#
     'end'
@@ -185,8 +172,7 @@ Light:
             ('pubFreq:' pubFreq=FLOAT)?
             ('luminosity:' luminosity=FLOAT)?
             ('color:' color=STRING)?
-            ('minRange:' minRange=FLOAT)?
-            ('maxRange:' maxRange=FLOAT)?
+            ('range:' range=FLOAT)?
         )#
     'end'
 ;
@@ -220,8 +206,9 @@ PanTilt:
         (
             ('class:' class=ID)
             ('dataModel:' dataModel=[DataType:FQN])?
-            ('joints' ':' '-' joints*=Transformation['-'])?
-            ('shape' ':' shape=Shape)?
+            ('relativePos:' relativePos=Transformation)?
+            ('pan_shape' ':' pan_shape=Shape)?
+            ('tilt_shape' ':' tilt_shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
         )#
     'end'
@@ -236,6 +223,8 @@ EnvDevice:
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('target_value:' target_value=FLOAT)?
+            ('range:' range=FLOAT)?
         )#
     'end'
 ;
@@ -286,7 +275,7 @@ Led:
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('color' ':' color=INT)?
+            ('color' ':' color=STRING)?
         )#
     'end'
 ;

@@ -3,6 +3,9 @@ Microphone Microphone
     // dataModel: MicrophoneData
     shape: Circle(1)
     pubFreq: 1
-    mode: ""
+    range: 10
+    soundLevel: 90
+    mode: "ON"
     blocked: 0
+    noise: Gaussian(mean: 0.0, std: 1.5)
 end

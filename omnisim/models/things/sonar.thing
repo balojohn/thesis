@@ -4,9 +4,7 @@ RangeFinder Sonar
     shape: Rectangle(2, 2)
     pubFreq: 1
     distance: 0
-    hfov: 60.0
-    vfov: 37.9
-    minRange: 10.0
-    maxRange: 250.0
+    fov: 100.0
+    range: 250
     noise: Gaussian(mean: 0.0, std: 1.5)
 end

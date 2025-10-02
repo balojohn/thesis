@@ -186,9 +186,12 @@ def t2vc(ctx, model_file):
             obj_type = obj.__class__.__name__.lower()
             
             comms_model_file = os.path.join(GENFILES_REPO_PATH, "communications", f"{obj_name}.comm")
-            communication_mm = get_communication_mm()
-            comms = communication_mm.model_from_file(comms_model_file)
-            print(f'[*] Loaded Communications model from file: {comms_model_file}')
+            if os.path.exists(comms_model_file):
+                communication_mm = get_communication_mm()
+                comms = communication_mm.model_from_file(comms_model_file)
+                print(f'[*] Loaded Communications model from file: {comms_model_file}')
+            else:
+                print(f'[!] No Communications model found for {obj_name}, skipping...')            
             
             dtypes_model_file = os.path.join(GENFILES_REPO_PATH, "datatypes", f"{obj_name}.dtype")
             dtypes_mm = get_datatype_mm()
@@ -257,8 +260,13 @@ def t2vc(ctx, model_file):
             gen_code = model_to_vcode(obj, comms, dtypes)
             filename = f"{obj.name.lower()}.py"
             outdir = actors_output_dir
-        else:
+        elif obj.__class__.__name__ == "Sensor":
             gen_code = model_to_vcode(obj, comms, dtypes)
+            filename = f"{obj.name.lower()}.py"
+            outdir = things_output_dir
+        else:
+            # Actuators don’t publish so no comms needed
+            gen_code = model_to_vcode(obj, comms=None, dtypes=dtypes)
             filename = f"{obj.name.lower()}.py"
             outdir = things_output_dir
 

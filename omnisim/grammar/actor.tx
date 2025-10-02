@@ -48,8 +48,8 @@ EnvActor:
             ('dataModel:' dataModel=[DataType:FQN])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('min_value:' min_value=FLOAT)?
-            ('max_value:' max_value=FLOAT)?
+            ('value:' value=FLOAT)?
+            ('range:' range=FLOAT)?
         )#
     'end'
 ;
@@ -77,11 +77,11 @@ SoundSource:
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
+            ('sound' ':' sound=INT)?
             ('language' ':' language=STRING)?
             ('speech:' speech=STRING)?
             ('emotion:' emotion=STRING)?
-            ('minRange:' minRange=FLOAT)?
-            ('maxRange:' maxRange=FLOAT)?
+            ('range:' range=FLOAT)?
         )#
     'end'
 ;
@@ -130,13 +130,12 @@ Human:
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             // ('maxfreq:' maxFreq=FLOAT)?
+            ('sound' ':' sound=INT)?
             ('motion' ':' motion=STRING)?
             ('language' ':' language=STRING)?
             ('speech:' speech=STRING)?
             ('emotion:' emotion=STRING)?
             ('age:' age=INT)?
-            ('minRange:' minRange=FLOAT)?
-            ('maxRange:' maxRange=FLOAT)?
         )#
     'end'
 ;

@@ -1,9 +1,8 @@
 PanTilt PanTilt
     class: Actuator
     // dataModel: PanTiltData
-    joints:
-        - Transform(0, 0, 0)
-        - Transform(0, 0, 45)
-    shape: Rectangle(2, 1)
+    relativePos: Transform(0, 0, 45)
+    pan_shape: Rectangle(2, 1)
+    tilt_shape: Rectangle(2, 1)
     pubFreq: 1
 end

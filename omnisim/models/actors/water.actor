@@ -1,9 +1,8 @@
 EnvActor Water
     class: Actor
-    type: Water
+    type: EnvActor
     // dataModel: WaterData
     shape: Rectangle(5, 2)
     pubFreq: 1.0
-    min_value: 10
-    max_value: 100
+    value: 100
 end

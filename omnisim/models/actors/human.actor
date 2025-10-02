@@ -3,11 +3,10 @@ Human Human
     // dataModel: HumanData
     shape: Square(1)
     pubFreq: 1.0
-    motion: ""
-    language: ""
-    speech: ""
-    emotion: ""
+    sound: 1
+    motion: "forward"
+    language: "EN"
+    speech: "Hey Siri"
+    emotion: "Happy"
     age: 24
-    minRange: 2.0
-    maxRange: 20.0
 end

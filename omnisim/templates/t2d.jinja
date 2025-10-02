@@ -4,21 +4,30 @@
     "_tx_position", "_tx_position_end", "_tx_model",
     "parent", "name", "dataModel"
 ] -%}
+{%- macro render_properties(obj) -%}
+{% for attr, val in obj.__dict__.items() if attr not in excluded %}
+    {% if val is number %}
+    {{ attr }}: float
+    {% elif val is string %}
+    {{ attr }}: str
+    {% elif val is boolean %}
+    {{ attr }}: bool
+    {% else %}
+    {{ attr }}: {{ val.__class__.__name__ }}
+    {% endif %}
+{% endfor %}
+{%- endmacro %}
 {# === Atomic Thing (Sensor/Actuator) === #}
 {% if thing and not (thing.sensors is defined or thing.actuators is defined) %}
 DataType {{ thing.dataModel if thing.dataModel else thing.name ~ "Data" }}
-{% for attr, val in thing.__dict__.items() if attr not in excluded %}
-    {{ attr }}: {{ "float" if val is number else "str" }}
-{% endfor %}
+{{ render_properties(thing) }}
 end
 {% endif %}
 {# === Composite Thing with nested sensors === #}
 {% if thing and thing.sensors is defined %}
 {% for sensor in thing.sensors | map(attribute="ref") | unique %}
 DataType {{ sensor.dataModel if sensor.dataModel else sensor.name ~ "Data" }}
-{% for attr, val in sensor.__dict__.items() if attr not in excluded %}
-    {{ attr }}: {{ "float" if val is number else "str" }}
-{% endfor %}
+{{ render_properties(thing) }}
 end
 {% endfor %}
 {% endif %}
@@ -26,9 +35,7 @@ end
 {% if thing and thing.actuators is defined %}
 {% for actuator in thing.actuators | map(attribute="ref") | unique %}
 DataType {{ actuator.dataModel if actuator.dataModel else actuator.name ~ "Data" }}
-{% for attr, val in actuator.__dict__.items() if attr not in excluded %}
-    {{ attr }}: {{ "float" if val is number else "str" }}
-{% endfor %}
+{{ render_properties(thing) }}
 end
 {% endfor %}
 {% endif %}

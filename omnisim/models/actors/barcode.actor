@@ -1,8 +1,8 @@
 Text Barcode
     class: Actor
-    type: Barcode 
+    type: Text 
     // dataModel: TextData
-    shape: Rectangle(5, 2)
+    shape: Rectangle(2, 1)
     pubFreq: 1.0
-    message: "Something"
+    message: "This is a barcode"
 end

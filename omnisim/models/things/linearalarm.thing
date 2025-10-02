@@ -1,11 +1,10 @@
 Alarm LinearAlarm
     class: Sensor
-    type: LinearAlarm
+    type: Alarm
     // dataModel: AlarmData
-    shape: Circle(1)
+    shape: ArbitraryShape(Point(1.0, 1.0), Point(5.0, 1.0)) 
     pubFreq: 1
-    triggered: 0
-    minRange: 1.0
-    maxRange: 10.0
+    triggered: 1
+    range: 10.0
     hz: 3000
 end

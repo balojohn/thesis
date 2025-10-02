@@ -4,19 +4,39 @@ import matplotlib.animation as animation
 import math
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
-from ...utils.utils import *
-from ...utils.geometry import PoseMessage
+# from ...utils.utils import *
+# from ...utils.geometry import PoseMessage
+from omnisim.utils.utils import *
+from omnisim.utils.geometry import PoseMessage
+from omnisim.utils.utils import (
+    node_pose_callback,
+)
+# --- import affection handlers ---
+from omnisim.utils.affections import (
+    handle_temperature_sensor,
+    handle_humidity_sensor,
+    handle_gas_sensor,
+    handle_microphone_sensor,
+    handle_light_sensor,
+    handle_camera_sensor,
+    handle_rfid_sensor,
+    handle_area_alarm,
+    handle_linear_alarm,
+    handle_distance_sensor,
+    check_affectability,
+)
 {% macro topic_prefix(obj) -%}
+    {%- set cls = obj.class|lower -%}
+    {%- set typ = obj.type|lower if obj.type else None -%}
+    {%- set name = obj.name|lower -%}
     {%- if obj.class is defined and obj.class == "Sensor" -%}
-        sensor.{{ obj.type|lower }}
+        {{ cls }}.{{ typ }}.{{ name }}
     {%- elif obj.class is defined and obj.class == "Actuator" -%}
-        actuator.{{ obj.type|lower }}
-    {%- elif obj.__class__.__name__ == "CompositeThing" -%}
-        composite.{{ obj.name|lower }}
+        {{ cls }}.{{ typ }}.{{ name }}
     {%- elif obj.__class__.__name__ == "CompositeThing" and obj.name == "Robot" -%}
         composite.robot
-    {%- elif obj.__class__.__name__ == "EnvActor" -%}
-        actor.{{ obj.name|lower }}
+    {%- elif obj.__class__.__name__ == "CompositeThing" -%}
+        composite.{{ name }}
     {%- else -%}
         {{ obj.__class__.__name__|lower }}
     {%- endif -%}
@@ -54,134 +74,172 @@ class {{ environment.name }}Node(Node):
             "composites": {},
             "obstacles": {}
         }
-        # Mount offsets (static, from DSL placements)
-        self.mount_offsets = {}
+
+        self.nodes = {
+            "sensors": {},
+            "actuators": {},
+            "actors": {},
+            "composites": {},
+            "obstacles": {}
+        }
 
         # Tree structure (who hosts what)
         self.tree = {}
         self.tree[self.env_name.lower()] = []
-        
-        {# ---- atomic entities directly in the env ---- #}
-        {% for t in environment.things or [] %}
-            {% set inst = t.instance_id if t.instance_id else t.ref.name|lower %}
-            {% if t.ref.class == "Sensor" %}
-        self.poses["sensors"]["{{ t.instance_id }}"] = {
-            "x": {{ t.pose.x }},
-            "y": {{ t.pose.y }},
-            "theta": {{ t.pose.theta }}
-        }
-        self.tree[self.env_name.lower()].append("{{ t.instance_id }}")
-            {% elif t.ref.class == "Actuator" %}
-        
-        self.poses["actuators"]["{{ t.instance_id }}"] = {
-            "x": {{ t.pose.x }},
-            "y": {{ t.pose.y }},
-            "theta": {{ t.pose.theta }}
-        }
-        self.tree[self.env_name.lower()].append("{{ t.instance_id }}")
-            {% endif %}
-        {% endfor %}
 
+        {# Collect all placements into one list with a category tag #}
+        {% set placements = [] %}
+        {% for t in environment.things or [] %}
+            {% set _ = placements.append({
+                "ref": t.ref,
+                "inst": t.instance_id if t.instance_id else t.ref.name|lower,
+                "pose": t.pose,
+                "class": t.ref.class,
+                "nodeclass": t.__class__.__name__,
+                "category": "thing"
+            }) %}
+        {% endfor %}
         {% for a in environment.actors or [] %}
-        {% set inst = a.instance_id if a.instance_id else a.ref.name|lower %}
-        self.poses["actors"]["{{ inst }}"] = {
-            "x": {{ a.pose.x }},
-            "y": {{ a.pose.y }},
-            "theta": {{ a.pose.theta }}
-        }
-        self.tree[self.env_name.lower()].append("{{ a.instance_id }}")
+            {% set _ = placements.append({
+                "ref": a.ref,
+                "inst": a.instance_id if a.instance_id else a.ref.name|lower,
+                "pose": a.pose,
+                "class": a.ref.class,
+                "nodeclass": a.__class__.__name__,
+                "category": "actor"
+            }) %}
+        {% endfor %}
+        {% for o in environment.obstacles or [] %}
+            {% set _ = placements.append({
+                "ref": o.ref,
+                "inst": o.instance_id if o.instance_id else o.ref.name|lower,
+                "pose": o.pose,
+                "class": o.ref.class,
+                "nodeclass": o.__class__.__name__,
+                "category": "obstacle"
+            }) %}
         {% endfor %}
 
-        {% for o in environment.obstacles or [] %}
-        {% set inst = o.instance_id if o.instance_id else o.ref.name|lower %}
-        self.poses["obstacles"]["{{ inst }}"] = {
-            "x": {{ o.pose.x }},
-            "y": {{ o.pose.y }},
-            "theta": {{ o.pose.theta }}
-        }
-        self.tree[self.env_name.lower()].append("{{ inst }}")
-        {% endfor %}
-        
-        {# ---- composites with children ---- #}
-        {% for c in environment.things if c.__class__.__name__ == "CompositePlacement" %}
-            {% set inst = c.instance_id if c.instance_id else c.ref.name|lower %}
-        self.poses["composites"]["{{ inst }}"] = {
-            "x": {{ c.pose.x }},
-            "y": {{ c.pose.y }},
-            "theta": {{ c.pose.theta }}
-        }
-        self.tree[self.env_name.lower()].append("{{ inst }}")
-        self.tree["{{ inst }}"] = []
-            {% for child in c.sensors or [] %}
-                {% set child_inst = child.instance_id if child.instance_id else child.ref.name|lower %}
-        self.poses["sensors"]["{{ child_inst }}"] = {
-            "x": {{ child.pose.x }},
-            "y": {{ child.pose.y }},
-            "theta": {{ child.pose.theta }}
-        }
-        self.tree["{{ inst }}"].append("{{ child_inst }}")
-        self.mount_offsets["{{ child_inst }}"] = {
-            "dx": {{ child.transformation.x }},
-            "dy": {{ child.transformation.y }},
-            "dtheta": {{ child.transformation.theta }}
-        }
-            {% endfor %}
-            {% for child in c.actuators or [] %}
-                {% set child_inst = child.instance_id if child.instance_id else child.ref.name|lower %}
-        self.poses["actuators"]["{{ child_inst }}"] = {
-            "x": {{ child.pose.x }},
-            "y": {{ child.pose.y }},
-            "theta": {{ child.pose.theta }}
-        }
-        self.tree["{{ inst }}"].append("{{ child_inst }}")
-        self.mount_offsets["{{ child_inst }}"] = {
-            "dx": {{ child.transformation.x }},
-            "dy": {{ child.transformation.y }},
-            "dtheta": {{ child.transformation.theta }}
-        }
-            {% endfor %}
-            {% for child in c.composites or [] %}
-                {% set child_inst = child.instance_id if child.instance_id else child.ref.name|lower %}
-        self.poses["composites"]["{{ child_inst }}"] = {
-            "x": {{ child.pose.x }},
-            "y": {{ child.pose.y }},
-            "theta": {{ child.pose.theta }}
-        }
-        self.tree["{{ inst }}"].append("{{ child_inst }}")
-        self.mount_offsets["{{ child_inst }}"] = {
-            "dx": {{ child.transformation.x }},
-            "dy": {{ child.transformation.y }},
-            "dtheta": {{ child.transformation.theta }}
-        }
-            {% endfor %}
-        {% endfor %}            
-        {% for t in environment.things or [] %}
-            {# Always define a usable instance name #}
-            {% set inst = t.instance_id if t.instance_id else t.ref.name|lower %}
-            {# Resolve category #}
-            {% if t.__class__.__name__ == "CompositePlacement" %}
-                {% set category = "composites" %}
-            {% elif t.ref.class == "Sensor" %}
-                {% set category = "sensors" %}
-            {% elif t.ref.class == "Actuator" %}
-                {% set category = "actuators" %}
-            {% else %}
-                {% set category = "actors" %}
+        {% for p in placements if p.category != "obstacle" %}
+        {% set inst = p.inst %}
+        {% if p.category == "thing" and p.class == "Sensor" %}
+            {% set category = "sensors" %}
+            {% set class = "sensor" %}
+            {% set node_type = p.ref.type|lower if p.ref.type else None %}
+            {% set node_name = p.ref.name|lower %}
+        {% elif p.category == "thing" and p.class == "Actuator" %}
+            {% set category = "actuators" %}
+            {% set class = "actuator" %}
+            {% set node_type = p.ref.type|lower if p.ref.type else None %}
+            {% set node_name = p.ref.name|lower %}
+        {% elif p.category == "thing" and p.nodeclass == "CompositePlacement" %}
+            {% set category = "composites" %}
+            {% set class = "composite" %}
+            {% set node_type = p.ref.type|lower if p.ref.type else None %}
+            {% set node_name = p.ref.name|lower %}
+        {% elif p.category == "actor" %}
+            {% set category = "actors" %}
+            {% set class = "actor" %}
+            {% set node_type = p.ref.type|lower if p.ref.type else None %}
+            {% set node_name = p.ref.name|lower %}
+        {% elif p.category == "obstacle" %}
+            {% set category = "obstacles" %}
+            {% set class = "obstacle" %}
+            {% set node_type = p.ref.type|lower if p.ref.type else None %}
+            {% set node_name = p.ref.name|lower %}
+        {% endif %}
+        # Define {{ inst }} node
+        {% if node_type %}
+        if "{{ node_type }}" not in self.nodes["{{ category }}"]:
+            self.nodes["{{ category }}"]["{{ node_type }}"] = {}
+            self.poses["{{ category }}"]["{{ node_type }}"] = {}
+        if "{{ node_name }}" not in self.nodes["{{ category }}"]["{{ node_type }}"]:
+            self.nodes["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"] = []
+            self.poses["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"] = {}
+        if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"]:
+            self.nodes["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"].append("{{ inst }}")
+        {% else %}
+        if "{{ node_name }}" not in self.nodes["{{ category }}"]:
+            self.nodes["{{ category }}"]["{{ node_name }}"] = []
+            self.poses["{{ category }}"]["{{ node_name }}"] = {}
+        if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ node_name }}"]:
+            self.nodes["{{ category }}"]["{{ node_name }}"].append("{{ inst }}")
+        {% endif %}
+
+        self.nodes["{{ inst }}"] = {
+            "class": "{{ class }}",
+            {% if node_type %}
+            "type": "{{ node_type }}",
             {% endif %}
+            "name": "{{ node_name }}",
+            "id": "{{ inst }}",
+            "properties": {
+                {% set excluded = [
+                    "class","type","shape","pubFreq","name","dataModel",
+                    "_tx_position","_tx_model","_tx_position_end","parent",
+                    "actuators","sensors","composites"
+                ] %}
+                {% for attr, val in p.ref.__dict__.items() 
+                if attr not in excluded and val is not none %}
+                "{{ attr }}":
+                    {%- if val is number -%} {{ val }}
+                    {%- elif val is string -%} "{{ val }}"
+                    {%- elif val.__class__.__name__ in ["Gaussian","Uniform","Quadratic"] -%}
+                        {
+                        {%- for k,v in val.__dict__.items()
+                        if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"] and v is not none -%}
+                            "{{ k }}": {{ v|tojson }},
+                        {%- endfor -%}
+                        }
+                    {%- else -%} {{ val|tojson }}
+                    {%- endif -%},
+                {% endfor %}
+            }
+        }
+        
+        # Define {{ inst }} pose
+        {% if node_name == "linearalarm" %}
+        self.poses["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"]["{{ inst }}"] = {
+            "start": {
+                "x": {{ p.ref.shape.points[0].x }},
+                "y": {{ p.ref.shape.points[0].y }}
+            },
+            "end": {
+                "x": {{ p.ref.shape.points[1].x }},
+                "y": {{ p.ref.shape.points[1].y }}
+            }
+        }
+        {% elif node_type %}
+        self.poses["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"]["{{ inst }}"] = {
+            "x": {{ p.pose.x }},
+            "y": {{ p.pose.y }},
+            "theta": {{ p.pose.theta }}
+        }
+        {% else %}
+        self.poses["{{ category }}"]["{{ node_name }}"]["{{ inst }}"] = {
+            "x": {{ p.pose.x }},
+            "y": {{ p.pose.y }},
+            "theta": {{ p.pose.theta }}
+        }
+        {% endif %}
+        self.tree[self.env_name.lower()].append("{{ inst }}")
+        
+        # Define {{ inst }} subscriber
         self.{{ inst }}_pose_sub = self.create_subscriber(
-            topic=f"{{ topic_prefix(t.ref) }}.{{ inst }}.pose",
+            topic=f"{{ class }}{% if node_type %}.{{ node_type }}{% endif %}.{{ node_name }}.{{ inst }}.pose",
             msg_type=PoseMessage,
             on_message=lambda msg, name="{{ inst }}": \
-                self.node_pose_callback(
-                    "{{ category }}",
-                    {
-                        "name": name,
-                        "x": msg.x,
-                        "y": msg.y,
-                        "theta": msg.theta
-                    }
-                )
+                self.node_pose_callback({
+                    "class": "{{ class }}",
+                    "type": "{{ node_type if node_type else '' }}",
+                    "name": "{{ node_name }}",
+                    "id": name,
+                    "x": msg.x,
+                    "y": msg.y,
+                    "theta": msg.theta
+                })
         )
+
         {% endfor %}
     {#
         # ---- live plotting setup ----
@@ -208,36 +266,83 @@ class {{ environment.name }}Node(Node):
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
     #}
-    # ---- Utility functions ----
-    node_pose_callback = node_pose_callback
-    composite_pose_callback = composite_pose_callback
-    update_pan_tilt = update_pan_tilt
+    # Wrappers for affection and pose utils
+    def handle_temperature_sensor(self, sensor_id: str):
+        return handle_temperature_sensor(self.nodes, self.poses, self.log, sensor_id)
+
+    def handle_humidity_sensor(self, sensor_id: str):
+        return handle_humidity_sensor(self.nodes, self.poses, self.log, sensor_id)
+
+    def handle_gas_sensor(self, sensor_id: str):
+        return handle_gas_sensor(self.nodes, self.poses, self.log, sensor_id)
+    
+    def handle_microphone_sensor(self, sensor_id: str):
+        return handle_microphone_sensor(self.nodes, self.poses, self.log, sensor_id)
+
+    def handle_light_sensor(self, sensor_id: str):
+        return handle_light_sensor(self.nodes, self.poses, self.log, sensor_id)
+    
+    def handle_camera_sensor(self, sensor_id: str, with_robots):
+        return handle_camera_sensor(self.nodes, self.poses, self.log, sensor_id, with_robots)
+    
+    def handle_rfid_sensor(self, sensor_id: str):
+        return handle_rfid_sensor(self.nodes, self.poses, self.log, sensor_id)
+    
+    def handle_area_alarm(self, sensor_id: str):
+        return handle_area_alarm(self.nodes, self.poses, self.log, sensor_id)
+
+    def handle_linear_alarm(self, sensor_id: str, lin_alarms_robots=None):
+        return handle_linear_alarm(self.nodes, self.poses, self.log, sensor_id, lin_alarms_robots)
+    
+    def handle_distance_sensor(self, sensor_id: str):
+        return handle_distance_sensor(self.nodes, self.poses, self.log, sensor_id)
+    
+    def check_affectability(self, sensor_id: str, env_properties, lin_alarms_robots=None):
+        return check_affectability(self.nodes, self.poses, self.log, sensor_id, env_properties, lin_alarms_robots)
+
+    def node_pose_callback(self, node: dict):
+        return node_pose_callback(self.poses, self.log, node)
 
     def print_tf_tree(self):
-        self.log.info(f"Transformation tree for {self.env_name}:")
+        self.log.info(f"\n- {self.env_name}")
 
-        def recurse(node, indent=0):
-            pose = None
-            for cat, nodes in self.poses.items():
-                if node in nodes:
-                    pose = nodes[node]
-                    break
-            self.log.info("  " * indent + f"- {node} @ {pose}")
-            if node in self.tree:
-                for child in self.tree[node]:
-                    recurse(child, indent + 1)
+        def format_pose(p):
+            return f"@ (x={p['x']:.2f}, y={p['y']:.2f}, theta={p['theta']:.1f} deg)"
 
-        # start from env root if available
-        root = self.env_name.lower()
-        if root in self.tree:
-            recurse(root)
-        else:
-            # fallback: flat listing like your current code
-            for category in ["sensors", "actuators", "actors", "composites", "obstacles"]:
-                if self.poses[category]:
-                    self.log.info(category.capitalize() + ":")
-                    for name, pose in self.poses[category].items():
-                        self.log.info(f"    {name} @ {pose}")
+        def search_tree_recursive(d, indent=0):
+            for name, sub in d.items():
+                if isinstance(sub, dict) and all(k in sub for k in ["x", "y", "theta"]):
+                    # It's a pose dict
+                    self.log.info("%s- %s %s", "    " * indent, name, format_pose(sub))
+                elif isinstance(sub, dict):
+                    # Go deeper
+                    self.log.info("%s- %s", "    " * indent, name)
+                    search_tree_recursive(sub, indent + 1)
+
+        # Sensors
+        if self.poses["sensors"]:
+            self.log.info("    - Sensors")
+            search_tree_recursive(self.poses["sensors"], 2)
+
+        # Actuators
+        if self.poses["actuators"]:
+            self.log.info("    - Actuators")
+            search_tree_recursive(self.poses["actuators"], 2)
+
+        # Obstacles
+        if self.poses["obstacles"]:
+            self.log.info("    - Obstacles")
+            search_tree_recursive(self.poses["obstacles"], 2)
+
+        # Actors
+        if self.poses["actors"]:
+            self.log.info("    - Actors")
+            search_tree_recursive(self.poses["actors"], 2)
+
+        # Composites
+        if self.poses["composites"]:
+            self.log.info("    - Composites")
+            search_tree_recursive(self.poses["composites"], 2)
 
     def start(self):
         # Launch commlib internal loop in a background thread

@@ -4,5 +4,5 @@ Led Led
     // dataModel: LedData
     shape: Circle(1)
     pubFreq: 1.0
-    color: 200
+    color: "#FF0000"
 end

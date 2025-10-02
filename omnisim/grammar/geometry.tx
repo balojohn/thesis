@@ -3,7 +3,7 @@ Point:
 ;
 
 // For composite objects. dx refers to the distance from the pose of the object
-// e.g. for a robot at 2, 2, 0, a pantilt transform(2, 2, 30) means that pantilt
+// e.g. for a robot at (2, 2, 0), a pantilt transform(2, 2, 30) means that pantilt
 // is on (4, 4, 30)
 Transformation:
     'Transform' '(' dx=FLOAT ',' dy=FLOAT ',' dtheta=FLOAT ')'

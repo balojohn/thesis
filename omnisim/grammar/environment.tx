@@ -39,11 +39,11 @@ Environment:
         )
         ('things'
             ('sensors:'
-                things*=ThingPlacement['-'])?
+                things*=ThingPlacement)?
             ('actuators:'
-                things*=ThingPlacement['-'])?
+                things*=ThingPlacement)?
             ('composites:'
-                things*=CompositePlacement['-'])?
+                things*=CompositePlacement)?
         'end'
         )?
         ('actors'
@@ -80,9 +80,8 @@ EnvPropertyType:
     'temperature' |
     'humidity'    |
     'gas'         |
-    'co2'         |
-    'ph'          |
-    'airquality'
+    'luminosity'  |
+    'ph'
 ;
 
 FQN: ID('.'ID)*;
