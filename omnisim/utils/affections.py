@@ -648,7 +648,7 @@ def check_affectability(nodes, poses, log, env_properties, sensor_id, lin_alarms
             elif node_name == "linearalarm":
                 affected = handle_linear_alarm(nodes, poses, log, sensor_id, lin_alarms_robots)
             elif node_name in ["sonar", "ir"]:
-                affected = handle_distance(nodes, poses, log, sensor_id)
+                affected = handle_distance_sensor(nodes, poses, log, sensor_id)
             elif node_name == "light":
                 affected = handle_light_sensor(nodes, poses, log, sensor_id)
         elif node_name == "robot":
@@ -659,7 +659,7 @@ def check_affectability(nodes, poses, log, env_properties, sensor_id, lin_alarms
             elif node_name == "rfid":
                 affected = handle_rfid_sensor(nodes, poses, log, sensor_id)
             elif node_name in ["sonar", "ir"]:
-                affected = handle_distance(nodes, poses, log, sensor_id)
+                affected = handle_distance_sensor(nodes, poses, log, sensor_id)
             elif node_name == "envcombo":  # e.g. temp/hum/gas multipurpose robot sensor
                 affected = {
                     "temperature": handle_temperature_sensor(nodes, poses, log, sensor_id),
