@@ -41,8 +41,8 @@ def build_composite(composite, comms, dtypes):
     return composite_tpl.render(context)
 
 def composite_to_vcode(robot, comms, dtypes) -> str:
-    robot_str = build_composite(robot, comms, dtypes)
-    return robot_str
+    composite_str = build_composite(robot, comms, dtypes)
+    return composite_str
 
 # ---------- Environment ----------
 envnode_tpl = jinja_env.get_template("environment.tpl")
@@ -59,22 +59,22 @@ def build_envnode(env, comms, dtypes) -> str:
     if getattr(env, "actors", None):
         placements.extend(env.actors)
     
-    mount_offsets = {}
+    offsets = {}
     for p in placements:
         if hasattr(p, "transformation") and p.transformation is not None:
-            mount_offsets[p.ref.name] = {
+            offsets[p.ref.name] = {
                 "dx": p.transformation.x,
                 "dy": p.transformation.y,
                 "dtheta": p.transformation.theta,
             }
         else:
-            mount_offsets[p.ref.name] = {"dx": 0.0, "dy": 0.0, "dtheta": 0.0}
+            offsets[p.ref.name] = {"dx": 0.0, "dy": 0.0, "dtheta": 0.0}
     context = {
         "environment": env,
         "comms": comms,
         "dtype": dtypes,
         "placements": placements,
-        "mount_offsets": mount_offsets
+        "offsets": offsets
     }
     envf = envnode_tpl.render(context)
     return envf

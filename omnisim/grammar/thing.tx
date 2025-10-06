@@ -84,7 +84,6 @@ RangeFinder:
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('fov:' fov=FLOAT)?
-            ('distance:' distance=FLOAT)?
             ('range:' range=FLOAT)?
             ('noise:' noise=Noise)?
         )#

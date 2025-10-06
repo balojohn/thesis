@@ -150,132 +150,89 @@ def check_distance(from_pose, to_pose):
         d = calc_distance(p1, p2)
         return {'distance': d}
 
-def node_pose_callback(poses, log, node: dict):
+def node_pose_callback(tree, poses, pantilts, handle_offsets, log, node: dict):
     """
     Callback function to update the absolute pose of a node
     (actor, sensor, actuator, or obstacle).
 
     Args:
-        # category (str): One of "actors", "sensors", "actuators", or "obstacles".
         node (dict): A dictionary containing the node's pose information.
+            - 'class' (str): The class of the node (sensor/actuator/actor/composite/obstacle)
+            - 'type' (str): The type of the node
             - 'name' (str): The name of the node.
+            - 'id' (str): The instance id of the node.
             - 'x' (float): The x-coordinate of the node's position.
             - 'y' (float): The y-coordinate of the node's position.
-            - 'theta' (float): The orientation of the node in radians.
+            - 'theta' (float): The orientation of the node in degrees.
     """
     node_class = node["class"]  # sensor / actuator / actor / composite / obstacle
     node_type = node["type"]    # e.g. envsensor / envdevice / envactor / robot
     node_name = node["name"]    # e.g. temperature / thermostat / fire / robot / chair
     node_id = node["id"]        # instance id, e.g. te_1
-
-    pose_data = {"x": node["x"], "y": node["y"], "theta": node["theta"]}
+    node_pose = {"x": node["x"], "y": node["y"], "theta": node["theta"]}
 
     if node_class in ["sensor", "actuator", "actor"]:
         poses.setdefault(f"{node_class}s", {}) \
              .setdefault(node_type, {}) \
-             .setdefault(node_name, {})[node_id] = pose_data
+             .setdefault(node_name, {})[node_id] = node_pose
 
     elif node_class == "composite":
-        poses["composites"][node_id] = pose_data
+        # Update only x, y, theta without destroying nested structure
+        if node_id in poses["composites"][node_name]:
+            # Get the old pose to calculate delta
+            old_pose = poses["composites"][node_name][node_id]
+            dx = node_pose["x"] - old_pose["x"]
+            dy = node_pose["y"] - old_pose["y"]
+            dtheta = node_pose["theta"] - old_pose["theta"]
+            
+            # Update parent pose
+            poses["composites"][node_name][node_id]["x"] = node_pose["x"]
+            poses["composites"][node_name][node_id]["y"] = node_pose["y"]
+            poses["composites"][node_name][node_id]["theta"] = node_pose["theta"]
+            
+            # Start recursive update with the delta
+            update_nested_children(poses["composites"][node_name][node_id], dx, dy, dtheta)
+        else:
+            poses["composites"][node_name][node_id] = node_pose
 
     elif node_class == "obstacle":
-        poses["obstacles"].setdefault(node_name, {})[node_id] = pose_data
+        poses["obstacles"].setdefault(node_name, {})[node_id] = node_pose
 
-    log.info(f"Updated {node_class} {node_id} pose -> {pose_data}")
+    log.info(f"Updated {node_class} {node_id} pose -> {node_pose}")
 
-def composite_pose_callback(tree, poses, pantilts, mount_offsets, log, node: dict):
-    comp_name = node["name"]
-
-    # Initialize entry if missing
-    if comp_name not in poses["composites"]:
-        poses["composites"][comp_name] = {"x": 0.0, "y": 0.0, "theta": 0.0}
-    else:
-        # Skip if no change
-        if (node["x"] == poses["composites"][comp_name]["x"] and
-            node["y"] == poses["composites"][comp_name]["y"] and
-            node["theta"] == poses["composites"][comp_name]["theta"]):
-            return
-
-    # Update composite itself
-    poses["composites"][comp_name].update(
-        {
-            "x": node["x"],
-            "y": node["y"],
-            "theta": node["theta"]
-        }
-    )
-
-    base_pose = poses["composites"][comp_name]
-
-    if comp_name not in tree:
-        return  # no devices on this composite
-
-    # Update children
-    for d in tree[comp_name]:
-        # pan-tilts handled separately
-        if d in pantilts:
-            pan_now = pantilts[d]["pan"]
-            update_pan_tilt({"name": d}, pan_now)
-            continue
-
-        # category detection
-        if d in poses["sensors"]:
-            cat = "sensors"
-        elif d in poses["actuators"]:
-            cat = "actuators"
-        elif d in poses["composites"]:
-            cat = "composites"
-        else:
-            continue
-
-        offset = mount_offsets.get(d, {"dx": 0.0, "dy": 0.0, "dtheta": 0.0})
-        poses[cat][d]["x"] = base_pose["x"] + offset["dx"]
-        poses[cat][d]["y"] = base_pose["y"] + offset["dy"]
-        poses[cat][d]["theta"] = base_pose["theta"] + offset["dtheta"]
-
-        log.info(f"Updated {cat[:-1]} {d} pose -> {poses[cat][d]}")
-
-
-def update_pan_tilt(tree, poses, mount_offsets, log, node: dict, pan: float):
-    pt_name = node["name"]
-
-    # Find the host robot (the parent of this pan-tilt in tree)
-    robot_name = None
-    for parent, children in tree.items():
-        if pt_name in children:
-            robot_name = parent
-            break
-    if robot_name is None:
-        log.warning(f"No host robot found for pan-tilt {pt_name}")
-        return
-
-    base_pose = poses["composites"][robot_name]
-
-    # Pan-tilt absolute orientation = robot theta + its mount offset + pan
-    mount_offset = mount_offsets.get(pt_name, {"dx": 0.0, "dy": 0.0, "dtheta": 0.0})
-    abs_pt_theta = base_pose["theta"] + mount_offset["dtheta"] + pan
-
-    poses["actuators"][pt_name]["x"] = base_pose["x"] + mount_offset["dx"]
-    poses["actuators"][pt_name]["y"] = base_pose["y"] + mount_offset["dy"]
-    poses["actuators"][pt_name]["theta"] = abs_pt_theta
-
-    log.info(f"Updated pan-tilt {pt_name}: {poses['actuators'][pt_name]}")
-
-    # Update devices mounted on this pan-tilt
-    if pt_name in tree:
-        for dev in tree[pt_name]:
-            # detect category
-            category = None
-            for cat in ["sensors", "actuators", "composites"]:
-                if dev in poses[cat]:
-                    category = cat
-                    break
-            if category is None:
-                continue
-
-            dev_offset = mount_offsets.get(dev, {"dx": 0.0, "dy": 0.0, "dtheta": 0.0})
-            poses[category][dev]["x"] = poses["actuators"][pt_name]["x"] + dev_offset["dx"]
-            poses[category][dev]["y"] = poses["actuators"][pt_name]["y"] + dev_offset["dy"]
-            poses[category][dev]["theta"] = abs_pt_theta + dev_offset["dtheta"]
-
-            log.info(f"Updated {dev} pose -> {poses[category][dev]}")
+# Propagate the delta to children
+def update_nested_children(data, delta_x, delta_y, delta_theta):
+    """Recursively update children by applying delta from parent movement."""
+    # Update actuators
+    if "actuators" in data and isinstance(data["actuators"], dict):
+        for act_name, act_instances in data["actuators"].items():
+            if isinstance(act_instances, dict):
+                for act_id, act_data in act_instances.items():
+                    if isinstance(act_data, dict) and "x" in act_data:
+                        act_data["x"] += delta_x
+                        act_data["y"] += delta_y
+                        act_data["theta"] += delta_theta
+                        # Recursively update children of this actuator
+                        update_nested_children(act_data, delta_x, delta_y, delta_theta)
+    
+    # Update sensors
+    if "sensors" in data and isinstance(data["sensors"], dict):
+        for sen_name, sen_instances in data["sensors"].items():
+            if isinstance(sen_instances, dict):
+                for sen_id, sen_data in sen_instances.items():
+                    if isinstance(sen_data, dict) and "x" in sen_data:
+                        sen_data["x"] += delta_x
+                        sen_data["y"] += delta_y
+                        sen_data["theta"] += delta_theta
+    
+    # Update nested composites
+    if "composites" in data and isinstance(data["composites"], dict):
+        for comp_name, comp_instances in data["composites"].items():
+            if isinstance(comp_instances, dict):
+                for comp_id, comp_data in comp_instances.items():
+                    if isinstance(comp_data, dict) and "x" in comp_data:
+                        comp_data["x"] += delta_x
+                        comp_data["y"] += delta_y
+                        comp_data["theta"] += delta_theta
+                        # Recursively update children of nested composite
+                        update_nested_children(comp_data, delta_x, delta_y, delta_theta)

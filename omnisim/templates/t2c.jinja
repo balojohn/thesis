@@ -16,7 +16,7 @@ Communication {{ thing.name }}Comms
             {% set subclass = thing.__class__.__name__|lower %}
             {% set typ = thing.type|lower if thing.type else "" %}
         publisher
-            topic: '{{ thing.class|lower }}.{{ subclass }}{{ "." ~ typ if typ else "" }}'
+            topic: 'sensor.{{ subclass }}{{ "." ~ thing.name|lower }}'
             msg: {{ thing.name }}Message
         end
         {% endif %}
@@ -28,7 +28,7 @@ Communication {{ thing.name }}Comms
         TopicMsg {{ sensor.ref.name }}Message
             pubFreq: float
             type: str
-            {{ thing.class|lower }}_id: str
+            sensor_id: str
             {% if dtype %}
                 {% for p in dtype.properties %}
             {{ p.name }}: {{ p.type }}
@@ -41,7 +41,7 @@ Communication {{ thing.name }}Comms
         TopicMsg {{ thing.name }}Message
             pubFreq: float
             type: str
-            {{ thing.class|lower }}_id: str
+            sensor_id: str
             {% if dtype %}
                 {% for p in dtype.properties %}
             {{ p.name }}: {{ p.type }}

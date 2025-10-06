@@ -1,8 +1,6 @@
-PanTilt PanTilt
-    class: Actuator
-    // dataModel: PanTiltData
-    relativePos: Transform(0, 0, 45)
-    pan_shape: Rectangle(2, 1)
-    tilt_shape: Rectangle(2, 1)
-    pubFreq: 1
+CThing PanTilt
+    shape: Rectangle(5, 4)
+    sensors:
+        - Camera @ Transform(5, 2, 0)
+        - Sonar @ Transform(0, 0, 0)
 end

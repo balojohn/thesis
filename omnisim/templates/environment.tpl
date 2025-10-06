@@ -25,22 +25,100 @@ from omnisim.utils.affections import (
     handle_distance_sensor,
     check_affectability,
 )
-{% macro topic_prefix(obj) -%}
-    {%- set cls = obj.class|lower -%}
-    {%- set typ = obj.type|lower if obj.type else None -%}
-    {%- set name = obj.name|lower -%}
-    {%- if obj.class is defined and obj.class == "Sensor" -%}
+{% macro topic_prefix(obj) %}
+    {% set cls = obj.class|lower %}
+    {% set typ = obj.type|lower if obj.type else None %}
+    {% set name = obj.name|lower %}
+    {% if obj.class is defined and obj.class == "Sensor" %}
         {{ cls }}.{{ typ }}.{{ name }}
-    {%- elif obj.class is defined and obj.class == "Actuator" -%}
+    {% elif obj.class is defined and obj.class == "Actuator" %}
         {{ cls }}.{{ typ }}.{{ name }}
-    {%- elif obj.__class__.__name__ == "CompositeThing" and obj.name == "Robot" -%}
+    {% elif obj.__class__.__name__ == "CompositeThing" and obj.name == "Robot" %}
         composite.robot
-    {%- elif obj.__class__.__name__ == "CompositeThing" -%}
+    {% elif obj.__class__.__name__ == "CompositeThing" %}
         composite.{{ name }}
-    {%- else -%}
+    {% else %}
         {{ obj.__class__.__name__|lower }}
-    {%- endif -%}
-{%- endmacro %}
+    {% endif %}
+{% endmacro %}
+{# --- recursively register composite children --- #}
+{% macro register_composite_children(nodes_path, poses_path, parent_ref, parent_pose, parent_id) %}
+    {% set px, py, pth = parent_pose.x, parent_pose.y, parent_pose.theta %}
+    {# === Register child composites === #}
+    {% for comp in parent_ref.composites %}
+        {% set cname = comp.ref.name|lower %}
+        {% set cid = parent_id ~ "_" ~ cname %}
+        {% set dx = comp.transformation.transformation.dx %}
+        {% set dy = comp.transformation.transformation.dy %}
+        {% set dth = comp.transformation.transformation.dtheta %}
+        {% set cx = px + dx %}
+        {% set cy = py + dy %}
+        {% set cth = pth + dth -%}
+        # Define child of composite {{ cid }}
+        {# {{ nodes_path }}["composites"].setdefault("{{ cname }}", {}) #}
+        {{ nodes_path }}["composites"].setdefault("{{ cid }}", {
+            "sensors": {},
+            "actuators": {},
+            "composites": {}
+        })
+        {# {{ poses_path }}["composites"].setdefault("{{ cname }}", {}) #}
+        {{ poses_path }}["composites"]["{{ cid }}"] = {
+            "x": {{ cx }},
+            "y": {{ cy }},
+            "theta": {{ cth }},
+            "sensors": {},
+            "actuators": {},
+            "composites": {}
+        }
+        # Children of composite
+        {# Recurse for nested composites -#}
+        {{ register_composite_children(
+            nodes_path ~ "['composites']['" ~ cid ~ "']",
+            poses_path ~ "['composites']['" ~ cid ~ "']",
+            comp.ref,
+            {'x': cx, 'y': cy, 'theta': cth},
+            cid
+        ) }}
+    {% endfor %}
+    {# === Register child sensors === #}
+    {% for sen in parent_ref.sensors %}
+        {% set sname = sen.ref.name|lower %}
+        {% set sid = parent_id ~ "_" ~ sname %}
+        {% set dx = sen.transformation.transformation.dx %}
+        {% set dy = sen.transformation.transformation.dy %}
+        {% set dth = sen.transformation.transformation.dtheta %}
+        {% set sx = px + dx %}
+        {% set sy = py + dy %}
+        {% set sth = pth + dth %}
+        {{ nodes_path }}["sensors"].setdefault("{{ sname }}", [])
+        {{ poses_path }}["sensors"].setdefault("{{ sname }}", {})
+        {{ nodes_path }}["sensors"]["{{ sname }}"].append("{{ sid }}")
+        {{ poses_path }}["sensors"]["{{ sname }}"]["{{ sid }}"] = {
+            "x": {{ sx }},
+            "y": {{ sy }},
+            "theta": {{ sth }}
+        }
+    {% endfor %}
+    {# === Register child actuators === #}
+    {% for act in parent_ref.actuators %}
+        {% set aname = act.ref.name|lower %}
+        {% set aid = parent_id ~ "_" ~ aname %}
+        {% set dx = act.transformation.transformation.dx %}
+        {% set dy = act.transformation.transformation.dy %}
+        {% set dth = act.transformation.transformation.dtheta %}
+        {% set ax = px + dx %}
+        {% set ay = py + dy %}
+        {% set ath = pth + dth %}
+        {{ nodes_path }}["actuators"].setdefault("{{ aname }}", [])
+        {{ poses_path }}["actuators"].setdefault("{{ aname }}", {})
+        {{ nodes_path }}["actuators"]["{{ aname }}"].append("{{ aid }}")
+        {{ poses_path }}["actuators"]["{{ aname }}"]["{{ aid }}"] = {
+            "x": {{ ax }},
+            "y": {{ ay }},
+            "theta": {{ ath }}
+        }
+    {% endfor %}
+{% endmacro %}
 {# --- imports for messages actually used in this env --- #}
 {% set placements = (environment.things or []) + (environment.actors or []) + (environment.composites or []) %}
 {% for p in placements %}
@@ -85,6 +163,8 @@ class {{ environment.name }}Node(Node):
 
         # Tree structure (who hosts what)
         self.tree = {}
+        self.pantilts = {}
+        self.handle_offsets = {}
         self.tree[self.env_name.lower()] = []
 
         {# Collect all placements into one list with a category tag #}
@@ -121,35 +201,54 @@ class {{ environment.name }}Node(Node):
         {% endfor %}
 
         {% for p in placements if p.category != "obstacle" %}
-        {% set inst = p.inst %}
-        {% if p.category == "thing" and p.class == "Sensor" %}
-            {% set category = "sensors" %}
-            {% set class = "sensor" %}
-            {% set node_type = p.ref.type|lower if p.ref.type else None %}
-            {% set node_name = p.ref.name|lower %}
-        {% elif p.category == "thing" and p.class == "Actuator" %}
-            {% set category = "actuators" %}
-            {% set class = "actuator" %}
-            {% set node_type = p.ref.type|lower if p.ref.type else None %}
-            {% set node_name = p.ref.name|lower %}
-        {% elif p.category == "thing" and p.nodeclass == "CompositePlacement" %}
-            {% set category = "composites" %}
-            {% set class = "composite" %}
-            {% set node_type = p.ref.type|lower if p.ref.type else None %}
-            {% set node_name = p.ref.name|lower %}
-        {% elif p.category == "actor" %}
-            {% set category = "actors" %}
-            {% set class = "actor" %}
-            {% set node_type = p.ref.type|lower if p.ref.type else None %}
-            {% set node_name = p.ref.name|lower %}
-        {% elif p.category == "obstacle" %}
-            {% set category = "obstacles" %}
-            {% set class = "obstacle" %}
-            {% set node_type = p.ref.type|lower if p.ref.type else None %}
-            {% set node_name = p.ref.name|lower %}
-        {% endif %}
-        # Define {{ inst }} node
-        {% if node_type %}
+            {% set inst = p.inst %}
+            {% if p.category == "thing" and p.class == "Sensor" %}
+                {% set category = "sensors" %}
+                {% set class = "sensor" %}
+                {% set node_type = p.ref.type|lower if p.ref.type else None %}
+                {% set node_name = p.ref.name|lower %}
+            {% elif p.category == "thing" and p.class == "Actuator" %}
+                {% set category = "actuators" %}
+                {% set class = "actuator" %}
+                {% set node_type = p.ref.type|lower if p.ref.type else None %}
+                {% set node_name = p.ref.name|lower %}
+            {% elif p.category == "thing" and p.nodeclass == "CompositePlacement" %}
+                {% set category = "composites" %}
+                {% set class = "composite" %}
+                {% set node_type = p.ref.type|lower if p.ref.type else None %}
+                {% set node_name = p.ref.name|lower %}
+            {% elif p.category == "actor" %}
+                {% set category = "actors" %}
+                {% set class = "actor" %}
+                {% set node_type = p.ref.type|lower if p.ref.type else None %}
+                {% set node_name = p.ref.name|lower %}
+            {% elif p.category == "obstacle" %}
+                {% set category = "obstacles" %}
+                {% set class = "obstacle" %}
+                {% set node_type = p.ref.type|lower if p.ref.type else None %}
+                {% set node_name = p.ref.name|lower %}
+            {% endif %}
+            {# Initialization of composites #}
+            {% if category == "composites" %}
+        if "{{ node_name }}" not in self.nodes["composites"]:
+            self.nodes["composites"]["{{ node_name }}"] = {}
+            self.poses["composites"]["{{ node_name }}"] = {}
+        
+        if "{{ inst }}" not in self.nodes["composites"]["{{ node_name }}"]:
+            # Initialize node + pose dicts if not existing
+            self.nodes["composites"]["{{ node_name }}"]["{{ inst }}"] = {
+                "sensors": {},
+                "actuators": {},
+                "composites": {}
+            }
+            self.poses["composites"]["{{ node_name }}"]["{{ inst }}"] = {
+                "sensors": {},
+                "actuators": {},
+                "composites": {}
+            }
+            {% else %}
+                {# Initialization of things with or without type #}
+                {% if node_type %}
         if "{{ node_type }}" not in self.nodes["{{ category }}"]:
             self.nodes["{{ category }}"]["{{ node_type }}"] = {}
             self.poses["{{ category }}"]["{{ node_type }}"] = {}
@@ -158,14 +257,16 @@ class {{ environment.name }}Node(Node):
             self.poses["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"] = {}
         if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"]:
             self.nodes["{{ category }}"]["{{ node_type }}"]["{{ node_name }}"].append("{{ inst }}")
-        {% else %}
+                {% else %}
         if "{{ node_name }}" not in self.nodes["{{ category }}"]:
             self.nodes["{{ category }}"]["{{ node_name }}"] = []
             self.poses["{{ category }}"]["{{ node_name }}"] = {}
         if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ node_name }}"]:
             self.nodes["{{ category }}"]["{{ node_name }}"].append("{{ inst }}")
-        {% endif %}
-
+                {% endif %}
+            {% endif %}
+        
+        # Define {{ inst }} node
         self.nodes["{{ inst }}"] = {
             "class": "{{ class }}",
             {% if node_type %}
@@ -194,7 +295,14 @@ class {{ environment.name }}Node(Node):
                     {%- else -%} {{ val|tojson }}
                     {%- endif -%},
                 {% endfor %}
+            },
+            {% if category == "composites" %}
+            "initial_pose": {
+                "x": {{ p.pose.x }},
+                "y": {{ p.pose.y }},
+                "theta": {{ p.pose.theta }}
             }
+            {% endif %}
         }
         
         # Define {{ inst }} pose
@@ -216,24 +324,41 @@ class {{ environment.name }}Node(Node):
             "theta": {{ p.pose.theta }}
         }
         {% else %}
+            {% if category == "composites" %}
+        self.poses["{{ category }}"]["{{ node_name }}"]["{{ inst }}"].update({
+            "x": {{ p.pose.x }},
+            "y": {{ p.pose.y }},
+            "theta": {{ p.pose.theta }}
+        })
+            {% else %}
         self.poses["{{ category }}"]["{{ node_name }}"]["{{ inst }}"] = {
             "x": {{ p.pose.x }},
             "y": {{ p.pose.y }},
             "theta": {{ p.pose.theta }}
         }
         {% endif %}
+        {% endif %}
         self.tree[self.env_name.lower()].append("{{ inst }}")
         
+        {% if p.nodeclass == "CompositePlacement" %}
+        {{ register_composite_children(
+            "self.nodes['composites']['" ~ node_name ~ "']['" ~ inst ~ "']",
+            "self.poses['composites']['" ~ node_name ~ "']['" ~ inst ~ "']",
+            p.ref,
+            {'x': p.pose.x, 'y': p.pose.y, 'theta': p.pose.theta},
+            inst
+        ) }}
+        {% endif %}
         # Define {{ inst }} subscriber
         self.{{ inst }}_pose_sub = self.create_subscriber(
             topic=f"{{ class }}{% if node_type %}.{{ node_type }}{% endif %}.{{ node_name }}.{{ inst }}.pose",
             msg_type=PoseMessage,
-            on_message=lambda msg, name="{{ inst }}": \
+            on_message=lambda msg, id="{{ inst }}": \
                 self.node_pose_callback({
                     "class": "{{ class }}",
                     "type": "{{ node_type if node_type else '' }}",
                     "name": "{{ node_name }}",
-                    "id": name,
+                    "id": id,
                     "x": msg.x,
                     "y": msg.y,
                     "theta": msg.theta
@@ -301,48 +426,89 @@ class {{ environment.name }}Node(Node):
         return check_affectability(self.nodes, self.poses, self.log, sensor_id, env_properties, lin_alarms_robots)
 
     def node_pose_callback(self, node: dict):
-        return node_pose_callback(self.poses, self.log, node)
+        return node_pose_callback(self.tree, self.poses, self.pantilts, self.handle_offsets, self.log, node)
 
     def print_tf_tree(self):
-        self.log.info(f"\n- {self.env_name}")
-
+        """Print a hierarchical TF tree of all nodes with poses."""
         def format_pose(p):
-            return f"@ (x={p['x']:.2f}, y={p['y']:.2f}, theta={p['theta']:.1f} deg)"
+            """Format pose or linear segment as readable text."""
+            if "start" in p and "end" in p:
+                s, e = p["start"], p["end"]
+                return f"(start=({s['x']:.3f},{s['y']:.3f}) -> end=({e['x']:.3f},{e['y']:.3f}))"
+            return f"(x={p['x']:.3f}, y={p['y']:.3f}, theta={p['theta']:.3f} deg)"
 
-        def search_tree_recursive(d, indent=0):
-            for name, sub in d.items():
-                if isinstance(sub, dict) and all(k in sub for k in ["x", "y", "theta"]):
-                    # It's a pose dict
-                    self.log.info("%s- %s %s", "    " * indent, name, format_pose(sub))
-                elif isinstance(sub, dict):
-                    # Go deeper
-                    self.log.info("%s- %s", "    " * indent, name)
-                    search_tree_recursive(sub, indent + 1)
+        def is_pose_dict(d):
+            """Return True if dict represents a pose (has x/y/theta or start/end)."""
+            return (
+                isinstance(d, dict)
+                and (
+                    all(k in d for k in ["x", "y", "theta"])
+                    or ("start" in d and "end" in d)
+                )
+            )
 
-        # Sensors
-        if self.poses["sensors"]:
-            self.log.info("    - Sensors")
-            search_tree_recursive(self.poses["sensors"], 2)
+        def print_composite_children(comp_data, indent):
+            """Print children of a composite (sensors, actuators, nested composites)."""
+            if not isinstance(comp_data, dict):
+                return
+            
+            # Print sensors
+            if "sensors" in comp_data and comp_data["sensors"]:
+                for sensor_name, sensor_instances in comp_data["sensors"].items():
+                    if isinstance(sensor_instances, dict):
+                        for sensor_id, sensor_pose in sensor_instances.items():
+                            if is_pose_dict(sensor_pose):
+                                self.log.info(f"{'    ' * indent}- {sensor_id} @ {format_pose(sensor_pose)}")
+            
+            # Print actuators
+            if "actuators" in comp_data and comp_data["actuators"]:
+                for actuator_name, actuator_instances in comp_data["actuators"].items():
+                    if isinstance(actuator_instances, dict):
+                        for actuator_id, actuator_pose in actuator_instances.items():
+                            if is_pose_dict(actuator_pose):
+                                self.log.info(f"{'    ' * indent}- {actuator_id} @ {format_pose(actuator_pose)}")
+            
+            # Print nested composites recursively
+            if "composites" in comp_data and comp_data["composites"]:
+                for comp_name, comp_instances in comp_data["composites"].items():
+                    if isinstance(comp_instances, dict):
+                        for comp_id, nested_comp_data in comp_instances.items():
+                            if is_pose_dict(nested_comp_data):
+                                self.log.info(f"{'    ' * indent}- {comp_id} @ {format_pose(nested_comp_data)}")
+                                # Recursively print children of nested composite
+                                print_composite_children(nested_comp_data, indent + 1)
 
-        # Actuators
-        if self.poses["actuators"]:
-            self.log.info("    - Actuators")
-            search_tree_recursive(self.poses["actuators"], 2)
+        def print_recursive(name, data, indent=0):
+            """Recursively print node hierarchy."""
+            prefix = "    " * indent + "- "
 
-        # Obstacles
-        if self.poses["obstacles"]:
-            self.log.info("    - Obstacles")
-            search_tree_recursive(self.poses["obstacles"], 2)
+            # Pose node
+            if is_pose_dict(data):
+                self.log.info(f"{prefix}{name} @ {format_pose(data)}")
+                
+                # If this is a composite instance, print its children
+                print_composite_children(data, indent + 1)
+                return
 
-        # Actors
-        if self.poses["actors"]:
-            self.log.info("    - Actors")
-            search_tree_recursive(self.poses["actors"], 2)
+            # Non-pose node: may contain dicts or lists
+            if isinstance(data, dict):
+                self.log.info(f"{prefix}{name}")
+                for key, val in data.items():
+                    print_recursive(key, val, indent + 1)
+            elif isinstance(data, list):
+                for elem in data:
+                    self.log.info(f"{prefix}{elem}")
 
-        # Composites
-        if self.poses["composites"]:
-            self.log.info("    - Composites")
-            search_tree_recursive(self.poses["composites"], 2)
+        # Print environment header
+        self.log.info(f"- {self.env_name}")
+
+        # Recursively print each category
+        for category, content in self.poses.items():
+            if not content:
+                continue
+            self.log.info("    - %s", category.capitalize())
+            for key, val in content.items():
+                print_recursive(key, val, indent=2)
 
     def start(self):
         # Launch commlib internal loop in a background thread

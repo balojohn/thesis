@@ -43,7 +43,9 @@ class {{ composite.name }}Node(Node):
         self.running = True
 
         # --- composite pose (global) ---
-        self.x, self.y, self.theta = 0.0, 0.0, 0.0
+        self.x = kwargs.get("initial_pose", {}).get("x", 0.0)
+        self.y = kwargs.get("initial_pose", {}).get("y", 0.0)
+        self.theta = kwargs.get("initial_pose", {}).get("theta", 0.0)
         self._last_t = time.monotonic()
         self.vx, self.vy, self.omega = 0.1, 0.0, 10.0  # simple motion model
 

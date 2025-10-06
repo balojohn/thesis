@@ -17,25 +17,35 @@
     {% endif %}
 {% endfor %}
 {%- endmacro %}
+{%- macro render_datatypes(thing) -%}
 {# === Atomic Thing (Sensor/Actuator) === #}
-{% if thing and not (thing.sensors is defined or thing.actuators is defined) %}
+{% if thing and not (thing.sensors is defined or thing.actuators is defined or thing.composites is defined) %}
 DataType {{ thing.dataModel if thing.dataModel else thing.name ~ "Data" }}
 {{ render_properties(thing) }}
 end
 {% endif %}
-{# === Composite Thing with nested sensors === #}
+{# === Composite with nested sensors === #}
 {% if thing and thing.sensors is defined %}
 {% for sensor in thing.sensors | map(attribute="ref") | unique %}
 DataType {{ sensor.dataModel if sensor.dataModel else sensor.name ~ "Data" }}
-{{ render_properties(thing) }}
+{{ render_properties(sensor) }}
 end
 {% endfor %}
 {% endif %}
-{# === Composite Thing with nested actuators === #}
+{# === Composite with nested actuators === #}
 {% if thing and thing.actuators is defined %}
 {% for actuator in thing.actuators | map(attribute="ref") | unique %}
 DataType {{ actuator.dataModel if actuator.dataModel else actuator.name ~ "Data" }}
-{{ render_properties(thing) }}
+{{ render_properties(actuator) }}
 end
 {% endfor %}
 {% endif %}
+{# === Composite with nested composites === #}
+{% if thing and thing.composites is defined %}
+{% for comp in thing.composites | map(attribute="ref") | unique %}
+    {{ render_datatypes(comp) }}
+{% endfor %}
+{% endif %}
+{%- endmacro %}
+{# ==== ENTRY POINT ==== #}
+{{ render_datatypes(thing) }}

@@ -3,5 +3,5 @@ CThing Robot
     actuators:
         - Button @ Transform(7, 3, 0)
     composites:
-        - Arm @ Transform(5, 2, 90)
+        - PanTilt @ Transform(5, 2, 90)
 end

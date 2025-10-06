@@ -186,19 +186,18 @@ def t2vc(ctx, model_file):
             obj_type = obj.__class__.__name__.lower()
             
             comms_model_file = os.path.join(GENFILES_REPO_PATH, "communications", f"{obj_name}.comm")
-            if os.path.exists(comms_model_file):
-                communication_mm = get_communication_mm()
-                comms = communication_mm.model_from_file(comms_model_file)
-                print(f'[*] Loaded Communications model from file: {comms_model_file}')
-            else:
-                print(f'[!] No Communications model found for {obj_name}, skipping...')            
+            communication_mm = get_communication_mm()
+            comms = communication_mm.model_from_file(comms_model_file)
+            # if not comms or not hasattr(comms, "communications"):
+            #     raise RuntimeError(f"Failed to load communications model from {comms_model_file}")
+            print(f'[*] Loaded Communications model from file: {comms_model_file}')
             
             dtypes_model_file = os.path.join(GENFILES_REPO_PATH, "datatypes", f"{obj_name}.dtype")
             dtypes_mm = get_datatype_mm()
             dtypes = dtypes_mm.model_from_file(dtypes_model_file)
             print(f'[*] Loaded Data model from file: {dtypes_model_file}')
-
             model_kind = "thing"
+            print(f'{obj.__class__.__name__}')
             print(f'[*] Loaded Thing model from file: {model_file}')
         elif model_filename.endswith('.actor'):
             print(f'[*] Detected Actor model: {model_filename}')
@@ -214,11 +213,6 @@ def t2vc(ctx, model_file):
             dtypes_mm = get_datatype_mm()
             dtypes = dtypes_mm.model_from_file(dtypes_model_file)
             print(f'[*] Loaded Data model from file: {dtypes_model_file}')
-
-            mm = get_actor_mm()
-            model = mm.model_from_file(model_file)
-            obj = model.actor
-            obj_type = obj.__class__.__name__.lower()
             model_kind = "actor"
             print(f'[*] Loaded Actor model from file: {model_file}')
         elif model_filename.endswith('.env'):
@@ -260,7 +254,7 @@ def t2vc(ctx, model_file):
             gen_code = model_to_vcode(obj, comms, dtypes)
             filename = f"{obj.name.lower()}.py"
             outdir = actors_output_dir
-        elif obj.__class__.__name__ == "Sensor":
+        elif getattr(obj, "class", "").lower() == "sensor":
             gen_code = model_to_vcode(obj, comms, dtypes)
             filename = f"{obj.name.lower()}.py"
             outdir = things_output_dir
@@ -271,7 +265,7 @@ def t2vc(ctx, model_file):
             outdir = things_output_dir
 
         filepath = os.path.join(outdir, filename)
-        # remove old dtype file if it exists
+        # remove old files if they exist
         if os.path.exists(filepath):
             os.remove(filepath)
         with open(filepath, 'w') as fp:
