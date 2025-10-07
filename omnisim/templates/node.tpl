@@ -1,56 +1,64 @@
-import random
-import math
-import sys
-import threading
-import subprocess
-import time
-import redis
+import sys, threading, redis, subprocess, time, math, random
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from commlib.utils import Rate
 from commlib.msg import PubSubMessage
-{% set obj = thing|default(actor)|default(environment) %}
-{% if obj.class == "Sensor" or obj.__class__.__name__ == "Robot" %}
+{#{% set obj = thing|default(actor)|default(environment) %}#}
+{% if obj.class == "Sensor" or obj.__class__.__name__ == "CompositeThing" %}
 from omnisim.utils.geometry import PoseMessage
 {% endif %}
-{% macro topic_prefix(obj) -%}
-    {%- set cls = obj.class|lower -%}
-    {%- set typ = obj.type|lower if obj.type else None -%}
-    {%- set name = obj.name|lower -%}
-    {%- if obj.class is defined and obj.class == "Sensor" -%}
-        {{ cls }}.{{ typ }}.{{ name }}
-    {%- elif obj.class is defined and obj.class == "Actuator" -%}
-        {{ cls }}.{{ typ }}.{{ name }}
-    {%- elif obj.__class__.__name__ == "CompositeThing" and obj.name == "Robot" -%}
-        composite.robot
-    {%- elif obj.__class__.__name__ == "CompositeThing" -%}
+{% macro topic_prefix(obj, parent_id=None) -%}
+    {% set cls = obj.class|lower %}
+    {% set name = obj.name|lower %}
+    {% if obj.class == "Sensor" %}
+        {% if parent_id %}
+            composite.{{ parent_id }}.{{ name }}
+        {% else %}
+            sensor.{{ obj.type|lower }}.{{ name }}
+        {% endif %}
+    {% elif obj.class == "Actuator" %}
+        {% if parent_id %}
+            composite.{{ parent_id }}.{{ name }}
+        {% else %}
+            actuator.{{ obj.type|lower }}.{{ name }}
+        {% endif %}
+    {% elif obj.__class__.__name__ == "CompositeThing" %}
+        {% if parent_id %}
+            composite.{{ parent_id }}.{{ name }}
+            # composite.robot.{{ parent_id }}.{{ name }}
+        {% else %}
+            composite.{{ name }}
+        {% endif %}
+    {% else %}
         composite.{{ name }}
-    {%- else -%}
-        {{ obj.__class__.__name__|lower }}
-    {%- endif -%}
+    {% endif %}
 {%- endmacro %}
-{# --- resolve object (Sensor, Actuator, Actor, Composite, Robot) --- #}
-{% set topic_base = topic_prefix(obj) %}
+{# Resolve object (Sensor, Actuator, Actor, Composite, Robot) --- #}
+{% set topic_base = topic_prefix(obj, parent_id=obj.parent_id if obj.parent_id is defined else None) | trim %}
 {% set dtype_name = obj.name + "Data" %}
 {% set data_type = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
-{# --- id_field depends on class --- #}
+{# Define id_field depending on class #}
 {% if obj.class == "Sensor" %}
   {% set id_field = "sensor_id" %}
 {% elif obj.class == "Actuator" %}
   {% set id_field = "actuator_id" %}
-{% else %}
+{% elif obj.class == "Actor" %}
   {% set id_field = "actor_id" %}
+{% elif obj.__class__.__name__ == "CompositeThing" %}
+  {% set id_field = "composite_id" %}
 {% endif %}
-{# --- default values for properties --- #}
+{# Default values for properties taken from Model #}
 {% set prop_values = {} %}
-{% for prop in data_type.properties %}
-{% if obj[prop.name] is defined %}
-    {% set _ = prop_values.update({prop.name: obj[prop.name]}) %}
+{% set data_type = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
+{% if data_type %}
+  {% for prop in data_type.properties %}
+      {% set _ = prop_values.update({prop.name: obj[prop.name]}) %}
+  {% endfor %}
 {% else %}
-    {% set _ = prop_values.update({prop.name: None}) %}
+  {# No data type found (likely a composite/robot) — skip property mapping #}
+  {% set data_type = None %}
 {% endif %}
-{% endfor %}
-{# --- collect publishers for this object --- #}
+{# Collect publishers for this object --- #}
 {% set publishers = [] %}
 {% for comm in comms.communications %}
   {% for e in comm.endpoints %}
@@ -60,6 +68,18 @@ from omnisim.utils.geometry import PoseMessage
     {% endif %}
   {% endfor %}
 {% endfor %}
+{# --- Import generated child nodes (for composites only) --- #}
+{% if obj.__class__.__name__ == "CompositeThing" %}
+    {% for posed_sensor in obj.sensors %}
+from .{{ posed_sensor.ref.name.lower() }} import {{ posed_sensor.ref.name }}Node
+    {% endfor %}
+    {% for posed_actuator in obj.actuators %}
+from .{{ posed_actuator.ref.name.lower() }} import {{ posed_actuator.ref.name }}Node
+    {% endfor %}
+    {% for posed_cthing in obj.composites %}
+from .{{ posed_cthing.ref.name.lower() }} import {{ posed_cthing.ref.name }}Node
+    {% endfor %}
+{% endif %}
 
 # Path to your redis-server executable
 REDIS_PATH = r"C:\redis\redis-server.exe"
@@ -82,32 +102,25 @@ class {{ e.msg.name }}(PubSubMessage):
     {{ prop.name }}: {{ "float" if prop.type.name == "float" else "int" if prop.type.name == "int" else "bool" if prop.type.name == "bool" else "str" }}
   {% endfor %}
 {% endfor %}
-{#
-{% set excluded = [
-    "pubFreq",
-    "type",
-    "sensor_id",
-    "actuator_id",
-    "actor_id"
-] %}
-SIMULATED_PROPS = [
-  {% for e in publishers %}
-    {% for prop in e.msg.properties %}
-      {% if prop.name not in excluded %}
-  "{{ prop.name }}",
-      {% endif %}
-    {% endfor %}
-  {% endfor %}
-]
-#}
-
 class {{ obj.name }}Node(Node):
-    def __init__(self, {{ id_field }}: str = "", initial_pose: dict | None = None, *args, **kwargs):
+    def __init__(self, {{ id_field }}: str = "", *args, **kwargs):
+        # Remove already existing keys
+        {#{% if obj.__class__.__name__ in ["CompositeThing", "Robot"] %} #}
+        kwargs.pop("{{ id_field }}", None)
+        kwargs.pop("initial_pose", None)
+        {# {% endif %} #}
+        super().__init__(
+            node_name="{{ obj.name.lower() }}",
+            connection_params=ConnectionParameters(),
+            *args, **kwargs
+        )
+        self.{{ id_field }} = {{ id_field }}
         self.pub_freq = {{ obj.pubFreq }}
         self.running = True
-        self.thread = None
-        self.{{ id_field }} = {{ id_field }}
-
+        # self.thread = None
+        {% if obj.__class__.__name__ == "CompositeThing" %}
+        self.children = {}
+        {% endif %}
         # Default props
         {% for prop in data_type.properties %}
         {% set val = prop_values.get(prop.name) %}
@@ -117,18 +130,18 @@ class {{ obj.name }}Node(Node):
         self.{{ prop.name }} = {{ val if val is not none else 0 }}
         {% elif prop.type.name == "Transformation" %}
         self.{{ prop.name }} = {
-            "dx": {{ val.dx if val else 0.0 }},
-            "dy": {{ val.dy if val else 0.0 }},
-            "dtheta": {{ val.dtheta if val else 0.0 }}}
+            "dx": {{ val.dx if val }},
+            "dy": {{ val.dy if val }},
+            "dtheta": {{ val.dtheta if val }}}
         {% else %}
-        self.{{ prop.name }} = {{ val if val is not none else 0.0 }}
+        self.{{ prop.name }} = {{ val if val is not none }}
         {% endif %}
         {% endfor %}
 
         # Pose state
-        self.x = (initial_pose or {}).get("x", 0.0)
-        self.y = (initial_pose or {}).get("y", 0.0)
-        self.theta = (initial_pose or {}).get("theta", 0.0)
+        self.x = kwargs.get("initial_pose", {}).get("x", 0.0)
+        self.y = kwargs.get("initial_pose", {}).get("y", 0.0)
+        self.theta = kwargs.get("initial_pose", {}).get("theta", 0.0)
 
         {% if obj.__class__.__name__ == "Robot" %}
         # Simple motion integration
@@ -137,13 +150,8 @@ class {{ obj.name }}Node(Node):
         self.vy = 0.10
         self.omega = 10.0
         {% endif %}
-        super().__init__(
-            node_name="{{ obj.name.lower() }}",
-            connection_params=ConnectionParameters(),
-            *args, **kwargs
-        )
 
-        {% if obj.class == "Sensor" or obj.__class__.__name__ == "Robot" %}
+        {%- if obj.class == "Sensor" or obj.__class__.__name__ == "CompositeThing" %}
         # Pose publisher (Sensors and Robots)
         self.pose_publisher = self.create_publisher(
             topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.pose",
@@ -152,8 +160,9 @@ class {{ obj.name }}Node(Node):
         {% endif %}
         
         {% for e in publishers %}
-        self.data_publisher = self.create_publisher(
-            topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}",
+        # Data publisher for {{ e.msg.name }}
+        self.data_publisher_{{ e.msg.name|lower|replace('message', '') }} = self.create_publisher(
+            topic=f"{{ topic_base }}.{{ '{self.' ~ id_field ~ '}' }}.{{ e.msg.name|lower|replace('message','') }}.data",
             msg_type={{ e.msg.name }}
         )
         {% endfor %}
@@ -166,6 +175,34 @@ class {{ obj.name }}Node(Node):
         self.y += self.vy * dt
         self.theta = (self.theta + self.omega * dt) % 360.0
     {% endif %}
+    {% for posed_sensor in obj.sensors %}
+        self.children["{{ posed_sensor.ref.name.lower() }}"] = {{ posed_sensor.ref.name }}Node(
+            sensor_id=f"{self.{{ id_field }}}_{{ posed_sensor.ref.name.lower() }}",
+            initial_pose={
+                'x': {{ posed_sensor.transformation.transformation.dx }},
+                'y': {{ posed_sensor.transformation.transformation.dy }},
+                'theta': {{ posed_sensor.transformation.transformation.dtheta }}
+            }
+        )
+    {% endfor %}
+    {% for posed_actuator in obj.actuators %}
+        self.children["{{ posed_actuator.ref.name.lower() }}"] = {{ posed_actuator.ref.name }}Node(
+            actuator_id=f"{self.{{ id_field }}}_{{ posed_actuator.ref.name.lower() }}",
+            initial_pose={
+                'x': {{ posed_actuator.transformation.transformation.dx }},
+                'y': {{ posed_actuator.transformation.transformation.dy }},
+                'theta': {{ posed_actuator.transformation.transformation.dtheta }}
+            }
+        )
+    {% endfor %}
+    {% for posed_cthing in obj.composites %}
+        {% if obj.__class__.__name__ == "CompositeThing" %}
+        # --- Children ---
+        self.children["{{ posed_cthing.ref.name.lower() }}"] = {{ posed_cthing.ref.name }}Node(
+            {{ id_field }}=f"{self.{{ id_field }}}_{{ posed_cthing.ref.name.lower() }}"
+        )
+        {% endif %}
+    {% endfor %}
 
     {#
     def simulate(self):
@@ -196,34 +233,68 @@ class {{ obj.name }}Node(Node):
         self.thread.start()
         time.sleep(0.5)
         print(f"[{self.__class__.__name__}] Running with id={self.{{ id_field }}}")
+        {% if obj.__class__.__name__ == "CompositeThing" %}
+        # --- Start child nodes (if any) ---
+        if hasattr(self, "children") and self.children:
+            for name, node in self.children.items():
+                print(f"  -> starting child {name}")
+                node.running = True
+                threading.Thread(target=node.start, daemon=True).start()
+        {% endif %}
 
         rate = Rate(self.pub_freq)
         while self.running:
             {% if obj.__class__.__name__ == "Robot" %}
             self._integrate_motion()
             {% endif %}
-            {% if obj.class == "Sensor" or obj.__class__.__name__ == "Robot" %}
-            self.pose_publisher.publish(PoseMessage(x=self.x, y=self.y, theta=self.theta))
+            {% if obj.class == "Sensor" or obj.__class__.__name__ == "CompositeThing" %}
+            msg_pose = PoseMessage(
+                x=self.x,
+                y=self.y,
+                theta=self.theta
+            )
+            self.pose_publisher.publish(msg_pose)
+            print(f"[{self.__class__.__name__}] Publishing pose to {self.pose_publisher.topic}: {msg_pose.model_dump()}")
             {% endif %}
             {% for e in publishers %}
-            self.data_publisher.publish({{ e.msg.name }}(
+            msg_data = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
-                {{ id_field }}=self.{{ id_field }},
-                type="{{ dtype_name }}",
+                _id=self.{{ id_field }},
+                type="{{ e.msg.name | replace('Message', 'Data') }}",
+                {% if data_type %}
                 {% for prop in data_type.properties %}
                 {{ prop.name }}=self.{{ prop.name }},
                 {% endfor %}
-            ))
+                {% endif %}
+            )
+            self.data_publisher_{{ e.msg.name|lower|replace('message', '') }}.publish(msg_data)
+            print(f"[{self.__class__.__name__}] Publishing data to {self.data_publisher_{{ e.msg.name|lower|replace('message', '') }}.topic}: {msg_data.model_dump()}")
             {% endfor %}
             rate.sleep()
 
     def stop(self):
         print(f"[{self.__class__.__name__}] stopping...")
         self.running = False
+
+        {% if obj.__class__.__name__ in ["CompositeThing", "Robot"] %}
+        # Stop child nodes (if any)
+        if hasattr(self, "children") and self.children:
+            for name, node in self.children.items():
+                try:
+                    print(f"  -> stopping child {name}")
+                    node.stop()
+                    if hasattr(node, "thread") and node.thread:
+                        node.thread.join(timeout=1.0)
+                except Exception as e:
+                    print(f"  !! failed to stop child {name}: {e}")
+        {% endif %}
+        # Stop this node's own commlib loop
         try:
             super().stop()
         except Exception as e:
             print(f"[{self.__class__.__name__}] stop error: {e}")
+        
+        print(f"[{self.__class__.__name__}] Stopped.")
 
 if __name__ == '__main__':
     redis_start()
@@ -231,6 +302,9 @@ if __name__ == '__main__':
     node = {{ obj.name }}Node({{ id_field }}={{ id_field }})
     try:
         node.start()
+        # Keep main thread alive
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         node.stop()
         sys.exit(0)

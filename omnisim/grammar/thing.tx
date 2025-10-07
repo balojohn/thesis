@@ -14,6 +14,7 @@ Thing: Sensor | Actuator | CompositeThing;
 CompositeThing:
     ('CThing' | 'Robot') name=ID
 	(
+        ('pubFreq:' pubFreq=FLOAT)?
         ('shape' ':' shape=Shape)?
         ('sensors' ':'
              '-' sensors+=PosedSensor['-'])?

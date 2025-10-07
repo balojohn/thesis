@@ -20,7 +20,7 @@ from ..transformations.thing2entity import thing_to_entity_m2m
 from ..transformations.actor2entity import actor_to_entity_m2m
 from ..transformations.node2comm import node_to_comms_m2m
 from ..transformations.node2dtype import node_to_dtypes_m2m
-from ..transformations.node2vcode import model_to_vcode, env_to_vcode, composite_to_vcode
+from ..transformations.node2vcode import model_to_vcode, env_to_vcode
 from ..utils import validate_pose as vp
 
 dtypes_output_dir = os.path.join(GENFILES_REPO_PATH, "datatypes")
@@ -183,13 +183,10 @@ def t2vc(ctx, model_file):
             model = mm.model_from_file(model_file)
             obj = model.thing
             obj_name = obj.name.lower()
-            obj_type = obj.__class__.__name__.lower()
             
             comms_model_file = os.path.join(GENFILES_REPO_PATH, "communications", f"{obj_name}.comm")
             communication_mm = get_communication_mm()
             comms = communication_mm.model_from_file(comms_model_file)
-            # if not comms or not hasattr(comms, "communications"):
-            #     raise RuntimeError(f"Failed to load communications model from {comms_model_file}")
             print(f'[*] Loaded Communications model from file: {comms_model_file}')
             
             dtypes_model_file = os.path.join(GENFILES_REPO_PATH, "datatypes", f"{obj_name}.dtype")
@@ -197,7 +194,6 @@ def t2vc(ctx, model_file):
             dtypes = dtypes_mm.model_from_file(dtypes_model_file)
             print(f'[*] Loaded Data model from file: {dtypes_model_file}')
             model_kind = "thing"
-            print(f'{obj.__class__.__name__}')
             print(f'[*] Loaded Thing model from file: {model_file}')
         elif model_filename.endswith('.actor'):
             print(f'[*] Detected Actor model: {model_filename}')
@@ -205,7 +201,6 @@ def t2vc(ctx, model_file):
             model = mm.model_from_file(model_file)
             obj = model.actor
             obj_name = obj.name.lower()
-            obj_type = obj.__class__.__name__.lower()
             
             comms = []
             
@@ -246,37 +241,29 @@ def t2vc(ctx, model_file):
             gen_code = env_to_vcode(obj, comms, dtypes)
             filename = f"{obj.name.lower()}.py"
             outdir = envs_output_dir
-        elif obj_type in ["compositething", "robot"]:
-            gen_code = composite_to_vcode(obj, comms, dtypes)
-            filename = f"{obj.name.lower()}.py"
-            outdir = things_output_dir
-        elif model_kind == "actor":
-            gen_code = model_to_vcode(obj, comms, dtypes)
-            filename = f"{obj.name.lower()}.py"
-            outdir = actors_output_dir
-        elif getattr(obj, "class", "").lower() == "sensor":
-            gen_code = model_to_vcode(obj, comms, dtypes)
-            filename = f"{obj.name.lower()}.py"
-            outdir = things_output_dir
         else:
-            # Actuators don’t publish so no comms needed
-            gen_code = model_to_vcode(obj, comms=None, dtypes=dtypes)
-            filename = f"{obj.name.lower()}.py"
-            outdir = things_output_dir
+            obj_class = getattr(obj, "class", "").lower()
+            obj_type = obj.__class__.__name__.lower()
 
+            # --- Determine comm usage ---
+            if obj_class == "sensor" or obj_type in ["compositething", "robot"]:
+                gen_code = model_to_vcode(obj, comms, dtypes)
+            else:
+                # Actuators and Actors -> no comms
+                gen_code = model_to_vcode(obj, comms=None, dtypes=dtypes)
+
+            filename = f"{obj.name.lower()}.py"
+            outdir = actors_output_dir if model_kind == "actor" else things_output_dir
         filepath = os.path.join(outdir, filename)
         # remove old files if they exist
         if os.path.exists(filepath):
             os.remove(filepath)
         with open(filepath, 'w') as fp:
             fp.write(gen_code)
-
         print(f"[*] Code generation succeeded! File: {filepath}\n")
-
     except Exception as e:
         print(f"[X] Transformation failed: {e}")
         raise
-
 
 @cli.command("validate-pose")
 # @click.argument("thing_model_file")

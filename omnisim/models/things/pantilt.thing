@@ -1,4 +1,5 @@
 CThing PanTilt
+    pubFreq: 1 
     shape: Rectangle(5, 4)
     sensors:
         - Camera @ Transform(5, 2, 0)

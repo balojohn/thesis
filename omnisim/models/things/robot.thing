@@ -1,4 +1,5 @@
 CThing Robot
+    pubFreq: 1
     shape: Rectangle(10, 8)
     actuators:
         - Button @ Transform(7, 3, 0)

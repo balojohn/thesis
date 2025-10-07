@@ -25,18 +25,28 @@ from omnisim.utils.affections import (
     handle_distance_sensor,
     check_affectability,
 )
-{% macro topic_prefix(obj) %}
+{% macro topic_prefix(obj, parent_id=None) %}
     {% set cls = obj.class|lower %}
     {% set typ = obj.type|lower if obj.type else None %}
     {% set name = obj.name|lower %}
-    {% if obj.class is defined and obj.class == "Sensor" %}
-        {{ cls }}.{{ typ }}.{{ name }}
-    {% elif obj.class is defined and obj.class == "Actuator" %}
-        {{ cls }}.{{ typ }}.{{ name }}
-    {% elif obj.__class__.__name__ == "CompositeThing" and obj.name == "Robot" %}
-        composite.robot
+    {% if obj.class == "Sensor" %}
+        {% if parent_id %}
+            composite.{{ parent_id }}.{{ name }}
+        {% else %}
+            sensor.{{ typ }}.{{ name }}
+        {% endif %}
+    {% elif obj.class == "Actuator" %}
+        {% if parent_id %}
+            composite.{{ parent_id }}.{{ name }}
+        {% else %}
+            actuator.{{ typ }}.{{ name }}
+        {% endif %}
     {% elif obj.__class__.__name__ == "CompositeThing" %}
-        composite.{{ name }}
+        {% if obj.name == "Robot" %}
+            composite.robot
+        {% else %}
+            composite.{{ name }}
+        {% endif %}
     {% else %}
         {{ obj.__class__.__name__|lower }}
     {% endif %}
@@ -350,8 +360,9 @@ class {{ environment.name }}Node(Node):
         ) }}
         {% endif %}
         # Define {{ inst }} subscriber
+        {% set topic_base = topic_prefix(p.ref, parent_id=inst if p.nodeclass == "CompositePlacement" else None) | trim %}
         self.{{ inst }}_pose_sub = self.create_subscriber(
-            topic=f"{{ class }}{% if node_type %}.{{ node_type }}{% endif %}.{{ node_name }}.{{ inst }}.pose",
+            topic=f"{{ topic_base }}.{{ inst }}.pose",
             msg_type=PoseMessage,
             on_message=lambda msg, id="{{ inst }}": \
                 self.node_pose_callback({
@@ -364,7 +375,6 @@ class {{ environment.name }}Node(Node):
                     "theta": msg.theta
                 })
         )
-
         {% endfor %}
     {#
         # ---- live plotting setup ----

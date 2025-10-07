@@ -7,16 +7,13 @@ from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
 from ...utils.geometry import PoseMessage
 {% macro topic_prefix(obj) -%}
-    {%- if obj.class is defined and obj.class == "Sensor" -%}
-        sensor.{{ obj.type|lower }}
-    {%- elif obj.class is defined and obj.class == "Actuator" -%}
-        actuator.{{ obj.type|lower }}
+    {%- set name = obj.name|lower -%}
+    {%- if obj.class in ["Sensor", "Actuator"] -%}
+      {{ obj.class|lower }}.{{ obj.type|lower }}.{{ name }}
     {%- elif obj.__class__.__name__ == "CompositeThing" -%}
-        composite.{{ obj.name|lower }}
-    {%- elif obj.__class__.__name__ == "CompositeThing" and obj.name == "Robot" -%}
-        composite.robot
-    {%- elif obj.__class__.__name__ == "EnvActor" -%}
-        actor.{{ obj.name|lower }}
+        composite.{{ "robot" if obj.name == "Robot" else name }}
+    {%- elif obj.__class__.__name__ == "CompositeThing" -%}
+        composite.{{ name }}
     {%- else -%}
         {{ obj.__class__.__name__|lower }}
     {%- endif -%}
@@ -54,7 +51,7 @@ class {{ composite.name }}Node(Node):
             topic=f"{{ topic_prefix(composite) }}.{self.instance_id}.pose",
             msg_type=PoseMessage
         )
-
+# -------------------------------
         # --- Children ---
         self.children = {}
 

@@ -12,37 +12,38 @@ jinja_env = jinja2.Environment(
 # ---------- Things / Actors ----------
 node_tpl = jinja_env.get_template('node.tpl')
 def build_node(obj, comms, dtypes) -> str:
-    data_model_name = f"{obj.name}Data"
-    data_model = next((t for t in dtypes.types if t.name == data_model_name), None)
-    if data_model is None:
-        raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")
+    # Skip data model requirement for composites (like Robot)
+    if getattr(obj, "__class__", None).__name__ == "CompositeThing":
+        data_model = None
+    else:
+        data_model_name = f"{obj.name}Data"
+        data_model = next((t for t in dtypes.types if t.name == data_model_name), None)
+        if data_model is None:
+            raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")
     context = {
-        'thing': obj if obj.__class__.__name__.lower() != "thing" else None,
-        'actor': obj if obj.__class__.__name__.lower() == "actor" else None,
+        'obj': obj,
         'comms': comms,
         'dtype': dtypes,
     }
     modelf = node_tpl.render(context)
     return modelf
 
-
 def model_to_vcode(obj, comms, dtypes) -> str:
-    node_str = build_node(obj, comms, dtypes)
-    return node_str
+    return build_node(obj, comms, dtypes)
 
-# ---------- Composites (Robots & others) ----------
-composite_tpl = jinja_env.get_template("composites.tpl")
-def build_composite(composite, comms, dtypes):
-    context = {
-        "composite": composite,
-        "comms": comms,
-        "dtype": dtypes
-    }
-    return composite_tpl.render(context)
-
-def composite_to_vcode(robot, comms, dtypes) -> str:
-    composite_str = build_composite(robot, comms, dtypes)
-    return composite_str
+# # ---------- Composites (Robots & others) ----------
+# composite_tpl = jinja_env.get_template("composites.tpl")
+# def build_composite(composite, comms, dtypes):
+#     context = {
+#         "composite": composite,
+#         "comms": comms,
+#         "dtype": dtypes
+#     }
+#     return composite_tpl.render(context)
+# 
+# def composite_to_vcode(robot, comms, dtypes) -> str:
+#     composite_str = build_composite(robot, comms, dtypes)
+#     return composite_str
 
 # ---------- Environment ----------
 envnode_tpl = jinja_env.get_template("environment.tpl")
@@ -80,5 +81,4 @@ def build_envnode(env, comms, dtypes) -> str:
     return envf
 
 def env_to_vcode(env, comms, dtypes) -> str:
-    env_str = build_envnode(env, comms, dtypes)
-    return env_str
+    return build_envnode(env, comms, dtypes)
