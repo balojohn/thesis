@@ -105,11 +105,10 @@ Text:
     'Text' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])?
             ('type:' type=[TextType])?
+            ('subtype:' subtype=ID)?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
             ('message' ':' message=STRING)?
         )#
     'end'

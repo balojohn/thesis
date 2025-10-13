@@ -1,48 +1,89 @@
-Communication {{ thing.name }}Comms
+{% set comm_name = (thing.subtype|capitalize if thing.subtype is defined else thing.type|capitalize) %}
+Communication {{ comm_name }}Comms
     endpoints
-        {# Case 1: composite with sensors #}
-        {% if thing.sensors is defined %}
+        {% if thing.sensors is defined and thing.sensors|length > 0 %}
+            {# ---- Case: Composite or Multi-Sensor Thing ---- #}
             {% for sensor in thing.sensors %}
-                {% set subclass = sensor.ref.__class__.__name__|lower %}
-                {% set typ = sensor.ref.type|lower if sensor.ref.type else "" %}
+                {% set type = sensor.ref.type|lower if sensor.ref.type is defined else sensor.ref.__class__.__name__|lower %}
+                {% set subtype = (
+                    sensor.ref.subtype.name|lower
+                    if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
+                    else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                ) %}
         publisher
-            topic: 'sensor.{{ subclass }}{{ "." ~ typ if typ else "" }}'
-            msg: {{ sensor.ref.name }}Message
+            topic: 'sensor.{{ type }}.{{ subtype }}'
+            msg: {{ subtype|capitalize }}Message
         end
             {% endfor %}
-        {% endif %}
-        {# Case 2: atomic thing (sensor) #}
-        {% if (not thing.sensors or thing.sensors|length == 0) and thing.class == "Sensor" %}
-            {% set subclass = thing.__class__.__name__|lower %}
-            {% set typ = thing.type|lower if thing.type else "" %}
+        {% elif thing.composites is defined and thing.composites|length > 0 %}
+            {# ---- Case: Composite Thing containing sub-sensors ---- #}
+            {% for comp in thing.composites %}
+                {% if comp.ref.sensors is defined and comp.ref.sensors|length > 0 %}
+                    {% for sensor in comp.ref.sensors %}
+                        {% set type = sensor.ref.type|lower if sensor.ref.type is defined else sensor.ref.__class__.__name__|lower %}
+                        {% set subtype = (
+                            sensor.ref.subtype.name|lower
+                            if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
+                            else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                        ) %}
         publisher
-            topic: 'sensor.{{ subclass }}{{ "." ~ thing.name|lower }}'
-            msg: {{ thing.name }}Message
+            topic: 'sensor.{{ type }}.{{ subtype }}'
+            msg: {{ subtype|capitalize }}Message
+        end
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        {% elif thing.class == "Sensor" %}
+            {# ---- Case: Simple single Sensor ---- #}
+            {% set type = thing.type|lower if thing.type is defined else "sensor" %}
+            {% set subtype = thing.subtype|lower if thing.subtype is defined else "" %}
+        publisher
+            topic: 'sensor.{{ type }}{{ "." ~ subtype if subtype else "" }}'
+            msg: {{ subtype|capitalize if subtype else type|capitalize }}Message
         end
         {% endif %}
     end
 
     messages
-        {% if thing.sensors is defined %}
+        {% if thing.sensors is defined and thing.sensors|length > 0 %}
             {% for sensor in thing.sensors %}
-        TopicMsg {{ sensor.ref.name }}Message
+                {% set subtype = (
+                    sensor.ref.subtype.name|lower
+                    if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
+                    else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                ) %}
+        TopicMsg {{ subtype|capitalize }}Message
             pubFreq: float
             type: str
             sensor_id: str
-            {% if dtype %}
-                {% for p in dtype.properties %}
-            {{ p.name }}: {{ p.type }}
-                {% endfor %}
-            {% endif %}
         end
             {% endfor %}
-        {% endif %}
-        {% if (not thing.sensors or thing.sensors|length == 0) and thing.class == "Sensor" %}
-        TopicMsg {{ thing.name }}Message
+        {% elif thing.composites is defined and thing.composites|length > 0 %}
+            {% for comp in thing.composites %}
+                {% if comp.ref.sensors is defined and comp.ref.sensors|length > 0 %}
+                    {% for sensor in comp.ref.sensors %}
+                        {% set subtype = (
+                            sensor.ref.subtype.name|lower
+                            if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
+                            else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                        ) %}
+        TopicMsg {{ subtype|capitalize }}Message
             pubFreq: float
             type: str
             sensor_id: str
-            {% if dtype %}
+        end
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        {% elif thing.class == "Sensor" %}
+            {% set subtype = thing.subtype|lower if thing.subtype is defined else "" %}
+            {% set type = thing.type|lower if thing.type is defined else "sensor" %}
+        TopicMsg {{ subtype|capitalize if subtype else type|capitalize }}Message
+            pubFreq: float
+            type: str
+            sensor_id: str
+            {# --- Inject dtype attributes if available --- #}
+            {% if dtype is defined and dtype and dtype.properties is defined %}
                 {% for p in dtype.properties %}
             {{ p.name }}: {{ p.type }}
                 {% endfor %}

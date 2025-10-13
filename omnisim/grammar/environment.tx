@@ -11,15 +11,15 @@ Model:
 ;
 
 ThingPlacement:
-    ref=[Thing:FQN] ('(' instance_id=ID ')')? '@' pose=Pose
+    ref=[Thing:FQN] '@' pose=Pose
 ;
 
 ActorPlacement:
-    ref=[Actor:FQN] ('(' instance_id=ID ')')? '@' pose=Pose
+    ref=[Actor:FQN] '@' pose=Pose
 ;
 
 CompositePlacement:
-    ref=[CompositeThing:FQN] ('(' instance_id=ID ')')? '@' pose=Pose
+    ref=[CompositeThing:FQN] '@' pose=Pose
 ;
 
 ObstaclePlacement:
@@ -79,9 +79,8 @@ EnvironmentalProperty:
 EnvPropertyType:
     'temperature' |
     'humidity'    |
-    'gas'         |
     'luminosity'  |
-    'ph'
+    'sound'
 ;
 
 FQN: ID('.'ID)*;

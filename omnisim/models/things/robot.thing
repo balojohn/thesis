@@ -1,8 +1,11 @@
-CThing Robot
+CThing r_1
+    type: Robot
     pubFreq: 1
     shape: Rectangle(10, 8)
+    sensors:
+        - te_1 @ Transform(1, 1, 120)
     actuators:
-        - Button @ Transform(7, 3, 0)
+        - b_1 @ Transform(7, 3, 0)
     composites:
-        - PanTilt @ Transform(5, 2, 90)
+        - pt_1 @ Transform(5, 2, 90)
 end

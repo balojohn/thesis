@@ -2,12 +2,15 @@ import jinja2
 
 from ..utils.utils import TEMPLATES_PATH
 from ..lang import build_model
+from omnisim.utils.utils import apply_transformation
 
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(TEMPLATES_PATH),
     trim_blocks=True,
     lstrip_blocks=True
 )
+jinja_env.globals["apply_transformation"] = apply_transformation
+
 
 # ---------- Things / Actors ----------
 node_tpl = jinja_env.get_template('node.tpl')
@@ -16,7 +19,7 @@ def build_node(obj, comms, dtypes) -> str:
     if getattr(obj, "__class__", None).__name__ == "CompositeThing":
         data_model = None
     else:
-        data_model_name = f"{obj.name}Data"
+        data_model_name = f"{getattr(obj, 'subtype', getattr(obj, 'type', obj.__class__.__name__))}Data"
         data_model = next((t for t in dtypes.types if t.name == data_model_name), None)
         if data_model is None:
             raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")

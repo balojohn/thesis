@@ -1,8 +1,9 @@
-Button Button
+Button b_1
     class: Actuator
     type: SingleButton
-    // dataModel: ButtonData
+    subtype: Button
     shape: Rectangle(1,1)
     pubFreq: 1.0
     state: 1
+    size: 1
 end

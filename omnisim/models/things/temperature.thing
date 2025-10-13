@@ -1,7 +1,7 @@
-EnvSensor Temperature
+EnvSensor te_1
     class: Sensor
     type: EnvSensor
-    // dataModel: EnvSensorData
+    subtype: Temperature
     shape: Rectangle(5, 2)
     pubFreq: 1
     range: 10

@@ -28,14 +28,14 @@ def build_comms_model(obj, dtype=None) -> str:
 def log_node_info(model):
     components = []
 
-    print(f'[*] Model: {model.name} ({model.__class__.__name__})')
+    print(f'[*] Model: {model.type} ({model.__class__.__name__})')
 
     # Sensors
     if hasattr(model, 'sensors'):
         print(f'[*] Installed sensors:')
         for posed_sensor in model.sensors:
             sensor = posed_sensor.ref
-            print(f'    - {sensor.name}: ({sensor.__class__.__name__})')
+            print(f'    - {sensor.subtype}: ({sensor.__class__.__name__})')
             components.append((sensor, getattr(posed_sensor, 'name', sensor.name)))
 
     # Actuators
@@ -43,7 +43,7 @@ def log_node_info(model):
         print(f'[*] Installed actuators:')
         for posed_actuator in model.actuators:
             actuator = posed_actuator.ref
-            print(f'    - {actuator.name}: ({actuator.__class__.__name__})')
+            print(f'    - {actuator.subtype}: ({actuator.__class__.__name__})')
             components.append((actuator, getattr(posed_actuator, 'name', actuator.name)))
 
     # Nested Composites
@@ -57,7 +57,8 @@ def log_node_info(model):
 
     # Atomic fallback
     if not (hasattr(model, 'sensors') or hasattr(model, 'actuators') or hasattr(model, 'composites')):
-        print(f'[*] Atomic: {model.name} ({model.__class__.__name__})')
+        subtype = getattr(model, 'subtype', getattr(model, 'type', 'Unknown'))
+        print(f'[*] Atomic: {subtype} ({model.__class__.__name__})')
         components.append((model, model.name))
 
     return components
@@ -67,7 +68,9 @@ def node_to_comms_m2m(thing) -> str:
     # Load dtype if it exists
     dtype = None
     try:
-        dtype_filename = f"{thing.name.lower()}.dtype"
+        # Determine base name for dtype lookup (works for atomic and composite)
+        dtype_base = getattr(thing, "subtype", None) or getattr(thing, "type", None) or thing.__class__.__name__
+        dtype_filename = f"{dtype_base.lower()}.dtype"
         dtype_path = os.path.join(GENFILES_REPO_PATH, "datatypes", dtype_filename)
 
         if os.path.exists(dtype_path):
@@ -77,9 +80,10 @@ def node_to_comms_m2m(thing) -> str:
             dtype = dtype_model.types[0]
             print(f"[*] Using dtype model: {dtype_path}")
         else:
-            print(f"[!] No dtype file found for {thing.name}, skipping extra properties")
+            print(f"[!] No dtype file found for {thing.subtype}, skipping extra properties")
     except Exception as e:
-        print(f"[X] Failed to load dtype for {thing.name}: {e}")
+        thing_name = getattr(thing, "name", getattr(thing, "type", thing.__class__.__name__))
+        print(f"[X] Failed to load dtype for {thing_name}: {e}")
 
     # Render comms
     cmodel_str = build_comms_model(thing, dtype)

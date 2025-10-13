@@ -1,7 +1,8 @@
-CThing PanTilt
+CThing pt_1
+    type: Pantilt
     pubFreq: 1 
     shape: Rectangle(5, 4)
     sensors:
-        - Camera @ Transform(5, 2, 0)
-        - Sonar @ Transform(0, 0, 0)
+        - cam_1 @ Transform(5, 2, 0)
+        - so_1 @ Transform(1, 1, 180)
 end

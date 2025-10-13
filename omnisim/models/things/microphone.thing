@@ -1,6 +1,6 @@
-Microphone Microphone
+Microphone mic_1
     class: Sensor
-    // dataModel: MicrophoneData
+    type: Microphone
     shape: Circle(1)
     pubFreq: 1
     range: 10

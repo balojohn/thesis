@@ -1,6 +1,7 @@
 from os.path import dirname, join
 import math
 import random
+import numpy as np
 
 THIS_DIR = dirname((dirname(__file__)))
 MODEL_REPO_PATH = join(THIS_DIR, 'models')
@@ -150,89 +151,130 @@ def check_distance(from_pose, to_pose):
         d = calc_distance(p1, p2)
         return {'distance': d}
 
-def node_pose_callback(tree, poses, pantilts, handle_offsets, log, node: dict):
-    """
-    Callback function to update the absolute pose of a node
-    (actor, sensor, actuator, or obstacle).
+# 1. Build a homogeneous 2D transformation matrix
+def make_tf_matrix(x, y, theta):
+    """Return a 3x3 homogeneous transformation matrix for pose (x, y, theta)."""
+    th = math.radians(theta)
+    c, s = math.cos(th), math.sin(th)
+    return np.array([
+        [c, -s, x],
+        [s,  c, y],
+        [0,  0, 1]
+    ], dtype=float)
 
-    Args:
-        node (dict): A dictionary containing the node's pose information.
-            - 'class' (str): The class of the node (sensor/actuator/actor/composite/obstacle)
-            - 'type' (str): The type of the node
-            - 'name' (str): The name of the node.
-            - 'id' (str): The instance id of the node.
-            - 'x' (float): The x-coordinate of the node's position.
-            - 'y' (float): The y-coordinate of the node's position.
-            - 'theta' (float): The orientation of the node in degrees.
+# 2. Apply a transformation to a pose dict ---
+def apply_transformation(parent_pose, rel_pose):
+    """Compose parent and relative pose into absolute coordinates."""
+    Tp = make_tf_matrix(parent_pose["x"], parent_pose["y"], parent_pose["theta"])
+    Tr = make_tf_matrix(rel_pose["x"], rel_pose["y"], rel_pose["theta"])
+    T_abs = Tp @ Tr
+    x, y = T_abs[0, 2], T_abs[1, 2]
+    theta = math.degrees(math.atan2(T_abs[1, 0], T_abs[0, 0]))
+    return {"x": x, "y": y, "theta": theta}
+
+def node_pose_callback(nodes, poses, log, node: dict, parent_pose=None):
     """
-    node_class = node["class"]  # sensor / actuator / actor / composite / obstacle
-    node_type = node["type"]    # e.g. envsensor / envdevice / envactor / robot
-    node_name = node["name"]    # e.g. temperature / thermostat / fire / robot / chair
-    node_id = node["id"]        # instance id, e.g. te_1
+    Update or register a node's absolute pose into the correct hierarchy slot.
+    Works with hierarchical 'nodes' and 'poses' structures (same traversal style as print_tf_tree).
+    """
+    node_class = node.get("class", "").lower()
+    node_type = node.get("type", "").lower() or None
+    node_subtype = node.get("subtype", "").lower() or None
+    node_name = node.get("name", "").lower()
     node_pose = {"x": node["x"], "y": node["y"], "theta": node["theta"]}
 
-    if node_class in ["sensor", "actuator", "actor"]:
-        poses.setdefault(f"{node_class}s", {}) \
-             .setdefault(node_type, {}) \
-             .setdefault(node_name, {})[node_id] = node_pose
+    # Compose with parent transformation if provided
+    if parent_pose is not None:
+        node_pose = apply_transformation(parent_pose, node_pose)
 
-    elif node_class == "composite":
-        # Update only x, y, theta without destroying nested structure
-        if node_id in poses["composites"][node_name]:
-            # Get the old pose to calculate delta
-            old_pose = poses["composites"][node_name][node_id]
-            dx = node_pose["x"] - old_pose["x"]
-            dy = node_pose["y"] - old_pose["y"]
-            dtheta = node_pose["theta"] - old_pose["theta"]
-            
-            # Update parent pose
-            poses["composites"][node_name][node_id]["x"] = node_pose["x"]
-            poses["composites"][node_name][node_id]["y"] = node_pose["y"]
-            poses["composites"][node_name][node_id]["theta"] = node_pose["theta"]
-            
-            # Start recursive update with the delta
-            update_nested_children(poses["composites"][node_name][node_id], dx, dy, dtheta)
+    # --- SENSORS / ACTUATORS / ACTORS ---
+    if node_class in ["sensor", "actuator", "actor"]:
+        category = f"{node_class}s"
+        poses.setdefault(category, {})
+
+        if node_type:
+            poses[category].setdefault(node_type, {})
+            if node_subtype and node_subtype != node_type:
+                poses[category][node_type].setdefault(node_subtype, {})
+                poses[category][node_type][node_subtype][node_name] = node_pose
+                log.debug(f"Updated {node_class} {node_type}/{node_subtype}/{node_name} -> {node_pose}")
+            else:
+                poses[category][node_type][node_name] = node_pose
+                log.debug(f"Updated {node_class} {node_type}/{node_name} -> {node_pose}")
         else:
-            poses["composites"][node_name][node_id] = node_pose
+            poses[category][node_name] = node_pose
+            log.debug(f"Updated {node_class} {node_name} -> {node_pose}")
+
+    # --- COMPOSITES ---
+    elif node_class == "composite":
+        ctype = node_type or node_name
+        poses.setdefault("composites", {}).setdefault(ctype, {})
+        entry = poses["composites"][ctype].setdefault(node_name, {})
+
+        # update this composite's own absolute pose
+        entry.update({
+            "x": float(node_pose["x"]),
+            "y": float(node_pose["y"]),
+            "theta": float(node_pose["theta"])
+        })
+        entry.setdefault("sensors", {})
+        entry.setdefault("actuators", {})
+        entry.setdefault("composites", {})
+
+        log.debug(f"Updated composite {ctype}/{node_name} -> {node_pose}")
+
+        # Find and update the corresponding entry in poses
+        pose_entry = poses["composites"].get(ctype, {}).get(node_name)
+        if pose_entry and isinstance(pose_entry, dict):
+            update_nested_children(pose_entry, node_pose, log)
+        else:
+            log.warning(f"No matching pose entry for composite {node_name} found in poses")
 
     elif node_class == "obstacle":
-        poses["obstacles"].setdefault(node_name, {})[node_id] = node_pose
+        poses.setdefault("obstacles", {}).setdefault(node_name, node_pose)
+        log.debug(f"Updated obstacle {node_name} -> {node_pose}")
 
-    log.info(f"Updated {node_class} {node_id} pose -> {node_pose}")
+    else:
+        log.warning(f"Unknown node class '{node_class}' for {node_name}")
 
-# Propagate the delta to children
-def update_nested_children(data, delta_x, delta_y, delta_theta):
-    """Recursively update children by applying delta from parent movement."""
-    # Update actuators
-    if "actuators" in data and isinstance(data["actuators"], dict):
-        for act_name, act_instances in data["actuators"].items():
-            if isinstance(act_instances, dict):
-                for act_id, act_data in act_instances.items():
-                    if isinstance(act_data, dict) and "x" in act_data:
-                        act_data["x"] += delta_x
-                        act_data["y"] += delta_y
-                        act_data["theta"] += delta_theta
-                        # Recursively update children of this actuator
-                        update_nested_children(act_data, delta_x, delta_y, delta_theta)
-    
-    # Update sensors
-    if "sensors" in data and isinstance(data["sensors"], dict):
-        for sen_name, sen_instances in data["sensors"].items():
-            if isinstance(sen_instances, dict):
-                for sen_id, sen_data in sen_instances.items():
-                    if isinstance(sen_data, dict) and "x" in sen_data:
-                        sen_data["x"] += delta_x
-                        sen_data["y"] += delta_y
-                        sen_data["theta"] += delta_theta
-    
-    # Update nested composites
-    if "composites" in data and isinstance(data["composites"], dict):
-        for comp_name, comp_instances in data["composites"].items():
-            if isinstance(comp_instances, dict):
-                for comp_id, comp_data in comp_instances.items():
-                    if isinstance(comp_data, dict) and "x" in comp_data:
-                        comp_data["x"] += delta_x
-                        comp_data["y"] += delta_y
-                        comp_data["theta"] += delta_theta
-                        # Recursively update children of nested composite
-                        update_nested_children(comp_data, delta_x, delta_y, delta_theta)
+    log.info(f"[PoseUpdate] {node_class} {node_name}: {node_pose}")
+
+
+def update_nested_children(pose_entry, parent_pose, log):
+    """
+    Recursively update all children of a composite, including nested sensors and actuators.
+    Works even for multi-level structures like reader→camera→cam_1.
+    """
+    if not isinstance(pose_entry, dict):
+        return
+
+    for section in ("actuators", "sensors", "composites"):
+        section_data = pose_entry.get(section, {})
+        if not isinstance(section_data, dict):
+            continue
+
+        def recurse(d, parent_pose):
+            for k, v in d.items():
+                if not isinstance(v, dict):
+                    continue
+
+                # Case 1: Pose dict
+                if all(c in v for c in ("x", "y", "theta")):
+                    rel_pose = {
+                        "x": float(v["x"]),
+                        "y": float(v["y"]),
+                        "theta": float(v["theta"])
+                    }
+                    abs_pose = apply_transformation(parent_pose, rel_pose)
+                    v.update(abs_pose)
+                    log.info(f"[PoseUpdate] child {k}: {abs_pose}")
+
+                    # Dive deeper if this node hosts children
+                    for subsec in ("actuators", "sensors", "composites"):
+                        if subsec in v:
+                            recurse(v[subsec], abs_pose)
+                else:
+                    # Not a pose dict → continue exploring deeper
+                    recurse(v, parent_pose)
+
+        recurse(section_data, parent_pose)

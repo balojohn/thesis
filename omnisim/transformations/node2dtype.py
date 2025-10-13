@@ -39,7 +39,7 @@ def log_node_info(model):
         print(f'[*] Installed actuators:')
         for posed_actuator in model.actuators:
             actuator = posed_actuator.ref
-            print(f'    - {actuator.name}: ({actuator.__class__.__name__})')
+            print(f'    - {actuator.subtype}: ({actuator.__class__.__name__})')
             components.append((actuator, getattr(posed_actuator, 'name', actuator.name)))
 
     # Nested Composites
@@ -53,7 +53,8 @@ def log_node_info(model):
 
     # Atomic fallback
     if not (hasattr(model, 'sensors') or hasattr(model, 'actuators') or hasattr(model, 'composites')):
-        print(f'[*] Atomic: {model.name} ({model.__class__.__name__})')
+        subtype = getattr(model, 'subtype', getattr(model, 'type', 'Unknown'))
+        print(f'[*] Atomic: {subtype} ({model.__class__.__name__})')
         components.append((model, model.name))
 
     return components

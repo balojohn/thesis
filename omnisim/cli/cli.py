@@ -67,7 +67,9 @@ def t2c(_, model_file):
             tmodel = thing_mm.model_from_file(model_file)
             thing = tmodel.thing
             comms_model = node_to_comms_m2m(thing)
-            filename = f'{thing.name.lower()}.comm'
+            basename = getattr(thing, "subtype", None)
+            basename = basename.lower() if basename else thing.type.lower()
+            filename = f'{basename}.comm'
         else:
             print(f'[X] Unsupported model file type: {model_filename}')
             raise ValueError()
@@ -102,7 +104,9 @@ def t2d(_, model_file):
             amodel = actor_mm.model_from_file(model_file)
             actor = amodel.actor  # Top-level is 'actor' in actor grammar
             dtypes_model = node_to_dtypes_m2m(actor)
-            filename = f'{actor.name.lower()}.dtype'
+            basename = getattr(actor, "subtype", None)
+            basename = basename.lower() if basename else actor.type.lower()
+            filename = f'{basename}.dtype'
         elif model_filename.endswith('.thing'):
             print(f'[*] Detected Thing model: {model_filename}')
             preload_dtype_models()
@@ -110,7 +114,9 @@ def t2d(_, model_file):
             tmodel = thing_mm.model_from_file(model_file)
             thing = tmodel.thing
             dtypes_model = node_to_dtypes_m2m(thing)
-            filename = f'{thing.name.lower()}.dtype'
+            basename = getattr(thing, "subtype", None)
+            basename = basename.lower() if basename else thing.type.lower()
+            filename = f'{basename}.dtype'
         else:
             print(f'[X] Unsupported model file type: {model_filename}')
             raise ValueError()
@@ -176,91 +182,119 @@ def t2e(_, model_file):
 def t2vc(ctx, model_file):
     try:
         model_filename = os.path.basename(model_file).lower()
-        # --- Pick model type ---
+        model_kind = None
+
+        # --- Detect model kind ---
         if model_filename.endswith('.thing'):
             print(f'[*] Detected Thing model: {model_filename}')
             mm = get_thing_mm()
             model = mm.model_from_file(model_file)
             obj = model.thing
-            obj_name = obj.name.lower()
-            
-            comms_model_file = os.path.join(GENFILES_REPO_PATH, "communications", f"{obj_name}.comm")
-            communication_mm = get_communication_mm()
-            comms = communication_mm.model_from_file(comms_model_file)
-            print(f'[*] Loaded Communications model from file: {comms_model_file}')
-            
-            dtypes_model_file = os.path.join(GENFILES_REPO_PATH, "datatypes", f"{obj_name}.dtype")
-            dtypes_mm = get_datatype_mm()
-            dtypes = dtypes_mm.model_from_file(dtypes_model_file)
-            print(f'[*] Loaded Data model from file: {dtypes_model_file}')
             model_kind = "thing"
-            print(f'[*] Loaded Thing model from file: {model_file}')
         elif model_filename.endswith('.actor'):
             print(f'[*] Detected Actor model: {model_filename}')
             mm = get_actor_mm()
             model = mm.model_from_file(model_file)
             obj = model.actor
-            obj_name = obj.name.lower()
-            
-            comms = []
-            
-            dtypes_model_file = os.path.join(GENFILES_REPO_PATH, "datatypes", f"{obj_name}.dtype")
-            dtypes_mm = get_datatype_mm()
-            dtypes = dtypes_mm.model_from_file(dtypes_model_file)
-            print(f'[*] Loaded Data model from file: {dtypes_model_file}')
             model_kind = "actor"
-            print(f'[*] Loaded Actor model from file: {model_file}')
         elif model_filename.endswith('.env'):
             print(f'[*] Detected Environment model: {model_filename}')
             model = build_model(model_file)
-            # Load all comms and dtypes in the repo
-            comm_dir = os.path.join(GENFILES_REPO_PATH, "communications")
-            communication_mm = get_communication_mm()
-            comms = [
-                communication_mm.model_from_file(os.path.join(comm_dir, f))
-                for f in os.listdir(comm_dir) if f.endswith(".comm")
-            ]
-            print(f'[*] Loaded all Communications models from dir: {comm_dir}')
-
-            dtype_dir = os.path.join(GENFILES_REPO_PATH, "datatypes")
-            dtypes_mm = get_datatype_mm()
-            dtypes = [
-                dtypes_mm.model_from_file(os.path.join(dtype_dir, f))
-                for f in os.listdir(dtype_dir) if f.endswith(".dtype")
-            ]
-            print(f'[*] Loaded all Data models from dir: {dtype_dir}')
             obj = model.environment
             model_kind = "environment"
-            print(f'[*] Loaded Environment model from file: {model_file}')
         else:
             print("[X] Unknown model type (expected .thing, .actor, or .env)")
             return
 
-        # --- Code generation ---
+        # --- Handle Environment separately ---
         if model_kind == "environment":
+            # Load all .comm and .dtype
+            comm_dir = os.path.join(GENFILES_REPO_PATH, "communications")
+            dtype_dir = os.path.join(GENFILES_REPO_PATH, "datatypes")
+            communication_mm = get_communication_mm()
+            dtypes_mm = get_datatype_mm()
+
+            comms = [
+                communication_mm.model_from_file(os.path.join(comm_dir, f))
+                for f in os.listdir(comm_dir) if f.endswith(".comm")
+            ]
+            dtypes = [
+                dtypes_mm.model_from_file(os.path.join(dtype_dir, f))
+                for f in os.listdir(dtype_dir) if f.endswith(".dtype")
+            ]
+            print(f'[*] Loaded all Communications and Data models for environment.')
+
             gen_code = env_to_vcode(obj, comms, dtypes)
             filename = f"{obj.name.lower()}.py"
             outdir = envs_output_dir
-        else:
-            obj_class = getattr(obj, "class", "").lower()
-            obj_type = obj.__class__.__name__.lower()
 
-            # --- Determine comm usage ---
-            if obj_class == "sensor" or obj_type in ["compositething", "robot"]:
+        else:
+            # --- Handle Thing / Actor (atomic or composite) ---
+            obj_class = getattr(obj, "class", "").lower()
+            obj_type = getattr(obj, "type", "").lower()
+            obj_subtype = getattr(obj, "subtype", "").lower()
+            obj_name = obj_subtype or obj_type or obj.__class__.__name__.lower()
+
+            communication_mm = get_communication_mm()
+            dtypes_mm = get_datatype_mm()
+
+            comms_model_file = None
+            comms = None
+
+            # --- Communication model resolution ---
+            comms_dir = os.path.join(GENFILES_REPO_PATH, "communications")
+
+            # Try subtype first (Camera → camera.comm)
+            candidate_paths = [
+                os.path.join(comms_dir, f"{obj_subtype}.comm"),
+                os.path.join(comms_dir, f"{obj_type}.comm"),
+            ]
+
+            for path in candidate_paths:
+                if path and os.path.exists(path):
+                    comms_model_file = path
+                    break
+
+            if comms_model_file:
+                comms = communication_mm.model_from_file(comms_model_file)
+                print(f'[*] Loaded Communications model from file: {comms_model_file}')
+            else:
+                print("[!] No communications file found (this may be fine for actuators or composites).")
+
+            # --- DataType resolution ---
+            dtypes_model_file = None
+            dtype_dir = os.path.join(GENFILES_REPO_PATH, "datatypes")
+            for name in [obj_subtype, obj_type]:
+                if name:
+                    candidate = os.path.join(dtype_dir, f"{name}.dtype")
+                    if os.path.exists(candidate):
+                        dtypes_model_file = candidate
+                        break
+
+            if dtypes_model_file:
+                dtypes = dtypes_mm.model_from_file(dtypes_model_file)
+                print(f'[*] Loaded Data model from file: {dtypes_model_file}')
+            else:
+                raise FileNotFoundError(f"No matching .dtype file for {obj_name}")
+
+            # --- Code generation ---
+            if obj_class == "sensor" or obj.__class__.__name__.lower() in ["compositething", "robot"]:
                 gen_code = model_to_vcode(obj, comms, dtypes)
             else:
-                # Actuators and Actors -> no comms
                 gen_code = model_to_vcode(obj, comms=None, dtypes=dtypes)
 
-            filename = f"{obj.name.lower()}.py"
+            filename = f"{obj_name}.py"
             outdir = actors_output_dir if model_kind == "actor" else things_output_dir
+
+        # --- Write generated file ---
         filepath = os.path.join(outdir, filename)
-        # remove old files if they exist
         if os.path.exists(filepath):
             os.remove(filepath)
-        with open(filepath, 'w') as fp:
+        with open(filepath, "w") as fp:
             fp.write(gen_code)
+
         print(f"[*] Code generation succeeded! File: {filepath}\n")
+
     except Exception as e:
         print(f"[X] Transformation failed: {e}")
         raise
