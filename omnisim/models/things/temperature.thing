@@ -2,7 +2,7 @@ EnvSensor te_1
     class: Sensor
     type: EnvSensor
     subtype: Temperature
-    shape: Rectangle(5, 2)
+    shape: Circle(3)
     pubFreq: 1
     range: 10
 end

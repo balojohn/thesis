@@ -2,8 +2,8 @@ RangeFinder so_1
     class: Sensor
     type: RangeFinder
     subtype: Sonar
-    shape: Rectangle(2, 2)
-    pubFreq: 1
+    shape: Square(4)
+    pubFreq: 10
     fov: 100.0
     range: 250
     noise: Gaussian(mean: 0.0, std: 1.5)

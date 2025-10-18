@@ -1,5 +1,5 @@
 import math, random
-from .utils import calc_distance, check_lines_intersection
+from omnisim.utils.geometry import calc_distance, check_lines_intersection
 
 def handle_affection_ranged(nodes, poses, log, sensor_id, node_id, type_):
     """

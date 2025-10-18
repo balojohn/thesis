@@ -1,8 +1,8 @@
 CThing pt_1
     type: Pantilt
-    pubFreq: 1 
-    shape: Rectangle(5, 4)
+    pubFreq: 10
+    shape: Rectangle(60, 20)
     sensors:
-        - cam_1 @ Transform(5, 2, 0)
-        - so_1 @ Transform(1, 1, 180)
+        - cam_1 @ Transform(4, 4, 0)
+        - so_1 @ Transform(-4, 4, 180)
 end

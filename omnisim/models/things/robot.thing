@@ -1,11 +1,14 @@
 CThing r_1
     type: Robot
-    pubFreq: 1
-    shape: Rectangle(10, 8)
-    sensors:
-        - te_1 @ Transform(1, 1, 120)
+    pubFreq: 10
+    shape: Rectangle(210, 70)
+    automated: True
+    pois:
+        - Point(500, 800)
+        - Point(700, 600)
+        - Point(900, 200)
     actuators:
-        - b_1 @ Transform(7, 3, 0)
+        - b_1 @ Transform(-20, -15, 180)
     composites:
-        - pt_1 @ Transform(5, 2, 90)
+        - pt_1 @ Transform(0, 30, 0)
 end

@@ -16,12 +16,15 @@ CompositeThing:
 	(
         ('type:' type=ID)?
         ('pubFreq:' pubFreq=FLOAT)?
-        ('shape' ':' shape=Shape)?
-        ('sensors' ':'
+        ('shape:' shape=Shape)?
+        ('automated:' automated=BOOL)?
+        ('pois:'
+             '-' pois+=Point['-'])?
+        ('sensors:'
              '-' sensors+=PosedSensor['-'])?
-        ('actuators' ':'
+        ('actuators:'
              '-' actuators+=PosedActuator['-'])?
-        ('composites' ':'
+        ('composites:'
              '-' composites+=PosedCThing['-'])?
 	)#
     'end'

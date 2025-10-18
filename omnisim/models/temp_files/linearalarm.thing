@@ -1,7 +1,7 @@
-Alarm LinearAlarm
+Alarm linal_1
     class: Sensor
     type: Alarm
-    // dataModel: AlarmData
+    subtype: LinearAlarm
     shape: ArbitraryShape(Point(1.0, 1.0), Point(5.0, 1.0)) 
     pubFreq: 1
     triggered: 1

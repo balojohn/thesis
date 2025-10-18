@@ -2,7 +2,7 @@ EnvSensor gas_1
     class: Sensor
     type: EnvSensor
     subtype: Gas
-    shape: Rectangle(5, 2)
+    shape: Circle(3)
     pubFreq: 1
     range: 10
 end

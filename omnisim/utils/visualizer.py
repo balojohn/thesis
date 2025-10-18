@@ -2,78 +2,385 @@ import pygame
 import math
 import sys
 
-# ---------- Visualization Helper ----------
-
 class EnvVisualizer:
-    def __init__(self, env_node, width=1600, height=800, scale=30):
-        """env_node: instance of your EnvironmentNode"""
+    def __init__(self, env_node):
+        """
+        Visualizer for generated environment nodes (e.g., HomeNode).
+        Automatically scales to fit your screen while keeping aspect ratio.
+        Supports interactive zooming and panning.
+        """
         self.node = env_node
-        self.width = width
-        self.height = height
-        self.scale = scale   # pixels per world unit
-        self.center = (width // 2, height // 2)
         self.running = True
 
+        # === Environment info ===
+        self.env_width = getattr(env_node, "width", 20.0)
+        self.env_height = getattr(env_node, "height", 20.0)
+        self.properties = getattr(env_node, "properties", {})
+
+        # === Determine window size dynamically ===
         pygame.init()
-        pygame.display.set_caption(f"{env_node.env_name} Visualizer")
-        self.screen = pygame.display.set_mode((width, height))
+        info = pygame.display.Info()
+        max_w, max_h = int(info.current_w * 0.9), int(info.current_h * 0.9)
+
+        env_aspect = self.env_width / self.env_height
+        screen_aspect = max_w / max_h
+        if env_aspect > screen_aspect:
+            self.width = max_w
+            self.height = int(max_w / env_aspect)
+        else:
+            self.height = max_h
+            self.width = int(max_h * env_aspect)
+
+        # Compute scale factor (pixels per world unit)
+        self.scale = self.width / self.env_width
+
+        # === Setup pygame ===
+        pygame.display.set_caption(f"{env_node.env_name} Environment")
+        self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("consolas", 14)
+        self.bigfont = pygame.font.SysFont("consolas", 18, bold=True)
+
+        # === Colors ===
+        self.bg_color = (25, 25, 30)
+        self.grid_color = (40, 40, 45)
+        self.border_color = (100, 100, 100)
+        self.text_color = (230, 230, 230)
+        self.colors = {
+            "sensor": (0, 200, 255),
+            "actuator": (255, 180, 0),
+            "composite": (255, 100, 120),
+            "actor": (180, 120, 255),
+            "obstacle": (200, 200, 200),
+        }
+
+        # === Camera control (zoom + pan) ===
+        self.zoom = 1.0
+        self.pan_x = 0.0
+        self.pan_y = 0.0
+        self.zoom_step = 1.1
+        self.pan_speed = 20.0
+        self.dragging = False
+        self.drag_start = None
+
+    # -----------------------------------------------------
+    # ---------------- DRAW HELPERS -----------------------
+    # -----------------------------------------------------
 
     def world_to_screen(self, x, y):
-        """Convert world (x,y) to screen coordinates (flip y-axis)."""
-        sx = int(self.center[0] + x * self.scale)
-        sy = int(self.center[1] - y * self.scale)
+        """Map world coords (0,0 bottom-left) → screen coords (top-left origin)."""
+        sx = int((x - self.pan_x) * self.scale * self.zoom)
+        sy = int(self.height - (y - self.pan_y) * self.scale * self.zoom)
         return (sx, sy)
 
     def draw_arrow(self, pos, theta, color=(255, 255, 255)):
-        """Draw heading arrow."""
-        length = 15
+        length = 14
         end = (
             pos[0] + length * math.cos(math.radians(theta)),
-            pos[1] - length * math.sin(math.radians(theta))
+            pos[1] - length * math.sin(math.radians(theta)),
         )
         pygame.draw.line(self.screen, color, pos, end, 2)
+        head_angle = math.radians(theta)
+        hx1 = end[0] - 5 * math.cos(head_angle - 0.4)
+        hy1 = end[1] + 5 * math.sin(head_angle - 0.4)
+        hx2 = end[0] - 5 * math.cos(head_angle + 0.4)
+        hy2 = end[1] + 5 * math.sin(head_angle + 0.4)
+        pygame.draw.polygon(self.screen, color, [(end[0], end[1]), (hx1, hy1), (hx2, hy2)])
 
-    def draw_entity(self, x, y, theta, color, label):
+    def draw_grid(self):
+        step = max(1, int(self.scale * self.zoom))
+        for x in range(0, self.width, step):
+            pygame.draw.line(self.screen, self.grid_color, (x, 0), (x, self.height))
+        for y in range(0, self.height, step):
+            pygame.draw.line(self.screen, self.grid_color, (0, y), (self.width, y))
+
+    def draw_background(self):
+        self.screen.fill(self.bg_color)
+        self.draw_grid()
+        pygame.draw.rect(self.screen, self.border_color, (0, 0, self.width - 1, self.height - 1), 2)
+
+        # --- Environment name ---
+        name_text = self.bigfont.render(f"{self.node.env_name} Environment", True, (180, 220, 255))
+        self.screen.blit(name_text, (12, 10))
+
+        # --- Display environmental properties ---
+        y_offset = 36
+        for k, v in self.properties.items():
+            txt = self.font.render(f"{k.capitalize()}: {v}", True, self.text_color)
+            self.screen.blit(txt, (12, y_offset))
+            y_offset += 18
+
+        # --- Camera overlay ---
+        zoom_text = self.font.render(f"Zoom: {self.zoom:.2f}x", True, (180, 220, 255))
+        pan_text = self.font.render(f"Pan: ({self.pan_x:.1f}, {self.pan_y:.1f})", True, (180, 220, 255))
+        self.screen.blit(zoom_text, (self.width - 160, 10))
+        self.screen.blit(pan_text, (self.width - 200, 28))
+
+    # -----------------------------------------------------
+    # ---------------- ENTITY DRAWING ---------------------
+    # -----------------------------------------------------
+
+    def draw_entity(self, x, y, theta, entity, label):
+        """Draw geometric shape for an entity based on its declared properties."""
         pos = self.world_to_screen(x, y)
-        pygame.draw.circle(self.screen, color, pos, 6)
-        self.draw_arrow(pos, theta, color)
-        text = self.font.render(label, True, (255, 255, 255))
-        self.screen.blit(text, (pos[0] + 8, pos[1] - 8))
+        eclass = entity.get("class", "").lower()
+        color = self.colors.get(eclass, (200, 200, 200))
 
-    def draw_recursive(self, data, prefix=""):
-        """Recursively draw all pose nodes in self.poses."""
-        if not isinstance(data, dict):
-            return
-        for name, val in data.items():
-            if isinstance(val, dict):
-                if all(k in val for k in ["x", "y", "theta"]):
-                    # This is a pose dict
-                    color = (0, 255, 0) if "sensor" in prefix else (255, 165, 0)
-                    if "composite" in prefix:
-                        color = (0, 128, 255)
-                    self.draw_entity(val["x"], val["y"], val["theta"], color, name)
+        # Accept both top-level and nested shapes
+        shape = {}
+        if "shape" in entity:
+            shape = entity["shape"]
+        elif "properties" in entity and "shape" in entity["properties"]:
+            shape = entity["properties"]["shape"]
+        shape_type = shape.get("type", "").lower() if isinstance(shape, dict) else ""
+
+        # === Draw by shape type ===
+        if shape_type in ["rectangle", "square"]:
+            w = shape.get("width", shape.get("size", 1.0))
+            l = shape.get("length", shape.get("size", 1.0))
+            hw, hl = (w / 2) * self.scale * self.zoom, (l / 2) * self.scale * self.zoom
+            pts = [(-hw, -hl), (hw, -hl), (hw, hl), (-hw, hl)]
+            rot = math.radians(theta)
+            rotated = [
+                (
+                    pos[0] + px * math.cos(rot) - py * math.sin(rot),
+                    pos[1] - (px * math.sin(rot) + py * math.cos(rot))
+                )
+                for px, py in pts
+            ]
+            pygame.draw.polygon(self.screen, color, rotated, 2)
+
+        elif shape_type == "circle":
+            r = shape.get("radius", shape.get("size", 0.5)) * self.scale * self.zoom
+            pygame.draw.circle(self.screen, color, pos, int(r), 2)
+
+        elif shape_type == "line":
+            pts = shape.get("points", [])
+            if len(pts) == 2:
+                p1 = self.world_to_screen(pts[0]["x"], pts[0]["y"])
+                p2 = self.world_to_screen(pts[1]["x"], pts[1]["y"])
+                pygame.draw.line(self.screen, color, p1, p2, 2)
+
+        elif shape_type == "polygon":
+            pts = shape.get("points", [])
+            if pts:
+                screen_pts = [self.world_to_screen(p["x"], p["y"]) for p in pts]
+                pygame.draw.polygon(self.screen, color, screen_pts, 2)
+
+        else:
+            pygame.draw.circle(self.screen, color, pos, 4)
+
+        # --- Label box with automatic offset ---
+        label_surf = self.font.render(label, True, (0, 0, 0))
+        lw, lh = label_surf.get_size()
+
+        # Try 4 offset directions and pick one that doesn't overlap nearby entities
+        candidate_offsets = [
+            (10, -10),   # top-right
+            (-lw - 10, -10),  # top-left
+            (10, lh + 10),    # bottom-right
+            (-lw - 10, lh + 10)  # bottom-left
+        ]
+
+        # Track drawn label rectangles to avoid overlaps
+        if not hasattr(self, "_label_rects"):
+            self._label_rects = []
+
+        # Pick first offset that doesn’t collide with existing labels
+        for ox, oy in candidate_offsets:
+            test_rect = pygame.Rect(pos[0] + ox, pos[1] + oy, lw, lh)
+            if not any(test_rect.colliderect(r) for r in self._label_rects):
+                chosen_rect = test_rect
+                break
+        else:
+            # fallback: top-right if all collide
+            chosen_rect = pygame.Rect(pos[0] + 10, pos[1] - 10, lw, lh)
+
+        # Store rect for next labels
+        self._label_rects.append(chosen_rect)
+
+        # Draw background + text
+        pygame.draw.rect(self.screen, color, chosen_rect.inflate(6, 4), border_radius=3)
+        self.screen.blit(label_surf, (chosen_rect.x + 3, chosen_rect.y + 2))
+
+        # --- Orientation arrow ---
+        self.draw_arrow(pos, theta, color)
+
+    # -----------------------------------------------------
+    # --------------- RECURSIVE DRAWERS -------------------
+    # -----------------------------------------------------
+
+    def _draw_child_composites(self, comp_node, comp_pose_dict):
+        """Recursively draw composites and their internal sensors/actuators/actors."""
+        # --- Draw nested composites ---
+        sub_comps = comp_node.get("composites", {})
+        if isinstance(sub_comps, dict):
+            for sub_type, sub_instances in sub_comps.items():
+                # Handle lists or dicts for nested composites
+                if isinstance(sub_instances, dict):
+                    iterable = sub_instances.items()
+                elif isinstance(sub_instances, list):
+                    iterable = [(name, self.node.nodes.get(name, {})) for name in sub_instances]
                 else:
-                    # Recurse deeper
-                    self.draw_recursive(val, prefix + "." + name)
-            elif isinstance(val, list):
-                for v in val:
-                    self.draw_recursive(v, prefix + "." + name)
+                    iterable = []
+
+                for sub_name, sub_node in iterable:
+                    if not isinstance(sub_node, dict):
+                        continue
+                    pose = (
+                        comp_pose_dict.get("composites", {})
+                        .get(sub_type, {})
+                        .get(sub_name, None)
+                    )
+                    if pose and all(k in pose for k in ["x", "y", "theta"]):
+                        self.draw_entity(pose["x"], pose["y"], pose["theta"], sub_node, sub_name)
+                        self._draw_child_composites(sub_node, pose)
+
+        # --- Draw sensors / actuators / actors that belong to this composite ---
+        for category in ["sensors", "actuators", "actors"]:
+            cat_dict = comp_node.get(category, {})
+            if not isinstance(cat_dict, dict):
+                continue
+
+            for name, ent in cat_dict.items():
+                if not isinstance(ent, dict):
+                    continue
+                pose = comp_pose_dict.get(category, {}).get(name, None)
+                if pose and all(k in pose for k in ["x", "y", "theta"]):
+                    self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
+
+    # -----------------------------------------------------
+    # ---------------- INPUT HANDLING ---------------------
+    # -----------------------------------------------------
+
+    def handle_input(self):
+        """Keyboard & mouse input for zoom and pan."""
+        keys = pygame.key.get_pressed()
+
+        # Zoom with keyboard
+        if keys[pygame.K_EQUALS] or keys[pygame.K_PLUS]:
+            self.zoom *= self.zoom_step
+        elif keys[pygame.K_MINUS] or keys[pygame.K_UNDERSCORE]:
+            self.zoom /= self.zoom_step
+        elif keys[pygame.K_r]:
+            self.zoom = 1.0
+            self.pan_x = 0.0
+            self.pan_y = 0.0
+
+        # Pan with arrow keys
+        if keys[pygame.K_LEFT]:
+            self.pan_x -= self.pan_speed / self.zoom
+        if keys[pygame.K_RIGHT]:
+            self.pan_x += self.pan_speed / self.zoom
+        if keys[pygame.K_UP]:
+            self.pan_y += self.pan_speed / self.zoom
+        if keys[pygame.K_DOWN]:
+            self.pan_y -= self.pan_speed / self.zoom
+
+        # Mouse events
+        mouse_buttons = pygame.mouse.get_pressed(num_buttons=3)
+        mx, my = pygame.mouse.get_pos()
+
+        # Right-click drag to pan
+        if mouse_buttons[2]:
+            if not self.dragging:
+                self.dragging = True
+                self.drag_start = (mx, my)
+            else:
+                dx = (mx - self.drag_start[0]) / (self.scale * self.zoom)
+                dy = (my - self.drag_start[1]) / (self.scale * self.zoom)
+                self.pan_x -= dx
+                self.pan_y += dy
+                self.drag_start = (mx, my)
+        else:
+            self.dragging = False
+
+        # Mouse wheel for zoom
+        for event in pygame.event.get(pygame.MOUSEWHEEL):
+            if event.y > 0:
+                self.zoom *= self.zoom_step
+            elif event.y < 0:
+                self.zoom /= self.zoom_step
+
+    # -----------------------------------------------------
+    # ---------------- MAIN LOOP --------------------------
+    # -----------------------------------------------------
 
     def render(self):
-        """Main render loop."""
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                    pygame.quit()
-                    sys.exit()
+        """Main pygame render loop (draws all entities)."""
+        try:
+            while self.running:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.stop()
+                        return
 
-            self.screen.fill((20, 20, 20))
-            self.draw_recursive(self.node.poses)
-            pygame.display.flip()
-            self.clock.tick(10)  # FPS limit
+                self.handle_input()
+                self.draw_background()
+                self._label_rects = []   # reset label collision memory
+
+                # --- Draw top-level sensors, actuators, actors ---
+                for category in ["sensors", "actuators", "actors"]:
+                    cat_nodes = self.node.nodes.get(category, {})
+                    cat_poses = self.node.poses.get(category, {})
+
+                    for type_key, type_group in cat_nodes.items():
+                        # Each type_group can have dicts or lists (depending on generator)
+                        for subtype_key, subtype_group in (type_group.items() if isinstance(type_group, dict) else []):
+                            if isinstance(subtype_group, list):
+                                # Just a list of names (lookup entities by name)
+                                for name in subtype_group:
+                                    ent = self.node.nodes.get(name)
+                                    pose = (
+                                        cat_poses.get(type_key, {})
+                                        .get(subtype_key, {})
+                                        .get(name, None)
+                                    )
+                                    if ent and isinstance(pose, dict) and all(k in pose for k in ["x", "y", "theta"]):
+                                        self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
+                            elif isinstance(subtype_group, dict):
+                                # Full dictionary of entities
+                                for name, ent in subtype_group.items():
+                                    pose = (
+                                        cat_poses.get(type_key, {})
+                                        .get(subtype_key, {})
+                                        .get(name, None)
+                                    )
+                                    if ent and isinstance(pose, dict) and all(k in pose for k in ["x", "y", "theta"]):
+                                        self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
+
+                # --- Draw all composites recursively ---
+                composites = self.node.nodes.get("composites", {})
+                for ctype, comps in composites.items():
+                    for cname, comp in comps.items():
+                        if not isinstance(comp, dict):
+                            continue
+                        pose = (
+                            self.node.poses.get("composites", {})
+                            .get(ctype, {})
+                            .get(cname, None)
+                        )
+                        if pose and all(k in pose for k in ["x", "y", "theta"]):
+                            self.draw_entity(pose["x"], pose["y"], pose["theta"], comp, cname)
+                            self._draw_child_composites(comp, pose)
+
+                # --- Draw obstacles (static, non-node entities) ---
+                obstacles = self.node.poses.get("obstacles", {})
+                for oname, opos in obstacles.items():
+                    if isinstance(opos, dict) and all(k in opos for k in ["x", "y", "theta"]):
+                        ent = self.node.nodes["obstacles"].get(oname, {"class": "obstacle"})
+                        self.draw_entity(opos["x"], opos["y"], opos["theta"], ent, oname)
+
+                pygame.display.flip()
+                self.clock.tick(30)
+
+        except KeyboardInterrupt:
+            print("[Visualizer] Interrupted by user.")
+            self.stop()
+
+    # -----------------------------------------------------
+    # ----------------- LIFECYCLE -------------------------
+    # -----------------------------------------------------
 
     def stop(self):
         self.running = False

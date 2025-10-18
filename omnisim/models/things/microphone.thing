@@ -1,7 +1,7 @@
 Microphone mic_1
     class: Sensor
     type: Microphone
-    shape: Circle(1)
+    shape: Circle(2)
     pubFreq: 1
     range: 10
     soundLevel: 90

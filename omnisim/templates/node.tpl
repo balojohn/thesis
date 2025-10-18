@@ -6,8 +6,14 @@ from commlib.utils import Rate
 {% if obj.__class__.__name__ != "CompositeThing" %}
 from commlib.msg import PubSubMessage
 {% endif %}
-from omnisim.utils.geometry import PoseMessage
-from omnisim.utils.utils import make_tf_matrix, apply_transformation
+from omnisim.utils.geometry import (
+    PoseMessage,
+    {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
+    VelocityMessage,
+    {% endif %}
+    make_tf_matrix,
+    apply_transformation
+)
 {# --- Import generated child nodes (for composites only) --- #}
 {% if obj.__class__.__name__ == "CompositeThing" %}
     {% for posed_sensor in obj.sensors %}
@@ -34,34 +40,65 @@ from .{{ comp_type }} import {{ posed_cthing.ref.type|default(comp_type|capitali
     {% set cls = obj.class|lower %}
     {% set type_part = obj.type|lower if obj.type is defined else obj.__class__.__name__|lower %}
     {% set subtype = obj.subtype|lower if obj.subtype is defined else None %}
-    {% set ptype = parent[0] if parent and parent|length > 0 else None %}
-    {% set pid = parent[1] if parent and parent|length > 1 else None %}
-
+    {# --- Parent extraction --- #}
+    {% set has_parent = parent and parent|length == 2 %}
+    {% set ptype = parent[0] if has_parent else None %}
+    {% set pid = parent[1] if has_parent else None %}
+    {# Case 1: Sensor in composite or atomic #}
     {% if cls == "sensor" %}
-        {% if ptype and pid %}
+        {% if has_parent %}
             composite.{{ ptype }}.{{ pid }}.sensor.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
         {% else %}
             sensor.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
         {% endif %}
+    {# Case 2: Actuator in composite or atomic #}
     {% elif cls == "actuator" %}
-        {% if ptype and pid %}
+        {% if has_parent %}
             composite.{{ ptype }}.{{ pid }}.actuator.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
         {% else %}
             actuator.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
         {% endif %}
+    {# Case 3: Actor in composite or atomic #}
+    {% elif cls == "actor" %}
+        {% if has_parent %}
+            composite.{{ ptype }}.{{ pid }}.actor.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
+        {% else %}
+            actor.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
+        {% endif %}
+    {# Case 4: CompositeThing #}
     {% elif obj.__class__.__name__ == "CompositeThing" %}
-        {% if ptype and pid %}
+        {% if has_parent %}
             composite.{{ ptype }}.{{ pid }}.composite.{{ type_part }}
         {% else %}
             composite.{{ type_part }}
         {% endif %}
+    {# Case 5: Generic fallback #}
     {% else %}
         composite.{{ type_part }}
     {% endif %}
 {%- endmacro %}
-{# Resolve object (Sensor, Actuator, Actor, Composite, Robot) --- #}
-{% set parent_tuple = (obj.parent.subtype, obj.parent.name) if obj.parent is defined else None %}
-{% set topic_base = topic_prefix(obj, parent=parent_tuple) | trim %}
+{# --- Resolve canonical topic_base for this object --- #}
+{% set cls = obj.class|lower %}
+{% set type_part = obj.type|lower if obj.type is defined else obj.__class__.__name__|lower %}
+{% set subtype = obj.subtype|lower if obj.subtype is defined else None %}
+
+{% if cls == "sensor" %}
+    {% set topic_base = "sensor." ~ type_part %}
+    {% if subtype and subtype != type_part %}
+        {% set topic_base = topic_base ~ "." ~ subtype %}
+    {% endif %}
+{% elif cls == "actuator" %}
+    {% set topic_base = "actuator." ~ type_part %}
+    {% if subtype and subtype != type_part %}
+        {% set topic_base = topic_base ~ "." ~ subtype %}
+    {% endif %}
+{% elif cls == "actor" %}
+    {% set topic_base = "actor." ~ type_part %}
+{% elif obj.__class__.__name__ == "CompositeThing" %}
+    {% set topic_base = "composite." ~ type_part %}
+{% else %}
+    {% set topic_base = "composite." ~ type_part %}
+{% endif %}
 {% set dtype_name = (obj.subtype if obj.subtype is defined else obj.type) + "Data" %}
 {% set data_type = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
 {% set thing_name = (
@@ -134,17 +171,24 @@ class {{ thing_name }}Node(Node):
             connection_params=ConnectionParameters(),
             *args, **kwargs
         )
+        # --- Topic hierarchy setup ---
         base_topic = "{{ topic_base }}"
-        full_topic_prefix = f"{parent_topic}.{base_topic}" if parent_topic else base_topic
+        self.parent_topic = parent_topic
+        if parent_topic:
+            # If this node is inside a composite, prepend the parent's topic
+            full_topic_prefix = f"{parent_topic}.{base_topic}"
+        else:
+            # Top-level node (like Robot or top composite)
+            full_topic_prefix = base_topic
+        print(f"[{self.__class__.__name__}] parent_topic={parent_topic}, base_topic={base_topic}, full_topic_prefix={full_topic_prefix}")
         self.{{ id_field }} = {{ id_field }}
         self.pub_freq = {{ obj.pubFreq }}
-        self.running = True
-        # self.thread = None
+        self.running = False
         {% if obj.__class__.__name__ == "CompositeThing" %}
         self.children = {}
         {% endif %}
-        {% for prop in data_type.properties %}
         # Default props
+        {% for prop in data_type.properties %}
         {% set val = prop_values.get(prop.name) %}
         {% if prop.type.name == "str" %}
         self.{{ prop.name }} = {{ '"' ~ (val | string | replace('"', '\\"')) ~ '"' if val is not none else '""' }}
@@ -164,42 +208,52 @@ class {{ thing_name }}Node(Node):
         parent_pose = self._initial_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
         rel_pose = self._rel_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
 
-        # Start from parent pose
-        self.x = parent_pose["x"]
-        self.y = parent_pose["y"]
-        self.theta = parent_pose["theta"]
-        
-        # Apply relative transform if given
-        if self._rel_pose:
-            abs_pose = apply_transformation(
-                {
-                    "x": parent_pose["x"],
-                    "y": parent_pose["y"],
-                    "theta": parent_pose["theta"]
-                },
-                {
-                    "x": rel_pose["x"],
-                    "y": rel_pose["y"],
-                    "theta": rel_pose["theta"]
-                }
-            )
-            self.x = abs_pose["x"]
-            self.y = abs_pose["y"]
-            self.theta = abs_pose["theta"]
+        # Compute initial absolute pose (used as fixed reference)
+        abs_pose = apply_transformation(parent_pose, rel_pose)
+        self.abs_init_x = abs_pose["x"]
+        self.abs_init_y = abs_pose["y"]
+        self.abs_init_theta = abs_pose["theta"]
 
-        {% if obj.__class__.__name__ == "CompositeThing" %}
-        # Simple motion integration
+        # Current dynamic pose (will update with movement)
+        self.x = self.abs_init_x
+        self.y = self.abs_init_y
+        self.theta = self.abs_init_theta
+        {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
+        # === Motion control mode ===
+        self.automated = {{ 'True' if obj.automated else 'False' }}
+        self.vel_lin = 0.0
+        self.vel_ang = 0.0
+        self.pois = [
+            {% for p in obj.pois %}
+            {"x": {{ p.x }}, "y": {{ p.y }}},
+            {% endfor %}
+        ]
+        self.current_poi_idx = 0
+        self.has_target = False
         self._last_t = time.monotonic()
-        self.vx = 0.10
-        self.vy = 0.10
-        self.omega = 10.0
+
+        if not self.automated:
+            self.vel_sub = self.create_subscriber(
+                topic=f"{full_topic_prefix}.{self.{{ id_field }}}.cmd_vel",
+                msg_type=VelocityMessage,
+                on_message=lambda msg: self._on_velocity(msg)
+            )
         {% endif %}
+        
+        # Subscribe to parent pose updates
+        if parent_topic:
+            self.parent_pose_sub = self.create_subscriber(
+                topic=f"{parent_topic}.pose",
+                msg_type=PoseMessage,
+                on_message=lambda msg: self._update_parent_pose(msg)
+            )
 
         # Pose publisher (Sensors and Robots)
         self.pose_publisher = self.create_publisher(
             topic=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.pose",
             msg_type=PoseMessage
         )
+        
         {% if obj.__class__.__name__ != "CompositeThing" %}
         {% for e in publishers %}
         # Data publisher for {{ e.msg.name }}
@@ -216,16 +270,16 @@ class {{ thing_name }}Node(Node):
         # --- Sensor child: {{ node_type }} ---
         self.children["{{ node_name }}"] = {{ node_type }}Node(
             sensor_id=f"{{ node_name }}",
-            parent_topic=f"{full_topic_prefix}.{self.{{ id_field }}}",
+            parent_topic=full_topic_prefix,
             rel_pose={  # relative to this composite
                 'x': {{ posed_sensor.transformation.transformation.dx }},
                 'y': {{ posed_sensor.transformation.transformation.dy }},
                 'theta': {{ posed_sensor.transformation.transformation.dtheta }}
             },
-            initial_pose={  # absolute of this composite
-                'x': self.x,
-                'y': self.y,
-                'theta': self.theta
+            initial_pose={  # absolute (fixed) pose of parent
+                'x': self._initial_pose["x"] if self._initial_pose else self.abs_init_x,
+                'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
+                'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
             }
         )
         {% endfor %}
@@ -241,10 +295,10 @@ class {{ thing_name }}Node(Node):
                 'y': {{ posed_actuator.transformation.transformation.dy }},
                 'theta': {{ posed_actuator.transformation.transformation.dtheta }}
             },
-            initial_pose={
-                'x': self.x,
-                'y': self.y,
-                'theta': self.theta
+            initial_pose={  # absolute (fixed) pose of parent
+                'x': self._initial_pose["x"] if self._initial_pose else self.abs_init_x,
+                'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
+                'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
             }
         )
         {% endfor %}
@@ -261,10 +315,10 @@ class {{ thing_name }}Node(Node):
                 'y': {{ posed_cthing.transformation.transformation.dy }},
                 'theta': {{ posed_cthing.transformation.transformation.dtheta }}
             },
-            initial_pose={
-                'x': self.x,
-                'y': self.y,
-                'theta': self.theta
+            initial_pose={  # absolute (fixed) pose of parent
+                'x': self._initial_pose["x"] if self._initial_pose else self.abs_init_x,
+                'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
+                'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
             }
         )
             {% endif %}
@@ -272,19 +326,65 @@ class {{ thing_name }}Node(Node):
         print(f"[{self.__class__.__name__}] rel=({rel_pose['x']:.2f},{rel_pose['y']:.2f},{rel_pose['theta']:.2f}) "
           f"abs=({self.x:.2f},{self.y:.2f},{self.theta:.2f})")
 
-    {% if obj.__class__.__name__ == "CompositeThing" %}
-    def _integrate_motion(self):
-        now = time.monotonic()
-        dt = now - self._last_t
-        self._last_t = now
+    {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
+    def _on_velocity(self, msg):
+        """Update velocity from external command."""
+        self.vel_lin = msg.vel_lin
+        self.vel_ang = msg.vel_ang
+    
+    def _next_poi(self):
+        """Advance to the next POI cyclically."""
+        if not self.pois:
+            return None
+        self.current_poi_idx = (self.current_poi_idx + 1) % len(self.pois)
+        return self.pois[self.current_poi_idx]
+    
+    def _follow_pois(self, dt):
+        if not self.pois:
+            return
 
-        # Integrate translational motion in heading direction
+        if not self.has_target:
+            self.target_poi = self.pois[self.current_poi_idx]
+            self.has_target = True
+
+        poi = self.target_poi
+        dx = poi["x"] - self.x
+        dy = poi["y"] - self.y
+        dist = math.hypot(dx, dy)
+        if dist < 5.0:
+            self.has_target = False
+            self.target_poi = self._next_poi()
+            return
+
+        # invert dy for visualizer coordinate system
+        th_target = math.degrees(math.atan2(dy, dx))
+        angle_diff = (th_target - self.theta + 180) % 360 - 180
+
+        # Desired heading (atan2 gives 0° = +x, CCW positive)
+        th_target = math.degrees(math.atan2(dy, dx))
+
+        # Smooth turning logic
+        max_ang_speed = 60.0
+        if abs(angle_diff) > 2.0:
+            self.vel_ang = max(-max_ang_speed, min(max_ang_speed, angle_diff * 2.0))
+        else:
+            self.vel_ang = 0.0
+
+        # Move while roughly aligned
+        self.vel_lin = 30.0 if abs(angle_diff) < 45 else 10.0
+
         th_rad = math.radians(self.theta)
-        self.x += self.vx * math.cos(th_rad) * dt
-        self.y += self.vx * math.sin(th_rad) * dt
-        self.theta = (self.theta + self.omega * dt) % 360.0
-    {% endif %}
+        self.x += self.vel_lin * math.cos(th_rad) * dt
+        self.y += self.vel_lin * math.sin(th_rad) * dt  # note minus here!
+        self.theta = (self.theta + self.vel_ang * dt) % 360.0
 
+    {% endif %}
+    def _update_parent_pose(self, msg):
+        """
+        Update this node's parent pose when the parent publishes a new one.
+        """
+        self._initial_pose = {'x': msg.x, 'y': msg.y, 'theta': msg.theta}
+    
     {#
     def simulate(self):
         """
@@ -310,32 +410,77 @@ class {{ thing_name }}Node(Node):
         return props
     #}
     def start(self):
-        self.thread = threading.Thread(target=self.run, daemon=True)
-        self.thread.start()
-        time.sleep(0.5)
-        print(f"[{self.__class__.__name__}] Running with id={self.{{ id_field }}}")
-        {% if obj.__class__.__name__ == "CompositeThing" %}
-        # --- Start child nodes (if any) ---
-        if hasattr(self, "children") and self.children:
-            for name, node in self.children.items():
-                print(f"  -> starting child {name}")
-                node.running = True
-                threading.Thread(target=node.start, daemon=True).start()
-        {% endif %}
-        rate = Rate(self.pub_freq)
-        
-        while self.running:
-            {% if obj.__class__.__name__ == "CompositeThing" %}
-            self._integrate_motion()
-            {% endif %}
-            msg_pose = PoseMessage(
-                x=self.x,
-                y=self.y,
-                theta=self.theta
+        """Start this node and all its children (if composite)."""
+        if self.running:
+            return
+        print(f"[{self.__class__.__name__}] Starting main loop...")
+
+        # --- Initialize all publishers/subscribers BEFORE running Redis ---
+        if not hasattr(self, "pose_publisher"):
+            self.pose_publisher = self.create_publisher(
+                topic=f"{self.full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.pose",
+                msg_type=PoseMessage
             )
+
+        {% if obj.__class__.__name__ != "CompositeThing" %}
+        {% for e in publishers %}
+        if not hasattr(self, "data_publisher_{{ e.msg.name|lower|replace('message', '') }}"):
+            self.data_publisher_{{ e.msg.name|lower|replace('message', '') }} = self.create_publisher(
+                topic=f"{self.full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.data",
+                msg_type={{ e.msg.name }}
+            )
+        {% endfor %}
+        {% endif %}
+
+        # --- Connect to Redis transport ---
+        super().run()
+
+        # --- Start loop ---
+        self.running = True
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+
+        # --- Start child nodes (for composites only) ---
+        {% if obj.__class__.__name__ == "CompositeThing" %}
+        if hasattr(self, "children"):
+            for name, node in self.children.items():
+                print(f"  -> Starting child {name}")
+                node.start()
+        {% endif %}
+
+
+    def _run_loop(self):
+        """Internal loop: publish pose (and data, if applicable)."""
+        rate = Rate(self.pub_freq)
+        self._last_t = time.monotonic()
+
+        while self.running:
+            {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
+            now = time.monotonic()
+            dt = now - self._last_t
+            self._last_t = now
+
+            if self.automated:
+                self._follow_pois(dt)
+            else:
+                th_rad = math.radians(self.theta)
+                self.x += self.vel_lin * math.cos(th_rad) * dt
+                self.y += self.vel_lin * math.sin(th_rad) * dt
+                self.theta = (self.theta + self.vel_ang * dt) % 360.0
+            {% endif %}
+
+            # Recompute absolute pose if parented
+            if self.parent_topic:
+                abs_pose = apply_transformation(
+                    self._initial_pose or {"x": 0.0, "y": 0.0, "theta": 0.0},
+                    self._rel_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
+                )
+                self.x, self.y, self.theta = abs_pose["x"], abs_pose["y"], abs_pose["theta"]
+
+            # --- Publish pose ---
+            msg_pose = PoseMessage(x=self.x, y=self.y, theta=self.theta)
             self.pose_publisher.publish(msg_pose)
-            print(f"[{self.__class__.__name__}] Publishing pose to {self.pose_publisher.topic}: {msg_pose.model_dump()}")
-            
+
             {% if obj.__class__.__name__ != "CompositeThing" %}
             {% for e in publishers %}
             msg_data = {{ e.msg.name }}(
@@ -349,44 +494,64 @@ class {{ thing_name }}Node(Node):
                 {% endif %}
             )
             self.data_publisher_{{ e.msg.name|lower|replace('message', '') }}.publish(msg_data)
-            print(f"[{self.__class__.__name__}] Publishing data to {self.data_publisher_{{ e.msg.name|lower|replace('message', '') }}.topic}: {msg_data.model_dump()}")
             {% endfor %}
             {% endif %}
             rate.sleep()
 
     def stop(self):
-        print(f"[{self.__class__.__name__}] stopping...")
+        """Stop this node and its children (if composite)."""
+        if not getattr(self, "running", False):
+            return
+        print(f"[{self.__class__.__name__}] Stopping...")
         self.running = False
 
-        {% if obj.__class__.__name__ in ["CompositeThing", "Robot"] %}
-        # Stop child nodes (if any)
-        if hasattr(self, "children") and self.children:
+        # Stop child nodes first
+        {% if obj.__class__.__name__ == "CompositeThing" %}
+        if hasattr(self, "children"):
             for name, node in self.children.items():
                 try:
-                    print(f"  -> stopping child {name}")
                     node.stop()
-                    if hasattr(node, "thread") and node.thread:
-                        node.thread.join(timeout=1.0)
                 except Exception as e:
-                    print(f"  !! failed to stop child {name}: {e}")
+                    print(f"  [WARN] Failed to stop child {name}: {e}")
         {% endif %}
-        # Stop this node's own commlib loop
+
+        # Wait for loop to end
+        if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
+            self._thread.join(timeout=1.0)
+
+        # Stop commlib node safely
         try:
             super().stop()
-        except Exception as e:
-            print(f"[{self.__class__.__name__}] stop error: {e}")
-        
+        except Exception:
+            pass
+
         print(f"[{self.__class__.__name__}] Stopped.")
 
 if __name__ == '__main__':
-    redis_start()
+    # --- Ensure Redis is running ---
+    redis_proc = None
+    try:
+        r = redis.Redis(host='localhost', port=6379)
+        r.ping()
+        print("[Redis] Connected successfully.")
+    except redis.exceptions.ConnectionError:
+        print("[Redis] Not running. Starting Redis server...")
+        redis_proc = redis_start()
+        time.sleep(1.0)
+
+    # --- Initialize node ---
     {{ id_field }} = sys.argv[1] if len(sys.argv) > 1 else "{{ thing_name.lower() }}_1"
     node = {{ thing_name }}Node({{ id_field }}={{ id_field }}, parent_topic="")
+
     try:
         node.start()
-        # Keep main thread alive
-        while True:
-            time.sleep(1)
+        while node.running:
+            time.sleep(1.0)
     except KeyboardInterrupt:
+        print("\n[System] Ctrl+C detected - shutting down...")
+    finally:
         node.stop()
+        if redis_proc:
+            redis_proc.terminate()
+        print("[System] Exiting cleanly.")
         sys.exit(0)

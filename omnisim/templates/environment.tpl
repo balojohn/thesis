@@ -1,8 +1,8 @@
 import sys, time, threading, logging, redis, math
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
-from omnisim.utils.geometry import PoseMessage
-from omnisim.utils.utils import (
+from omnisim.utils.geometry import (
+    PoseMessage,
     node_pose_callback,
 )
 # --- import affection handlers ---
@@ -12,6 +12,16 @@ from omnisim.utils.affections import (
     handle_rfid_sensor, handle_area_alarm, handle_linear_alarm,
     handle_distance_sensor, check_affectability,
 )
+# --- import generated node classes ---
+{% set placements = (environment.things or []) + (environment.composites or []) %}
+{% for p in placements %}
+    {% set ref = p.ref %}
+    {% set cls = ref.class|lower %}
+    {% set type = ref.type|lower if ref.type else ref.__class__.__name__|lower %}
+    {% set subtype = ref.subtype|lower if ref.subtype is defined and ref.subtype else None %}
+    {% set node_classname = subtype|capitalize if subtype else type|capitalize %}
+from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node
+{% endfor %}
 {% macro topic_prefix(obj, parent=None) -%}
     {# parent is a tuple like ("pantilt", "pt_1") #}
     {% set cls = obj.class|lower %}
@@ -45,44 +55,58 @@ from omnisim.utils.affections import (
 {# --- recursively register composite children --- #}
 {% macro register_composite_children(nodes_path, poses_path, parent_ref, parent_pose, parent_id) %}
     {% set px, py, pth = parent_pose.x, parent_pose.y, parent_pose.theta %}
-    {# === Register child composites === #}
+    {# === Child composites === #}
     {% for comp in parent_ref.composites %}
         {% set cname = comp.ref.name|lower %}
         {% set cid = cname %}
-        {% set dx = comp.transformation.transformation.dx %}
-        {% set dy = comp.transformation.transformation.dy %}
-        {% set dth = comp.transformation.transformation.dtheta %}
-        {# Use apply_transformation to compose absolute pose #}
-        {% set abs_pose = apply_transformation({'x': px, 'y': py, 'theta': pth},
-                                            {'x': dx, 'y': dy, 'theta': dth}) %}
-        {% set cx = abs_pose.x %}
-        {% set cy = abs_pose.y %}
-        {% set cth = abs_pose.theta %}
-        {# --- determine safe composite key --- #}
-        {% if comp.ref.type %}
-            {% set ctype = comp.ref.type|lower %}
-        {% elif comp.ref.subtype is defined and comp.ref.subtype %}
-            {% set ctype = comp.ref.subtype|lower %}
-        {% else %}
-            {% set ctype = comp.ref.__class__.__name__|lower %}
-        {% endif -%}
-        # Define child of composite {{ cid }}
+        {% set dx, dy, dth = comp.transformation.transformation.dx, comp.transformation.transformation.dy, comp.transformation.transformation.dtheta %}
+        {% set abs_pose = apply_transformation(
+            {'x': px, 'y': py, 'theta': pth},
+            {'x': dx, 'y': dy, 'theta': dth},
+            parent_shape=parent_ref.shape.__dict__ if parent_ref.shape is defined else None,
+            child_shape=comp.ref.shape.__dict__ if comp.ref.shape is defined else None
+        ) %}
+        {% set cx, cy, cth = abs_pose.x, abs_pose.y, abs_pose.theta %}
+        {% set ctype = (comp.ref.type|lower if comp.ref.type
+                       else (comp.ref.subtype|lower if comp.ref.subtype
+                       else comp.ref.__class__.__name__|lower)) %}
+        # --- composite {{ cid }} ---
         {{ nodes_path }}["composites"].setdefault("{{ ctype }}", {})
         {{ poses_path }}["composites"].setdefault("{{ ctype }}", {})
-        {{ nodes_path }}["composites"]["{{ ctype }}"].setdefault("{{ cid }}", {
-            "sensors": {},
-            "actuators": {},
-            "composites": {}
-        })
-        {{ poses_path }}["composites"]["{{ ctype }}"]["{{ cid }}"] = {
-            "x": {{ cx }},
-            "y": {{ cy }},
-            "theta": {{ cth }},
+        {{ nodes_path }}["composites"]["{{ ctype }}"]["{{ cid }}"] = {
+            "class": "composite",
+            "type": "{{ ctype }}",
+            "name": "{{ cid }}",
             "sensors": {},
             "actuators": {},
             "composites": {}
         }
-        # Recurse for deeper composites
+        {{ poses_path }}["composites"]["{{ ctype }}"]["{{ cid }}"] = {
+            "rel_pose": {"x": {{ dx }}, "y": {{ dy }}, "theta": {{ dth }}},
+            "sensors": {},
+            "actuators": {},
+            "composites": {}
+        }
+        {% if comp.ref.shape is defined and comp.ref.shape %}
+        {{ poses_path }}["composites"]["{{ ctype }}"]["{{ cid }}"]["shape"] = {
+            "type": "{{ comp.ref.shape.__class__.__name__ }}",
+            {% if comp.ref.shape.__class__.__name__ == "Rectangle" %}
+            "width": {{ comp.ref.shape.width }},
+            "length": {{ comp.ref.shape.length }}
+            {% elif comp.ref.shape.__class__.__name__ == "Square" %}
+            "size": {{ comp.ref.shape.length }}
+            {% elif comp.ref.shape.__class__.__name__ == "Circle" %}
+            "radius": {{ comp.ref.shape.radius }}
+            {% elif comp.ref.shape.__class__.__name__ in ["Line","Polygon","ArbitraryShape"] %}
+            "points": [
+                {% for pt in comp.ref.shape.points %}
+                {"x": {{ pt.x }}, "y": {{ pt.y }}},
+                {% endfor %}
+            ]
+            {% endif %}
+        }
+        {{ nodes_path }}["composites"]["{{ ctype }}"]["{{ cid }}"]["shape"] = {{ poses_path }}["composites"]["{{ ctype }}"]["{{ cid }}"]["shape"]
+        {% endif %}
         {{ register_composite_children(
             nodes_path ~ "['composites']['" ~ ctype ~ "']['" ~ cid ~ "']",
             poses_path ~ "['composites']['" ~ ctype ~ "']['" ~ cid ~ "']",
@@ -92,65 +116,109 @@ from omnisim.utils.affections import (
         ) }}
     {% endfor %}
 
-    {# === Register child sensors === #}
+    {# === Child sensors === #}
     {% for sen in parent_ref.sensors %}
-        {% set sname = sen.ref.name|lower %}
-        {% set sid = sname %}
-        {% set dx = sen.transformation.transformation.dx %}
-        {% set dy = sen.transformation.transformation.dy %}
-        {% set dth = sen.transformation.transformation.dtheta %}
-        {% set s_pose = apply_transformation({'x': px, 'y': py, 'theta': pth},
-                                     {'x': dx, 'y': dy, 'theta': dth}) %}
-        {% set sx = s_pose.x %}
-        {% set sy = s_pose.y %}
-        {% set sth = s_pose.theta %}
+        {% set sid = sen.ref.name|lower %}
+        {% set dx, dy, dth = sen.transformation.transformation.dx, sen.transformation.transformation.dy, sen.transformation.transformation.dtheta %}
+        {% set abs_pose = apply_transformation(
+            {'x': px, 'y': py, 'theta': pth},
+            {'x': dx, 'y': dy, 'theta': dth},
+            parent_shape=parent_ref.shape.__dict__ if parent_ref.shape is defined else None,
+            child_shape=sen.ref.shape.__dict__ if sen.ref.shape is defined else None
+        ) %}
+        {% set sx, sy, sth = abs_pose.x, abs_pose.y, abs_pose.theta %}
         {% set stype = sen.ref.type|lower if sen.ref.type else sen.ref.__class__.__name__|lower %}
-        {% set ssub = sen.ref.subtype|lower if sen.ref.subtype is defined and sen.ref.subtype and sen.ref.subtype|lower != stype else None %}
-        {% if ssub %}
-        {{ nodes_path }}["sensors"].setdefault("{{ stype }}", {}).setdefault("{{ ssub }}", {})
-        {{ poses_path }}["sensors"].setdefault("{{ stype }}", {}).setdefault("{{ ssub }}", {})
-        {{ nodes_path }}["sensors"]["{{ stype }}"]["{{ ssub }}"].setdefault("{{ sid }}", {})
-        {{ poses_path }}["sensors"]["{{ stype }}"]["{{ ssub }}"]["{{ sid }}"] = {
-        {% else %}
-        {{ nodes_path }}["sensors"].setdefault("{{ stype }}", {})
-        {{ poses_path }}["sensors"].setdefault("{{ stype }}", {})
-        {{ nodes_path }}["sensors"]["{{ stype }}"].setdefault("{{ sid }}", {})
-        {{ poses_path }}["sensors"]["{{ stype }}"]["{{ sid }}"] = {
+        {% set ssub = sen.ref.subtype|lower if sen.ref.subtype is defined and sen.ref.subtype else None %}
+        # --- sensor {{ sid }} ---
+        {{ poses_path }}["sensors"]["{{ sid }}"] = {
+            "rel_pose": {"x": {{ dx }}, "y": {{ dy }}, "theta": {{ dth }}},
+        }
+        {% if sen.ref.shape is defined and sen.ref.shape %}
+        {{ poses_path }}["sensors"]["{{ sid }}"]["shape"] = {
+            "type": "{{ sen.ref.shape.__class__.__name__ }}",
+            {% if sen.ref.shape.__class__.__name__ == "Rectangle" %}
+            "width": {{ sen.ref.shape.width }},
+            "length": {{ sen.ref.shape.length }}
+            {% elif sen.ref.shape.__class__.__name__ == "Square" %}
+            "size": {{ sen.ref.shape.length }}
+            {% elif sen.ref.shape.__class__.__name__ == "Circle" %}
+            "radius": {{ sen.ref.shape.radius }}
+            {% endif %}
+        }
         {% endif %}
-            "x": {{ sx }},
-            "y": {{ sy }},
-            "theta": {{ sth }}
+        {{ nodes_path }}["sensors"]["{{ sid }}"] = {
+            "class": "sensor",
+            "type": "{{ stype }}",
+            {% if ssub %}
+            "subtype": "{{ ssub }}",
+            {% endif %}
+            "name": "{{ sid }}",
+            {% if sen.ref.shape is defined and sen.ref.shape %}
+            "shape": {
+                "type": "{{ sen.ref.shape.__class__.__name__ }}",
+                {% if sen.ref.shape.__class__.__name__ == "Rectangle" %}
+                "width": {{ sen.ref.shape.width }},
+                "length": {{ sen.ref.shape.length }}
+                {% elif sen.ref.shape.__class__.__name__ == "Square" %}
+                "size": {{ sen.ref.shape.length }}
+                {% elif sen.ref.shape.__class__.__name__ == "Circle" %}
+                "radius": {{ sen.ref.shape.radius }}
+                {% endif %}
+            }
+            {% endif %}
         }
     {% endfor %}
 
-    {# === Register child actuators === #}
+    {# === Child actuators === #}
     {% for act in parent_ref.actuators %}
-        {% set aname = act.ref.name|lower %}
-        {% set aid = aname %}
-        {% set dx = act.transformation.transformation.dx %}
-        {% set dy = act.transformation.transformation.dy %}
-        {% set dth = act.transformation.transformation.dtheta %}
-        {% set a_pose = apply_transformation({'x': px, 'y': py, 'theta': pth},
-                                     {'x': dx, 'y': dy, 'theta': dth}) %}
-        {% set ax = a_pose.x %}
-        {% set ay = a_pose.y %}
-        {% set ath = a_pose.theta %}
+        {% set aid = act.ref.name|lower %}
+        {% set dx, dy, dth = act.transformation.transformation.dx, act.transformation.transformation.dy, act.transformation.transformation.dtheta %}
+        {% set abs_pose = apply_transformation(
+            {'x': px, 'y': py, 'theta': pth},
+            {'x': dx, 'y': dy, 'theta': dth},
+            parent_shape=parent_ref.shape.__dict__ if parent_ref.shape is defined else None,
+            child_shape=act.ref.shape.__dict__ if act.ref.shape is defined else None
+        ) %}
+        {% set ax, ay, ath = abs_pose.x, abs_pose.y, abs_pose.theta %}
         {% set atype = act.ref.type|lower if act.ref.type else act.ref.__class__.__name__|lower %}
-        {% set asub = act.ref.subtype|lower if act.ref.subtype is defined and act.ref.subtype and act.ref.subtype|lower != atype else None %}
-        {% if asub %}
-        {{ nodes_path }}["actuators"].setdefault("{{ atype }}", {}).setdefault("{{ asub }}", {})
-        {{ poses_path }}["actuators"].setdefault("{{ atype }}", {}).setdefault("{{ asub }}", {})
-        {{ nodes_path }}["actuators"]["{{ atype }}"]["{{ asub }}"].setdefault("{{ aid }}", {})
-        {{ poses_path }}["actuators"]["{{ atype }}"]["{{ asub }}"]["{{ aid }}"] = {
-        {% else %}
-        {{ nodes_path }}["actuators"].setdefault("{{ atype }}", {})
-        {{ poses_path }}["actuators"].setdefault("{{ atype }}", {})
-        {{ nodes_path }}["actuators"]["{{ atype }}"].setdefault("{{ aid }}", {})
-        {{ poses_path }}["actuators"]["{{ atype }}"]["{{ aid }}"] = {
+        {% set asub = act.ref.subtype|lower if act.ref.subtype is defined and act.ref.subtype else None %}
+        # --- actuator {{ aid }} ---
+        {{ poses_path }}["actuators"]["{{ aid }}"] = {
+            "rel_pose": {"x": {{ dx }}, "y": {{ dy }}, "theta": {{ dth }}},
+        }
+        {% if act.ref.shape is defined and act.ref.shape %}
+        {{ poses_path }}["actuators"]["{{ aid }}"]["shape"] = {
+            "type": "{{ act.ref.shape.__class__.__name__ }}",
+            {% if act.ref.shape.__class__.__name__ == "Rectangle" %}
+            "width": {{ act.ref.shape.width }},
+            "length": {{ act.ref.shape.length }}
+            {% elif act.ref.shape.__class__.__name__ == "Square" %}
+            "size": {{ act.ref.shape.length }}
+            {% elif act.ref.shape.__class__.__name__ == "Circle" %}
+            "radius": {{ act.ref.shape.radius }}
+            {% endif %}
+        }
         {% endif %}
-            "x": {{ ax }},
-            "y": {{ ay }},
-            "theta": {{ ath }}
+        {{ nodes_path }}["actuators"]["{{ aid }}"] = {
+            "class": "actuator",
+            "type": "{{ atype }}",
+            {% if asub %}
+            "subtype":"{{ asub }}",
+            {% endif %}
+            "name": "{{ aid }}",
+            {% if act.ref.shape is defined and act.ref.shape %}
+            "shape": {
+                "type": "{{ act.ref.shape.__class__.__name__ }}",
+                {% if act.ref.shape.__class__.__name__ == "Rectangle" %}
+                "width": {{ act.ref.shape.width }},
+                "length": {{ act.ref.shape.length }}
+                {% elif act.ref.shape.__class__.__name__ == "Square" %}
+                "size": {{ act.ref.shape.length }}
+                {% elif act.ref.shape.__class__.__name__ == "Circle" %}
+                "radius": {{ act.ref.shape.radius }}
+                {% endif %}
+            }
+            {% endif %}
         }
     {% endfor %}
 {% endmacro %}
@@ -180,6 +248,10 @@ class {{ environment.name }}Node(Node):
             *args, **kwargs
         )
         self.env_name = env_name
+        # --- Environment dimensions ---
+        self.width = {{ environment.grid[0].width }}
+        self.height = {{ environment.grid[0].height }}
+        self.cellSizeCm = {{ environment.grid[0].cellSizeCm }}
         self.poses = {
             "sensors": {},
             "actuators": {},
@@ -315,7 +387,7 @@ class {{ environment.name }}Node(Node):
                 {% endif %}
             {% endif %}
         
-                # Define {{ inst }} node
+        # Define {{ inst }} node
         {% if category == "composites" %}
         {% set comp_key = type if type else (subtype if subtype else ref.__class__.__name__|lower) %}
         # Insert composite properties into nested structure
@@ -343,6 +415,12 @@ class {{ environment.name }}Node(Node):
                             "{{ k }}": {{ v|tojson }},
                         {%- endfor -%}
                         }
+                    {%- elif val.__class__.__name__ == "list" and val and val[0].__class__.__name__ == "Point" -%}
+                        [
+                    {% for pt in val %}
+                    {"x": {{ pt.x }}, "y": {{ pt.y }}},
+                    {% endfor %}
+                ]
                     {%- else -%} {{ val|tojson }}
                     {%- endif -%},
                 {% endfor %}
@@ -353,8 +431,34 @@ class {{ environment.name }}Node(Node):
                 "theta": {{ p.pose.theta }}
             }
         })
+        {% if p.ref.shape is defined and p.ref.shape %}
+        # --- Add top-level shape for visualizer ---
+        shape_data = {
+            "type": "{{ p.ref.shape.__class__.__name__ }}",
+            {% if p.ref.shape.__class__.__name__ == "Rectangle" %}
+            "width": {{ p.ref.shape.width }},
+            "length": {{ p.ref.shape.length }}
+            {% elif p.ref.shape.__class__.__name__ == "Square" %}
+            "length": {{ p.ref.shape.length }}
+            {% elif p.ref.shape.__class__.__name__ == "Circle" %}
+            "radius": {{ p.ref.shape.radius }}
+            {% elif p.ref.shape.__class__.__name__ == "Line" %}
+            "points": [
+                {"x": {{ p.ref.shape.points[0].x }}, "y": {{ p.ref.shape.points[0].y }}},
+                {"x": {{ p.ref.shape.points[1].x }}, "y": {{ p.ref.shape.points[1].y }}}
+            ]
+            {% elif p.ref.shape.__class__.__name__ == "ArbitraryShape" %}
+            "points": [
+                {% for pt in p.ref.shape.points %}
+                {"x": {{ pt.x }}, "y": {{ pt.y }}},
+                {% endfor %}
+            ]
+            {% endif %}
+        }
+        self.nodes["composites"]["{{ comp_key }}"]["{{ inst }}"]["shape"] = shape_data
+        self.poses["composites"]["{{ comp_key }}"]["{{ inst }}"]["shape"] = shape_data
+        {% endif %}
         {% else %}
-        # Define {{ inst }} node
         self.nodes["{{ inst }}"] = {
             "class": "{{ ref.class|lower if ref.class is defined and ref.class else ( 'composite' if p.nodeclass == 'CompositePlacement' else obj.__class__.__name__|lower ) }}",
             {% if type %}
@@ -387,8 +491,40 @@ class {{ environment.name }}Node(Node):
                     {%- else -%} {{ val|tojson }}
                     {%- endif -%},
                 {% endfor %}
-            }
+            },
         }
+        # --- Add top-level shape for visualizer ---
+        {% if p.ref.shape is defined and p.ref.shape %}
+        shape_data = {
+            "type": "{{ p.ref.shape.__class__.__name__ }}",
+            {% if p.ref.shape.__class__.__name__ == "Rectangle" %}
+            "width": {{ p.ref.shape.width }},
+            "length": {{ p.ref.shape.length }}
+            {% elif p.ref.shape.__class__.__name__ == "Square" %}
+            "size": {{ p.ref.shape.length }}
+            {% elif p.ref.shape.__class__.__name__ == "Circle" %}
+            "radius": {{ p.ref.shape.radius }}
+            {% elif p.ref.shape.__class__.__name__ == "Line" %}
+            "points": [
+                {"x": {{ p.ref.shape.points[0].x }}, "y": {{ p.ref.shape.points[0].y }}},
+                {"x": {{ p.ref.shape.points[1].x }}, "y": {{ p.ref.shape.points[1].y }}}
+            ]
+            {% elif p.ref.shape.__class__.__name__ == "Polygon" %}
+            "points": [
+                {% for pt in p.ref.shape.points %}
+                {"x": {{ pt.x }}, "y": {{ pt.y }}},
+                {% endfor %}
+            ]
+            {% endif %}
+        }
+        {% else %}
+        # Default shape if none specified
+        shape_data = {
+            "type": "Circle",
+            "radius": 3.0
+        }
+        {% endif %}
+        self.nodes["{{ inst }}"]["shape"] = shape_data
         {% endif %}
 
         # Define {{ inst }} pose
@@ -399,6 +535,7 @@ class {{ environment.name }}Node(Node):
             "y": {{ p.pose.y }},
             "theta": {{ p.pose.theta }}
         })
+        self.poses["{{ category }}"]["{{ comp_key }}"]["{{ inst }}"]["shape"] = shape_data
         {% else %}
             {% if node_name == "linearalarm" %}
         self.poses["{{ category }}"]["{{ type  }}"]["{{ subtype }}"]["{{ inst }}"] = {
@@ -411,24 +548,28 @@ class {{ environment.name }}Node(Node):
                 "y": {{ p.ref.shape.points[1].y }}
             }
         }
+        self.poses["{{ category }}"]["{{ type  }}"]["{{ subtype }}"]["{{ inst }}"]["shape"] = shape_data
             {% elif type and subtype %}
         self.poses["{{ category }}"]["{{ type }}"]["{{ subtype }}"]["{{ inst }}"] = {
             "x": {{ p.pose.x }},
             "y": {{ p.pose.y }},
             "theta": {{ p.pose.theta }}
         }
+        self.poses["{{ category }}"]["{{ type }}"]["{{ subtype }}"]["{{ inst }}"]["shape"] = shape_data
             {% elif type %}
         self.poses["{{ category }}"]["{{ type }}"]["{{ inst }}"] = {
             "x": {{ p.pose.x }},
             "y": {{ p.pose.y }},
             "theta": {{ p.pose.theta }}
         }
+        self.poses["{{ category }}"]["{{ type }}"]["{{ inst }}"]["shape"] = shape_data
             {% else %}
         self.poses["{{ category }}"]["{{ node_name }}"]["{{ inst }}"] = {
             "x": {{ p.pose.x }},
             "y": {{ p.pose.y }},
             "theta": {{ p.pose.theta }}
         }
+        self.poses["{{ category }}"]["{{ node_name }}"]["{{ inst }}"]["shape"] = shape_data
             {% endif %}
         {% endif %}
         self.tree[self.env_name.lower()].append("{{ inst }}")
@@ -460,39 +601,55 @@ class {{ environment.name }}Node(Node):
                     "x": msg.x,
                     "y": msg.y,
                     "theta": msg.theta
-                }{% if p.ref.parent is defined %}, parent_pose={
-                    "x": {{ p.pose.x }},
-                    "y": {{ p.pose.y }},
-                    "theta": {{ p.pose.theta }}
-                }{% endif %})
+                }{% if p.nodeclass == "CompositePlacement" %}, parent_pose=None  # top-level composite in environment
+                {% elif ref.class|lower in ["sensor", "actuator", "actor"] %}, parent_pose=None  # top-level thing in environment
+                {% elif ref.class|lower == "composite" %}
+                    {% set parent_tuple = (p.ref.parent.subtype, p.ref.parent.name) if p.ref.parent is defined else None %}
+                    {% if parent_tuple %}, parent_pose=self.get_node_pose(
+                        "{{ parent_tuple[1]|lower }}",
+                        cls="composite",
+                        type="{{ parent_tuple[0]|lower if parent_tuple[0] else '' }}"
+                    )
+                    {% else %}, parent_pose=None
+                    {% endif %}
+                {% endif %})
         )
 
         {% endfor %}
-    {#
-        # ---- live plotting setup ----
-        plt.ion()
-        self._fig, self._ax = plt.subplots()
-        self._fig.show()
-        self._fig.canvas.draw()
 
-    def plot_poses(self):
-        self._ax.clear()
-        for category, nodes in self.poses.items():
-            for name, p in nodes.items():
-                x, y, theta = p["x"], p["y"], math.radians(p["theta"])
-                self._ax.arrow(
-                    x, y,
-                    0.5 * math.cos(theta), 0.5 * math.sin(theta),
-                    head_width=0.1, length_includes_head=True
-                )
-                self._ax.text(x, y, name, fontsize=8)
-        self._ax.set_aspect("equal")
-        self._ax.grid(True)
-    
-        # Draw updates on the existing window
-        self._fig.canvas.draw()
-        self._fig.canvas.flush_events()
-    #}
+        # Obstacles (static, non-node entities)
+        self.nodes["obstacles"] = {}
+        self.poses["obstacles"] = {}
+        {% for p in placements if p.category == "obstacle" %}
+        {% set inst = p.inst %}
+        {% set ref = p.ref %}
+        {% set shape = ref.shape if ref.shape is defined else None %}
+        # Define obstacle {{ inst }}
+        self.nodes["obstacles"]["{{ inst }}"] = {
+            "class": "obstacle",
+            "name": "{{ inst }}",
+            "shape": {
+                "type": "{{ shape.__class__.__name__ if shape else 'Square' }}",
+                {% if shape and shape.__class__.__name__ == "Rectangle" %}
+                "width": {{ shape.width }},
+                "length": {{ shape.length }}
+                {% elif shape and shape.__class__.__name__ == "Square" %}
+                "size": {{ shape.length }}
+                {% elif shape and shape.__class__.__name__ == "Circle" %}
+                "radius": {{ shape.radius }}
+                {% else %}
+                "size": 10.0
+                {% endif %}
+            }
+        }
+        self.poses["obstacles"]["{{ inst }}"] = {
+            "x": {{ p.pose.x }},
+            "y": {{ p.pose.y }},
+            "theta": {{ p.pose.theta }},
+            "shape": self.nodes["obstacles"]["{{ inst }}"]["shape"]
+        }
+        {% endfor %}
+
     # Wrappers for affection and pose utils
     def handle_temperature_sensor(self, sensor_id: str):
         return handle_temperature_sensor(self.nodes, self.poses, self.log, sensor_id)
@@ -529,6 +686,23 @@ class {{ environment.name }}Node(Node):
 
     def node_pose_callback(self, node: dict, parent_pose):
         return node_pose_callback(self.nodes, self.poses, self.log, node, parent_pose)
+
+    def get_node_pose(self, name, cls, type=None, subtype=None):
+        """
+        Retrieve the current pose of a node (sensor, actuator, composite, etc.)
+        from self.poses hierarchy.
+        Returns None if not found.
+        """
+        category = f"{cls}s"  # e.g., sensors, actuators, composites
+        try:
+            if type and subtype and subtype != type:
+                return self.poses[category][type][subtype][name]
+            elif type:
+                return self.poses[category][type][name]
+            else:
+                return self.poses[category][name]
+        except KeyError:
+            return None
 
     def print_tf_tree(self):
         """Print a hierarchical TF tree of all nodes with poses."""
@@ -586,19 +760,92 @@ class {{ environment.name }}Node(Node):
                     recurse(name, val, indent=2)
 
     def start(self):
-        # Launch commlib internal loop in a background thread
-        threading.Thread(target=self.run, daemon=True).start()
-        time.sleep(0.5)  # Give commlib time to initialize the transport
-        self.log.info("Running. Press Ctrl+C to stop.")
+        """Start environment and all top-level components."""
+        if getattr(self, "running", False):
+            return
+        print(f"[{{ environment.name }}Node] Starting environment...")
+        self.running = True
+        self.print_tf_tree()
+
+        # Start commlib internal loop
+        self._thread = threading.Thread(target=self.run)
+        self._thread.start()
+        time.sleep(0.5)
+
+        # Start top-level child nodes (sensors, actuators, composites)
+        self.children = {}
+        {% set placements = (environment.things or []) + (environment.composites or []) %}
+        {% for p in placements %}
+            {% set ref = p.ref %}
+            {% set cls = ref.class|lower %}
+            {% set type = ref.type|lower if ref.type else ref.__class__.__name__|lower %}
+            {% set subtype = ref.subtype|lower if ref.subtype is defined and ref.subtype else None %}
+            {% set inst = p.instance_id if p.instance_id else ref.name|lower %}
+            {% set node_classname = subtype|capitalize if subtype else type|capitalize %}
+            {% set node_class = 
+                ("composite" if cls == "composite" or p.__class__.__name__ == "CompositePlacement"
+                else "sensor" if cls == "sensor"
+                else "actuator" if cls == "actuator"
+                else "actor") %}
+            {% set pose = p.pose %}
         try:
-            while True:
-                self.print_tf_tree()
-                time.sleep(1.0)  # keep main thread alive
+            print(f"[{{ environment.name }}Node] Starting {{ node_class }} '{{ inst }}' {{ node_classname }}Node)")
+            kwargs = {}
+            {% if node_class  == "sensor" %}
+            kwargs["sensor_id"] = "{{ inst }}"
+            {% elif node_class  == "actuator" %}
+            kwargs["actuator_id"] = "{{ inst }}"
+            {% elif node_class  == "composite" %}
+            kwargs["composite_id"] = "{{ inst }}"
+            {% elif node_class  == "actor" %}
+            kwargs["actor_id"] = "{{ inst }}"
+            {% endif %}
+
+            node = {{ node_classname }}Node(
+                parent_topic="",
+                initial_pose={'x': {{ pose.x }}, 'y': {{ pose.y }}, 'theta': {{ pose.theta }}},
+                **kwargs
+            )
+            node.start()
+            self.children["{{ inst }}"] = node
+        except Exception as e:
+            print(f"[{{ environment.name }}Node] ERROR launching '{{ inst }}': {e}")
+        {% endfor %}
+
+        # Environment main loop
+        try:
+            while self.running:
+                time.sleep(1.0)
         except KeyboardInterrupt:
-            self.log.warning("Interrupted by user.")
+            print("[{{ environment.name }}Node] Interrupted.")
             self.stop()
 
+    def stop(self):
+        """Stop environment and all children cleanly."""
+        print(f"[{self.__class__.__name__}] Stopping environment...")
+        self.running = False
+
+        if hasattr(self, "children"):
+            for name, child in self.children.items():
+                try:
+                    print(f"  -> stopping child {name}")
+                    child.stop()
+                except Exception as e:
+                    print(f"  [WARN] Could not stop {name}: {e}")
+
+        if hasattr(self, "_thread") and self._thread.is_alive():
+            self._thread.join(timeout=1.0)
+
+        try:
+            super().stop()
+        except Exception:
+            pass
+        print(f"[{self.__class__.__name__}] Stopped.")
+
 if __name__ == '__main__':
+    import threading
+
+    # --- Ensure Redis is running ---
     try:
         redis.Redis(host='localhost', port=6379).ping()
         print("[Redis] Connected successfully.")
@@ -606,14 +853,25 @@ if __name__ == '__main__':
         print("[Redis] Not running. Start Redis server first.")
         sys.exit(1)
 
-    node = {{ environment.name }}Node(env_name="{{ environment.name }}")
-    # from omnisim.utils.visualizer import EnvVisualizer
+    node = HomeNode(env_name="Home")
 
-    # vis = EnvVisualizer(node)
-    # threading.Thread(target=node.start, daemon=True).start()
-    # vis.render()
+    # Start the environment node in its own thread
+    env_thread = threading.Thread(target=node.start, daemon=True)
+    env_thread.start()
+    time.sleep(1.0)
+
+    # Start visualizer in the MAIN thread (no lag, proper event loop)
+    from omnisim.utils.visualizer import EnvVisualizer
+    vis = EnvVisualizer(node)
+
     try:
-        node.start()
+        vis.render()  # blocking call, runs at ~30 FPS internally
     except KeyboardInterrupt:
-        node.log.info("Stopped by user.")
+        print("\n[System] Interrupted by user.")
+    finally:
+        print("[System] Shutting down cleanly...")
+        vis.stop()
         node.stop()
+        if env_thread.is_alive():
+            env_thread.join(timeout=2.0)
+        sys.exit(0)

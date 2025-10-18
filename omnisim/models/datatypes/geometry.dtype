@@ -12,7 +12,6 @@ end
 DataType Point
     x: float
     y: float
-    z: float
 end
 
 DataType Quaternion
