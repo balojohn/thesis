@@ -3,7 +3,7 @@ Button b_1
     type: SingleButton
     subtype: Button
     shape: Square(4)
-    pubFreq: 10
+    pubFreq: 1
     state: 1
     size: 1
 end

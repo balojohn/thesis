@@ -227,11 +227,10 @@ class EnvVisualizer:
                 for sub_name, sub_node in iterable:
                     if not isinstance(sub_node, dict):
                         continue
-                    pose = (
-                        comp_pose_dict.get("composites", {})
-                        .get(sub_type, {})
+                    pose = self.node.poses.get("composites", {}) \
+                        .get(sub_type, {}) \
                         .get(sub_name, None)
-                    )
+
                     if pose and all(k in pose for k in ["x", "y", "theta"]):
                         self.draw_entity(pose["x"], pose["y"], pose["theta"], sub_node, sub_name)
                         self._draw_child_composites(sub_node, pose)

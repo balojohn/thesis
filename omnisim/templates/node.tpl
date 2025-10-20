@@ -218,6 +218,11 @@ class {{ thing_name }}Node(Node):
         self.x = self.abs_init_x
         self.y = self.abs_init_y
         self.theta = self.abs_init_theta
+        # Track local independent rotation (used when composite follows parent + rotates itself)
+        # --- Composite orientation tracking ---
+        self.parent_theta = parent_pose["theta"]
+        self.rel_theta = rel_pose["theta"]
+        self.local_theta = 0.0  # independent rotation (servo)
         {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
         # === Motion control mode ===
         self.automated = {{ 'True' if obj.automated else 'False' }}
@@ -380,31 +385,47 @@ class {{ thing_name }}Node(Node):
             th_rad = math.radians(self.theta)
             self.x += self.vel_lin * math.cos(th_rad) * dt
             self.y += self.vel_lin * math.sin(th_rad) * dt
-
         # --- Rotation-only targets (Angle or Pose) ---
         elif has_theta:
-            diff = (t["theta"] - self.theta + 180) % 360 - 180
-            if abs(diff) < 1.0:
+            # --- Local difference only ---
+            diff = t["theta"] - self.local_theta
+            diff = (diff + 180) % 360 - 180  # normalize
+
+            max_ang_speed = 60.0
+            self.vel_ang = max(-max_ang_speed, min(max_ang_speed, diff * 2.0))
+            self.local_theta += self.vel_ang * dt
+
+            # Normalize local_theta to [-180, 180]
+            if self.local_theta > 180:
+                self.local_theta -= 360
+            elif self.local_theta < -180:
+                self.local_theta += 360
+
+            # --- Check completion (use normalized diff) ---
+            if abs(diff) < 3.0:
                 self.has_target = False
                 self.current_target_idx = (self.current_target_idx + 1) % len(self.targets)
                 return
-            max_ang_speed = 60.0
-            self.vel_ang = max(-max_ang_speed, min(max_ang_speed, diff * 2.0))
-            self.theta = (self.theta + self.vel_ang * dt) % 360.0
 
+            # --- Combine orientation properly ---
+            self.theta = (self.parent_theta + self.rel_theta + self.local_theta) % 360.0
+            
     {% endif %}
     def _update_parent_pose(self, msg):
         """
-        Called when parent publishes a new pose.
-        Recompute absolute pose based on parent's updated position + rotation.
+        Update this node's position based on parent pose updates.
+        For composites like Pantilt, orientation (theta) remains independent.
         """
         parent_pose = {'x': msg.x, 'y': msg.y, 'theta': msg.theta}
         self._initial_pose = parent_pose
-
         abs_pose = apply_transformation(parent_pose, self._rel_pose)
+
+        # Update position only
         self.x = abs_pose["x"]
         self.y = abs_pose["y"]
-        self.theta = abs_pose["theta"]
+
+        # Always store parent rotation for composite composition
+        self.parent_theta = parent_pose["theta"]
     
     {#
     def simulate(self):
@@ -502,6 +523,15 @@ class {{ thing_name }}Node(Node):
             #     self.x, self.y = abs_pose["x"], abs_pose["y"]
             #     self.theta = (abs_pose["theta"] + getattr(self, "theta", 0.0)) % 360.0
             
+            if hasattr(self, "children"):
+                # Propagate only translation + parent orientation (not child's orientation)
+                for name, child in self.children.items():
+                    try:
+                        parent_pose = PoseMessage(x=self.x, y=self.y, theta=self.theta)
+                        child._update_parent_pose(parent_pose)
+                    except Exception as e:
+                        print(f"[{self.__class__.__name__}] Failed to update child {name}: {e}")
+
             # --- Publish pose ---
             msg_pose = PoseMessage(x=self.x, y=self.y, theta=self.theta)
             self.pose_publisher.publish(msg_pose)
@@ -554,15 +584,13 @@ class {{ thing_name }}Node(Node):
 
 if __name__ == '__main__':
     # --- Ensure Redis is running ---
-    redis_proc = None
+    # redis_proc = None
     try:
-        r = redis.Redis(host='localhost', port=6379)
-        r.ping()
+        redis.Redis(host='localhost', port=6379).ping()
         print("[Redis] Connected successfully.")
     except redis.exceptions.ConnectionError:
-        print("[Redis] Not running. Starting Redis server...")
-        redis_proc = redis_start()
-        time.sleep(1.0)
+        print("[Redis] Not running. Start Redis server first.")
+        sys.exit(1)
 
     # --- Initialize node ---
     {{ id_field }} = sys.argv[1] if len(sys.argv) > 1 else "{{ thing_name.lower() }}_1"
@@ -576,7 +604,7 @@ if __name__ == '__main__':
         print("\n[System] Ctrl+C detected - shutting down...")
     finally:
         node.stop()
-        if redis_proc:
-            redis_proc.terminate()
+        # if redis_proc:
+        #     redis_proc.terminate()
         print("[System] Exiting cleanly.")
         sys.exit(0)

@@ -218,9 +218,10 @@ def node_pose_callback(nodes, poses, log, node: dict, parent_pose=None):
     node_name = node.get("name", "").lower()
     node_pose = {"x": node["x"], "y": node["y"], "theta": node["theta"]}
 
-    # Compose with parent transformation if provided
+    # For composites, assume the node publishes absolute pose already
     if parent_pose is not None:
-        node_pose = apply_transformation(parent_pose, node_pose)
+        if node.get("class", "").lower() in ["sensor", "actuator", "actor"]:
+            node_pose = apply_transformation(parent_pose, node_pose)
     
     # Update poses
     if node_class in ["sensor", "actuator", "actor"]:
@@ -246,14 +247,20 @@ def node_pose_callback(nodes, poses, log, node: dict, parent_pose=None):
         entry = poses["composites"][ctype].setdefault(node_name, {})
 
         # update this composite's own absolute pose
+        # Preserve existing nested children before overwriting
+        prev_sensors = entry.get("sensors", {})
+        prev_actuators = entry.get("actuators", {})
+        prev_composites = entry.get("composites", {})
+
+        entry.clear()
         entry.update({
             "x": float(node_pose["x"]),
             "y": float(node_pose["y"]),
-            "theta": float(node_pose["theta"])
+            "theta": float(node_pose["theta"]),
+            "sensors": prev_sensors,
+            "actuators": prev_actuators,
+            "composites": prev_composites
         })
-        entry.setdefault("sensors", {})
-        entry.setdefault("actuators", {})
-        entry.setdefault("composites", {})
 
         log.debug(f"Updated composite {ctype}/{node_name} -> {node_pose}")
 
