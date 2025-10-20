@@ -223,12 +223,19 @@ class {{ thing_name }}Node(Node):
         self.automated = {{ 'True' if obj.automated else 'False' }}
         self.vel_lin = 0.0
         self.vel_ang = 0.0
-        self.pois = [
-            {% for p in obj.pois %}
-            {"x": {{ p.x }}, "y": {{ p.y }}},
+        # --- Unified targets (Point | Angle | Pose) ---
+        self.targets = [
+            {% for t in obj.targets %}
+            {
+                {% if t.point is not none %}
+                "x": {{ t.point.x }}, "y": {{ t.point.y }}
+                {% elif t.angle is not none %}
+                "theta": {{ t.angle.theta }}
+                {% endif %}
+            },
             {% endfor %}
         ]
-        self.current_poi_idx = 0
+        self.current_target_idx = 0
         self.has_target = False
         self._last_t = time.monotonic()
 
@@ -270,7 +277,7 @@ class {{ thing_name }}Node(Node):
         # --- Sensor child: {{ node_type }} ---
         self.children["{{ node_name }}"] = {{ node_type }}Node(
             sensor_id=f"{{ node_name }}",
-            parent_topic=full_topic_prefix,
+            parent_topic=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}",
             rel_pose={  # relative to this composite
                 'x': {{ posed_sensor.transformation.transformation.dx }},
                 'y': {{ posed_sensor.transformation.transformation.dy }},
@@ -339,51 +346,65 @@ class {{ thing_name }}Node(Node):
         self.current_poi_idx = (self.current_poi_idx + 1) % len(self.pois)
         return self.pois[self.current_poi_idx]
     
-    def _follow_pois(self, dt):
-        if not self.pois:
+    def _follow_targets(self, dt):
+        """Generic motion toward linear or angular targets."""
+        if not self.targets:
             return
 
         if not self.has_target:
-            self.target_poi = self.pois[self.current_poi_idx]
+            self.target = self.targets[self.current_target_idx]
             self.has_target = True
 
-        poi = self.target_poi
-        dx = poi["x"] - self.x
-        dy = poi["y"] - self.y
-        dist = math.hypot(dx, dy)
-        if dist < 5.0:
-            self.has_target = False
-            self.target_poi = self._next_poi()
-            return
+        t = self.target
+        has_xy = "x" in t and "y" in t
+        has_theta = "theta" in t
 
-        # invert dy for visualizer coordinate system
-        th_target = math.degrees(math.atan2(dy, dx))
-        angle_diff = (th_target - self.theta + 180) % 360 - 180
+        # --- Translation targets (Point or Pose) ---
+        if has_xy:
+            dx, dy = t["x"] - self.x, t["y"] - self.y
+            dist = math.hypot(dx, dy)
+            if dist < 5.0:
+                self.has_target = False
+                self.current_target_idx = (self.current_target_idx + 1) % len(self.targets)
+                return
+            th_target = math.degrees(math.atan2(dy, dx))
+            angle_diff = (th_target - self.theta + 180) % 360 - 180
+            max_ang_speed = 60.0
+            if abs(angle_diff) > 2.0:
+                self.vel_ang = max(-max_ang_speed, min(max_ang_speed, angle_diff * 2.0))
+            else:
+                self.vel_ang = 0.0
+            # Update orientation each step
+            self.theta = (self.theta + self.vel_ang * dt) % 360.0
+            self.vel_lin = 30.0 if abs(angle_diff) < 45 else 10.0
+            th_rad = math.radians(self.theta)
+            self.x += self.vel_lin * math.cos(th_rad) * dt
+            self.y += self.vel_lin * math.sin(th_rad) * dt
 
-        # Desired heading (atan2 gives 0° = +x, CCW positive)
-        th_target = math.degrees(math.atan2(dy, dx))
-
-        # Smooth turning logic
-        max_ang_speed = 60.0
-        if abs(angle_diff) > 2.0:
-            self.vel_ang = max(-max_ang_speed, min(max_ang_speed, angle_diff * 2.0))
-        else:
-            self.vel_ang = 0.0
-
-        # Move while roughly aligned
-        self.vel_lin = 30.0 if abs(angle_diff) < 45 else 10.0
-
-        th_rad = math.radians(self.theta)
-        self.x += self.vel_lin * math.cos(th_rad) * dt
-        self.y += self.vel_lin * math.sin(th_rad) * dt  # note minus here!
-        self.theta = (self.theta + self.vel_ang * dt) % 360.0
+        # --- Rotation-only targets (Angle or Pose) ---
+        elif has_theta:
+            diff = (t["theta"] - self.theta + 180) % 360 - 180
+            if abs(diff) < 1.0:
+                self.has_target = False
+                self.current_target_idx = (self.current_target_idx + 1) % len(self.targets)
+                return
+            max_ang_speed = 60.0
+            self.vel_ang = max(-max_ang_speed, min(max_ang_speed, diff * 2.0))
+            self.theta = (self.theta + self.vel_ang * dt) % 360.0
 
     {% endif %}
     def _update_parent_pose(self, msg):
         """
-        Update this node's parent pose when the parent publishes a new one.
+        Called when parent publishes a new pose.
+        Recompute absolute pose based on parent's updated position + rotation.
         """
-        self._initial_pose = {'x': msg.x, 'y': msg.y, 'theta': msg.theta}
+        parent_pose = {'x': msg.x, 'y': msg.y, 'theta': msg.theta}
+        self._initial_pose = parent_pose
+
+        abs_pose = apply_transformation(parent_pose, self._rel_pose)
+        self.x = abs_pose["x"]
+        self.y = abs_pose["y"]
+        self.theta = abs_pose["theta"]
     
     {#
     def simulate(self):
@@ -433,7 +454,9 @@ class {{ thing_name }}Node(Node):
         {% endif %}
 
         # --- Connect to Redis transport ---
-        super().run()
+        threading.Thread(target=super().run, daemon=True).start()
+        time.sleep(0.2)  # short delay so Redis connection stabilizes
+
 
         # --- Start loop ---
         self.running = True
@@ -461,7 +484,7 @@ class {{ thing_name }}Node(Node):
             self._last_t = now
 
             if self.automated:
-                self._follow_pois(dt)
+                self._follow_targets(dt)
             else:
                 th_rad = math.radians(self.theta)
                 self.x += self.vel_lin * math.cos(th_rad) * dt
@@ -469,14 +492,16 @@ class {{ thing_name }}Node(Node):
                 self.theta = (self.theta + self.vel_ang * dt) % 360.0
             {% endif %}
 
-            # Recompute absolute pose if parented
-            if self.parent_topic:
-                abs_pose = apply_transformation(
-                    self._initial_pose or {"x": 0.0, "y": 0.0, "theta": 0.0},
-                    self._rel_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
-                )
-                self.x, self.y, self.theta = abs_pose["x"], abs_pose["y"], abs_pose["theta"]
-
+            # # Recompute absolute pose if this node belongs to a composite (e.g., Pantilt inside Robot)
+            # if self.parent_topic and self.parent_topic.startswith("composite."):
+            #     abs_pose = apply_transformation(
+            #         self._initial_pose or {"x": 0.0, "y": 0.0, "theta": 0.0},
+            #         self._rel_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
+            #     )
+            #     # Keep parent's translation but preserve local dynamic rotation
+            #     self.x, self.y = abs_pose["x"], abs_pose["y"]
+            #     self.theta = (abs_pose["theta"] + getattr(self, "theta", 0.0)) % 360.0
+            
             # --- Publish pose ---
             msg_pose = PoseMessage(x=self.x, y=self.y, theta=self.theta)
             self.pose_publisher.publish(msg_pose)

@@ -22,35 +22,46 @@ from omnisim.utils.affections import (
     {% set node_classname = subtype|capitalize if subtype else type|capitalize %}
 from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node
 {% endfor %}
-{% macro topic_prefix(obj, parent=None) -%}
-    {# parent is a tuple like ("pantilt", "pt_1") #}
+{% macro topic_prefix(obj, parents=None) -%}
+    {# Normalize parents input: ensure it's a list of (ptype, pid) tuples #}
+    {% if parents is none %}
+        {% set parents = [] %}
+    {% elif parents is mapping or parents is string %}
+        {% set parents = [] %}
+    {% elif parents is sequence and parents and parents[0] is sequence %}
+        {# already list of tuples #}
+        {% set parents = parents %}
+    {% elif parents is sequence and parents|length == 2 and parents[0] is string %}
+        {% set parents = [parents] %}
+    {% else %}
+        {% set parents = [] %}
+    {% endif %}
+
     {% set cls = obj.class|lower %}
     {% set type_part = obj.type|lower if obj.type is defined else obj.__class__.__name__|lower %}
     {% set subtype = obj.subtype|lower if obj.subtype is defined else None %}
-    {% set ptype = parent[0] if parent and parent|length > 0 else None %}
-    {% set pid = parent[1] if parent and parent|length > 1 else None %}
 
+    {# Build parent chain parts #}
+    {% set parts = [] %}
+    {% for pair in parents %}
+        {% if pair|length == 2 %}
+            {% set ptype, pid = pair[0], pair[1] %}
+            {% set _ = parts.append("composite." ~ ptype ~ "." ~ pid) %}
+        {% endif %}
+    {% endfor %}
+
+    {# Append current object class/type/subtype #}
     {% if cls == "sensor" %}
-        {% if ptype and pid %}
-            composite.{{ ptype }}.{{ pid }}.sensor.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
-        {% else %}
-            sensor.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
-        {% endif %}
+        {% set _ = parts.append("sensor." ~ type_part ~ ('.' ~ subtype if subtype and subtype != type_part else '')) %}
     {% elif cls == "actuator" %}
-        {% if ptype and pid %}
-            composite.{{ ptype }}.{{ pid }}.actuator.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
-        {% else %}
-            actuator.{{ type_part }}{% if subtype and subtype != type_part %}.{{ subtype }}{% endif %}
-        {% endif %}
+        {% set _ = parts.append("actuator." ~ type_part ~ ('.' ~ subtype if subtype and subtype != type_part else '')) %}
     {% elif obj.__class__.__name__ == "CompositeThing" %}
-        {% if ptype and pid %}
-            composite.{{ ptype }}.{{ pid }}.composite.{{ type_part }}
-        {% else %}
-            composite.{{ type_part }}
-        {% endif %}
+        {% set _ = parts.append("composite." ~ type_part) %}
     {% else %}
-        composite.{{ type_part }}
+        {% set _ = parts.append("composite." ~ type_part) %}
     {% endif %}
+
+    {{ parts | join('.') }}
 {%- endmacro %}
 {# --- recursively register composite children --- #}
 {% macro register_composite_children(nodes_path, poses_path, parent_ref, parent_pose, parent_id) %}
@@ -97,7 +108,7 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             "size": {{ comp.ref.shape.length }}
             {% elif comp.ref.shape.__class__.__name__ == "Circle" %}
             "radius": {{ comp.ref.shape.radius }}
-            {% elif comp.ref.shape.__class__.__name__ in ["Line","Polygon","ArbitraryShape"] %}
+            {% elif comp.ref.shape.__class__.__name__ in ["Line","ArbitraryShape"] %}
             "points": [
                 {% for pt in comp.ref.shape.points %}
                 {"x": {{ pt.x }}, "y": {{ pt.y }}},
@@ -115,7 +126,6 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             cid
         ) }}
     {% endfor %}
-
     {# === Child sensors === #}
     {% for sen in parent_ref.sensors %}
         {% set sid = sen.ref.name|lower %}
@@ -168,7 +178,6 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             {% endif %}
         }
     {% endfor %}
-
     {# === Child actuators === #}
     {% for act in parent_ref.actuators %}
         {% set aid = act.ref.name|lower %}
@@ -220,6 +229,87 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             }
             {% endif %}
         }
+    {% endfor %}
+{% endmacro %}
+{% macro register_pose_subscribers(parent_ref, parents=None) %}
+    {% if parents is none %}
+        {% set parents = [] %}
+    {% endif %}
+    
+    {# === Child composites === #}
+    {% for comp in parent_ref.composites %}
+        {% set cname = comp.ref.name|lower %}
+        {% set ctype = (comp.ref.type|lower if comp.ref.type else comp.ref.__class__.__name__|lower) %}
+        {% set topic_base = topic_prefix(comp.ref, parents) | trim %}
+        self.{{ cname }}_pose_sub = self.create_subscriber(
+            topic=f"{{ topic_base }}.{{ cname }}.pose",
+            msg_type=PoseMessage,
+            on_message=lambda msg, name="{{ cname }}": \
+                self.node_pose_callback({
+                    "class": "composite",
+                    "type": "{{ ctype }}",
+                    "name": "{{ cname }}",
+                    "x": msg.x, "y": msg.y, "theta": msg.theta
+                },
+                parent_pose=self.get_node_pose(
+                    "{{ parents[-1][1] if parents else '' }}",
+                    cls="composite",
+                    type="{{ parents[-1][0] if parents else '' }}"
+                ))
+        )
+        {{ register_pose_subscribers(comp.ref, parents + [(ctype, cname)]) }}
+    {% endfor %}
+    {# === Child sensors === #}
+    {% for sen in parent_ref.sensors %}
+        {% set sid = sen.ref.name|lower %}
+        {% set stype = sen.ref.type|lower if sen.ref.type else sen.ref.__class__.__name__|lower %}
+        {% set ssub = sen.ref.subtype|lower if sen.ref.subtype is defined and sen.ref.subtype else None %}
+        {% set topic_base = topic_prefix(sen.ref, parents) | trim %}
+        self.{{ sid }}_pose_sub = self.create_subscriber(
+            topic=f"{{ topic_base }}.{{ sid }}.pose",
+            msg_type=PoseMessage,
+            on_message=lambda msg, name="{{ sid }}": \
+                self.node_pose_callback({
+                    "class": "sensor",
+                    "type": "{{ stype }}",
+                    {% if ssub %}
+                    "subtype": "{{ ssub }}",
+                    {% endif %}
+                    "name": "{{ sid }}",
+                    "x": msg.x, "y": msg.y, "theta": msg.theta
+                },
+                parent_pose=self.get_node_pose(
+                    "{{ parents[-1][1] if parents else '' }}",
+                    cls="composite",
+                    type="{{ parents[-1][0] if parents else '' }}"
+                ))
+        )
+    {% endfor %}
+    {# === Child actuators === #}
+    {% for act in parent_ref.actuators %}
+        {% set aid = act.ref.name|lower %}
+        {% set atype = act.ref.type|lower if act.ref.type else act.ref.__class__.__name__|lower %}
+        {% set asub = act.ref.subtype|lower if act.ref.subtype is defined and act.ref.subtype else None %}
+        {% set topic_base = topic_prefix(act.ref, parents) | trim %}
+        self.{{ aid }}_pose_sub = self.create_subscriber(
+            topic=f"{{ topic_base }}.{{ aid }}.pose",
+            msg_type=PoseMessage,
+            on_message=lambda msg, name="{{ aid }}": \
+                self.node_pose_callback({
+                    "class": "actuator",
+                    "type": "{{ atype }}",
+                    {% if asub %}
+                    "subtype": "{{ asub }}",
+                    {% endif %}
+                    "name": "{{ aid }}",
+                    "x": msg.x, "y": msg.y, "theta": msg.theta
+                },
+                parent_pose=self.get_node_pose(
+                    "{{ parents[-1][1] if parents else '' }}",
+                    cls="composite",
+                    type="{{ parents[-1][0] if parents else '' }}"
+                ))
+        )
     {% endfor %}
 {% endmacro %}
 {# --- imports for messages actually used in this env --- #}
@@ -415,12 +505,26 @@ class {{ environment.name }}Node(Node):
                             "{{ k }}": {{ v|tojson }},
                         {%- endfor -%}
                         }
-                    {%- elif val.__class__.__name__ == "list" and val and val[0].__class__.__name__ == "Point" -%}
-                        [
-                    {% for pt in val %}
-                    {"x": {{ pt.x }}, "y": {{ pt.y }}},
-                    {% endfor %}
-                ]
+                    {%- elif val.__class__.__name__ == "list" and val and
+                    val[0].__class__.__name__ in ["TargetPose","Point","Angle","Pose"] -%}
+                    [
+                    {%- for tp in val -%}
+                        {%- if tp.__class__.__name__ == "TargetPose" -%}
+                            {%- if tp.point is defined and tp.point is not none -%}
+                                {"x": {{ tp.point.x }}, "y": {{ tp.point.y }}}
+                            {%- elif tp.angle is defined and tp.angle is not none -%}
+                                {"angle": {{ tp.angle.value }}}
+                            {%- endif -%}
+                        {%- elif tp.__class__.__name__ == "Point" -%}
+                            {"x": {{ tp.x }}, "y": {{ tp.y }}}
+                        {%- elif tp.__class__.__name__ == "Angle" -%}
+                            {"angle": {{ tp.value }}}
+                        {%- elif tp.__class__.__name__ == "Pose" -%}
+                            {"x": {{ tp.x }}, "y": {{ tp.y }}, "theta": {{ tp.theta }}}
+                        {%- endif -%}
+                        {%- if not loop.last %}, {% endif %}
+                    {%- endfor -%}
+                    ]
                     {%- else -%} {{ val|tojson }}
                     {%- endif -%},
                 {% endfor %}
@@ -509,7 +613,7 @@ class {{ environment.name }}Node(Node):
                 {"x": {{ p.ref.shape.points[0].x }}, "y": {{ p.ref.shape.points[0].y }}},
                 {"x": {{ p.ref.shape.points[1].x }}, "y": {{ p.ref.shape.points[1].y }}}
             ]
-            {% elif p.ref.shape.__class__.__name__ == "Polygon" %}
+            {% elif p.ref.shape.__class__.__name__ == "ArbitraryShape" %}
             "points": [
                 {% for pt in p.ref.shape.points %}
                 {"x": {{ pt.x }}, "y": {{ pt.y }}},
@@ -573,7 +677,6 @@ class {{ environment.name }}Node(Node):
             {% endif %}
         {% endif %}
         self.tree[self.env_name.lower()].append("{{ inst }}")
-        
         {% if p.nodeclass == "CompositePlacement" %}
         {% set comp_key = type if type else (subtype if subtype else ref.__class__.__name__|lower) %}
         {{ register_composite_children(
@@ -583,6 +686,7 @@ class {{ environment.name }}Node(Node):
             {'x': p.pose.x, 'y': p.pose.y, 'theta': p.pose.theta},
             inst
         ) }}
+        {{ register_pose_subscribers(p.ref, [(type, inst)]) }}
         {% endif %}
         # Define {{ inst }} subscriber
         {% set parent_tuple = (p.ref.parent.subtype, p.ref.parent.name) if p.ref.parent is defined else None %}
@@ -610,13 +714,13 @@ class {{ environment.name }}Node(Node):
                         cls="composite",
                         type="{{ parent_tuple[0]|lower if parent_tuple[0] else '' }}"
                     )
-                    {% else %}, parent_pose=None
+                    {% else %}
+                    , parent_pose=None
                     {% endif %}
                 {% endif %})
         )
 
         {% endfor %}
-
         # Obstacles (static, non-node entities)
         self.nodes["obstacles"] = {}
         self.poses["obstacles"] = {}
@@ -715,12 +819,17 @@ class {{ environment.name }}Node(Node):
                     return f"(start=({s['x']:.2f},{s['y']:.2f}) -> end=({e['x']:.2f},{e['y']:.2f}))"
                 elif all(k in p for k in ["x", "y", "theta"]):
                     return f"(x={p['x']:.2f}, y={p['y']:.2f}, theta={p['theta']:.2f} deg)"
+                elif "rel_pose" in p and all(k in p["rel_pose"] for k in ["x", "y", "theta"]):
+                    r = p["rel_pose"]
+                    return f"(rel_pose=({r['x']:.2f},{r['y']:.2f},{r['theta']:.2f} deg))"
             return ""
 
         def is_pose(p):
             """Check if dict is a pose."""
             return isinstance(p, dict) and (
-                all(k in p for k in ["x", "y", "theta"]) or ("start" in p and "end" in p)
+                all(k in p for k in ["x", "y", "theta"]) or
+                ("rel_pose" in p and all(k in p["rel_pose"] for k in ["x", "y", "theta"])) or
+                ("start" in p and "end" in p)
             )
 
         def recurse(node_name, node_data, indent=0):

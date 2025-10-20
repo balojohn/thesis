@@ -18,8 +18,8 @@ CompositeThing:
         ('pubFreq:' pubFreq=FLOAT)?
         ('shape:' shape=Shape)?
         ('automated:' automated=BOOL)?
-        ('pois:'
-             '-' pois+=Point['-'])?
+        ('targets:'
+             '-' targets+=TargetPose['-'])?
         ('sensors:'
              '-' sensors+=PosedSensor['-'])?
         ('actuators:'
@@ -28,6 +28,10 @@ CompositeThing:
              '-' composites+=PosedCThing['-'])?
 	)#
     'end'
+;
+
+TargetPose:
+    point=Point | angle=Angle
 ;
 
 PosedThing: PosedSensor | PosedActuator | PosedCThing;

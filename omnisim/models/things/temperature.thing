@@ -3,6 +3,6 @@ EnvSensor te_1
     type: EnvSensor
     subtype: Temperature
     shape: Circle(3)
-    pubFreq: 1
+    pubFreq: 10
     range: 10
 end

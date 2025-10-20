@@ -3,10 +3,11 @@ CThing r_1
     pubFreq: 10
     shape: Rectangle(210, 70)
     automated: True
-    pois:
+    targets:
         - Point(500, 800)
-        - Point(700, 600)
-        - Point(900, 200)
+        - Point(800, 800)
+        - Point(800, 400)
+        - Point(500, 400)
     actuators:
         - b_1 @ Transform(-20, -15, 180)
     composites:
