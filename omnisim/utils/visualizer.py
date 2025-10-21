@@ -210,43 +210,43 @@ class EnvVisualizer:
     # --------------- RECURSIVE DRAWERS -------------------
     # -----------------------------------------------------
 
-    def _draw_child_composites(self, comp_node, comp_pose_dict):
-        """Recursively draw composites and their internal sensors/actuators/actors."""
-        # --- Draw nested composites ---
-        sub_comps = comp_node.get("composites", {})
-        if isinstance(sub_comps, dict):
-            for sub_type, sub_instances in sub_comps.items():
-                # Handle lists or dicts for nested composites
-                if isinstance(sub_instances, dict):
-                    iterable = sub_instances.items()
-                elif isinstance(sub_instances, list):
-                    iterable = [(name, self.node.nodes.get(name, {})) for name in sub_instances]
-                else:
-                    iterable = []
+    def _draw_child_composites(self, comp_node, comp_pose):
+        """
+        Recursively draw composites and their internal sensors/actuators/actors.
+        comp_node: dict from self.node.nodes
+        comp_pose: dict from self.node.poses (same structure)
+        """
+        if not isinstance(comp_node, dict) or not isinstance(comp_pose, dict):
+            return
 
-                for sub_name, sub_node in iterable:
-                    if not isinstance(sub_node, dict):
-                        continue
-                    pose = self.node.poses.get("composites", {}) \
-                        .get(sub_type, {}) \
-                        .get(sub_name, None)
+        # === 1. Draw nested composites ===
+        sub_comps_nodes = comp_node.get("composites", {})
+        sub_comps_poses = comp_pose.get("composites", {})
 
-                    if pose and all(k in pose for k in ["x", "y", "theta"]):
-                        self.draw_entity(pose["x"], pose["y"], pose["theta"], sub_node, sub_name)
-                        self._draw_child_composites(sub_node, pose)
-
-        # --- Draw sensors / actuators / actors that belong to this composite ---
-        for category in ["sensors", "actuators", "actors"]:
-            cat_dict = comp_node.get(category, {})
-            if not isinstance(cat_dict, dict):
+        for sub_type, sub_nodes in sub_comps_nodes.items():
+            if not isinstance(sub_nodes, dict):
                 continue
+            sub_poses_of_type = sub_comps_poses.get(sub_type, {})
 
-            for name, ent in cat_dict.items():
-                if not isinstance(ent, dict):
+            for sub_name, sub_node in sub_nodes.items():
+                sub_pose = sub_poses_of_type.get(sub_name, None)
+                if not sub_pose or not all(k in sub_pose for k in ["x", "y", "theta"]):
                     continue
-                pose = comp_pose_dict.get(category, {}).get(name, None)
+
+                self.draw_entity(sub_pose["x"], sub_pose["y"], sub_pose["theta"], sub_node, sub_name)
+
+                # recurse deeper
+                self._draw_child_composites(sub_node, sub_pose)
+
+        # === 2. Draw this composite's sensors/actuators/actors ===
+        for cat in ["sensors", "actuators", "actors"]:
+            nodes_dict = comp_node.get(cat, {})
+            poses_dict = comp_pose.get(cat, {})
+
+            for name, node in nodes_dict.items():
+                pose = poses_dict.get(name, None)
                 if pose and all(k in pose for k in ["x", "y", "theta"]):
-                    self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
+                    self.draw_entity(pose["x"], pose["y"], pose["theta"], node, name)
 
     # -----------------------------------------------------
     # ---------------- INPUT HANDLING ---------------------

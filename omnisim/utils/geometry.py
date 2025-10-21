@@ -210,7 +210,7 @@ def apply_transformation(parent_pose, rel_pose, parent_shape=None, child_shape=N
 def node_pose_callback(nodes, poses, log, node: dict, parent_pose=None):
     """
     Update or register a node's absolute pose into the correct hierarchy slot.
-    Works with hierarchical 'nodes' and 'poses' structures (same traversal style as print_tf_tree).
+    Handles both top-level nodes and nested children within composites.
     """
     node_class = node.get("class", "").lower()
     node_type = node.get("type", "").lower() or None
@@ -218,109 +218,130 @@ def node_pose_callback(nodes, poses, log, node: dict, parent_pose=None):
     node_name = node.get("name", "").lower()
     node_pose = {"x": node["x"], "y": node["y"], "theta": node["theta"]}
 
-    # For composites, assume the node publishes absolute pose already
+    # If this is a leaf node (sensor/actuator/actor) with a parent, 
+    # compute absolute pose from relative
     if parent_pose is not None:
-        if node.get("class", "").lower() in ["sensor", "actuator", "actor"]:
+        if node_class in ["sensor", "actuator", "actor"]:
             node_pose = apply_transformation(parent_pose, node_pose)
     
-    # Update poses
+    # For leaf nodes (sensor, actuator, actor): store in parent's nested structure
     if node_class in ["sensor", "actuator", "actor"]:
+        # Don't store in top-level categories—only recurse will update leaf nodes
+        # The poses dict structure is already set up by HomeNode with rel_pose
+        # Just update the x, y, theta if the entry exists
         category = f"{node_class}s"
-        poses.setdefault(category, {})
-
-        if node_type:
-            poses[category].setdefault(node_type, {})
-            if node_subtype and node_subtype != node_type:
-                poses[category][node_type].setdefault(node_subtype, {})
-                poses[category][node_type][node_subtype][node_name] = node_pose
-                log.debug(f"Updated {node_class} {node_type}/{node_subtype}/{node_name} -> {node_pose}")
+        
+        # Try to find and update in top-level (for standalone sensors/actuators)
+        try:
+            if node_type:
+                if node_subtype and node_subtype != node_type:
+                    poses[category][node_type][node_subtype][node_name].update(node_pose)
+                else:
+                    poses[category][node_type][node_name].update(node_pose)
             else:
-                poses[category][node_type][node_name] = node_pose
-                log.debug(f"Updated {node_class} {node_type}/{node_name} -> {node_pose}")
-        else:
-            poses[category][node_name] = node_pose
-            log.debug(f"Updated {node_class} {node_name} -> {node_pose}")
+                poses[category][node_name].update(node_pose)
+            log.debug(f"Updated leaf {node_class} {node_name} -> {node_pose}")
+        except (KeyError, TypeError):
+            # If not found in top-level, it's probably nested in a composite
+            # The parent's recurse() call will handle updating it
+            pass
     
+    # For composites: register/update and recurse into children
     elif node_class == "composite":
         ctype = node_type or node_name
-        poses.setdefault("composites", {}).setdefault(ctype, {})
-        entry = poses["composites"][ctype].setdefault(node_name, {})
+        found_entry = None
 
-        # update this composite's own absolute pose
-        # Preserve existing nested children before overwriting
+        # Search recursively for existing composite
+        def search_composite(node_dict):
+            nonlocal found_entry
+            if not isinstance(node_dict, dict) or found_entry is not None:
+                return
+            comps = node_dict.get("composites", {})
+            for t, comps_of_type in comps.items():
+                for n, entry in comps_of_type.items():
+                    if t == ctype and n == node_name:
+                        found_entry = entry
+                        return
+                    search_composite(entry)
+
+        # Start recursive search from top-level composites
+        for t, comps_of_type in poses.get("composites", {}).items():
+            for n, entry in comps_of_type.items():
+                if t == ctype and n == node_name:
+                    found_entry = entry
+                    break
+                search_composite(entry)
+            if found_entry:
+                break
+
+        # If not found, create at top-level
+        if found_entry is None:
+            poses.setdefault("composites", {}).setdefault(ctype, {})
+            found_entry = poses["composites"][ctype].setdefault(node_name, {})
+
+        entry = found_entry
+
+        # Preserve children before overwriting
         prev_sensors = entry.get("sensors", {})
         prev_actuators = entry.get("actuators", {})
         prev_composites = entry.get("composites", {})
 
-        entry.clear()
-        entry.update({
-            "x": float(node_pose["x"]),
-            "y": float(node_pose["y"]),
-            "theta": float(node_pose["theta"]),
-            "sensors": prev_sensors,
-            "actuators": prev_actuators,
-            "composites": prev_composites
-        })
+        # Update composite's absolute pose
+        entry["x"] = float(node_pose["x"])
+        entry["y"] = float(node_pose["y"])
+        entry["theta"] = float(node_pose["theta"])
+
+        # Restore children dicts
+        if "sensors" not in entry:
+            entry["sensors"] = prev_sensors
+        if "actuators" not in entry:
+            entry["actuators"] = prev_actuators
+        if "composites" not in entry:
+            entry["composites"] = prev_composites
 
         log.debug(f"Updated composite {ctype}/{node_name} -> {node_pose}")
 
-        # Find and update the corresponding entry in poses
-        pose_entry = poses["composites"].get(ctype, {}).get(node_name)
-        if pose_entry and isinstance(pose_entry, dict):
-            update_nested_children(pose_entry, node_pose, log)
-        else:
-            log.warning(f"No matching pose entry for composite {node_name} found in poses")
-    else:
-        log.warning(f"Unknown node class '{node_class}' for {node_name}")
+        # Recursively update all children
+        for entity in ("actuators", "sensors", "composites"):
+            entity_data = entry.get(entity, {})
+            if isinstance(entity_data, dict):
+                recurse(entity_data, node_pose, log)
 
-    log.info(f"[PoseUpdate] {node_class} {node_name}: {node_pose}")
+        log.info(f"[PoseUpdate] {node_class} {node_name}: {node_pose}")
 
-def update_nested_children(pose_entry, parent_pose, log):
-    """
-    Recursively update all children of a composite using stored relative poses.
-    Each child keeps its 'rel_pose' (x,y,theta) that never changes.
-    """
-    if not isinstance(pose_entry, dict):
-        return
-
-    for entity in ("actuators", "sensors", "composites"):
-        entity_data = pose_entry.get(entity, {})
-        if not isinstance(entity_data, dict):
-            continue
-
-        recurse(entity_data, parent_pose, log)
-        
 def recurse(d, parent_pose, log):
+    """
+    Recursively update children using stored relative poses.
+    Modifies children in-place with computed absolute poses.
+    """
     for k, v in d.items():
         if not isinstance(v, dict):
             continue
 
-        # Determine relative pose
+        # Compute or retrieve relative pose
         if "rel_pose" in v:
             rel_pose = v["rel_pose"]
-        elif all(c in v for c in ("x", "y", "theta")) and "rel_pose" not in v:
-            # Instead of assuming x,y,θ are relative — compute them if parent_pose is known
-            if "parent_abs" in v:
-                abs_pose = v
-                parent_pose = v["parent_abs"]
-                rel_pose = {
-                    "x": abs_pose["x"] - parent_pose["x"],
-                    "y": abs_pose["y"] - parent_pose["y"],
-                    "theta": abs_pose["theta"] - parent_pose["theta"]
-                }
-            else:
-                rel_pose = {"x": 0.0, "y": 0.0, "theta": 0.0}
+        elif all(c in v for c in ("x", "y", "theta")):
+            # Compute rel_pose from stored absolute values
+            rel_pose = {
+                "x": float(v["x"]) - float(parent_pose["x"]),
+                "y": float(v["y"]) - float(parent_pose["y"]),
+                "theta": float(v["theta"]) - float(parent_pose["theta"])
+            }
             v["rel_pose"] = rel_pose
+            log.debug(f"[PoseInit] {k} computed rel_pose: {rel_pose}")
         else:
-            recurse(v, parent_pose, log)
-            continue
+            rel_pose = {"x": 0.0, "y": 0.0, "theta": 0.0}
+            v["rel_pose"] = rel_pose
 
-        # Compute absolute pose each update
+        # Compute and update absolute pose
         abs_pose = apply_transformation(parent_pose, rel_pose)
-        v.update(abs_pose)
-        log.debug(f"[PoseUpdate] child {k}: {abs_pose}")
+        v["x"] = float(abs_pose["x"])
+        v["y"] = float(abs_pose["y"])
+        v["theta"] = float(abs_pose["theta"])
+        log.debug(f"[PoseUpdate] {k}: {abs_pose}")
 
-        # Recurse deeper if has children
+        # Recurse into nested children
         for subsec in ("actuators", "sensors", "composites"):
-            if subsec in v:
+            if subsec in v and isinstance(v[subsec], dict):
                 recurse(v[subsec], abs_pose, log)
