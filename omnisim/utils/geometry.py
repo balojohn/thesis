@@ -143,21 +143,21 @@ def shape_to_dict(shape):
             sdict[attr] = getattr(shape, attr)
     return sdict
 
-def find_center(shape):
-    if not shape:
-        return (0.0, 0.0)
-    stype = shape.get("type", "").lower()
-    if stype == "rectangle":
-        w = shape.get("width", 0.0)
-        l = shape.get("length", shape.get("height", 0.0))
-        return w / 2.0, l / 2.0
-    elif stype == "square":
-        s = shape.get("size", shape.get("length", 0.0))
-        return s / 2.0, s / 2.0
-    elif stype == "circle":
-        r = shape.get("radius", 0.0)
-        return r, r
-    return (0.0, 0.0)
+# def find_center(shape):
+#     if not shape:
+#         return (0.0, 0.0)
+#     stype = shape.get("type", "").lower()
+#     if stype == "rectangle":
+#         w = shape.get("width", 0.0)
+#         l = shape.get("length", shape.get("height", 0.0))
+#         return w / 2.0, l / 2.0
+#     elif stype == "square":
+#         s = shape.get("size", shape.get("length", 0.0))
+#         return s / 2.0, s / 2.0
+#     elif stype == "circle":
+#         r = shape.get("radius", 0.0)
+#         return r, r
+#     return (0.0, 0.0)
 
 # Homogeneous 2D transformation matrix
 def make_tf_matrix(x, y, theta):
@@ -179,17 +179,12 @@ def apply_transformation(parent_pose, rel_pose, parent_shape=None, child_shape=N
     parent_shape = shape_to_dict(parent_shape)
     child_shape = shape_to_dict(child_shape)
 
-    p_halfx, p_halfy = find_center(parent_shape)
-    c_halfx, c_halfy = find_center(child_shape)
+    # p_halfx, p_halfy = find_center(parent_shape)
+    # c_halfx, c_halfy = find_center(child_shape)
 
     # Build tf matrices
     Tp = make_tf_matrix(parent_pose["x"], parent_pose["y"], parent_pose["theta"])
     Tr_rel = make_tf_matrix(rel_pose["x"], rel_pose["y"], rel_pose["theta"])
-
-    # Offset only in local +Y direction (do NOT rotate manually) ---
-    # offset_x = p_halfx + c_halfx
-    # offset_y = p_halfy + c_halfy
-    # T_offset = make_tf_matrix(offset_x, offset_y, 0.0)
 
     # Compose in local frame: Parent → Offset → Relative
     T_abs = Tp @ Tr_rel # @ T_offset

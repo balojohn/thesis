@@ -15,6 +15,15 @@ def test_update_sensor_pose(node):
         "x": node.poses["sensors"]["envsensor"]["temperature"]["te_1"]["x"],
         "y": node.poses["sensors"]["envsensor"]["temperature"]["te_1"]["y"],
         "theta": node.poses["sensors"]["envsensor"]["temperature"]["te_1"]["theta"],
-    })
+    }, parent_pose=None)
     pose = node.poses["sensors"]["envsensor"]["temperature"]["te_1"]
-    assert pose == {"x": 6.0, "y": 1.0, "theta": 0.0}
+    
+    expected = {"x": 520.0, "y": 415.0, "theta": -180}
+    for k, v in expected.items():
+        assert pose[k] == pytest.approx(v, abs=1e-3)
+
+
+    # Optionally confirm that shape exists and is correct
+    assert "shape" in pose
+    assert pose["shape"]["type"].lower() == "circle"
+    assert pose["shape"]["radius"] == pytest.approx(3.0, abs=1e-3)

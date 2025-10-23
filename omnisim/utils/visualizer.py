@@ -117,6 +117,120 @@ class EnvVisualizer:
         self.screen.blit(pan_text, (self.width - 200, 28))
 
     # -----------------------------------------------------
+    # ---------------- SENSOR TABLE -----------------------
+    # -----------------------------------------------------
+
+    def draw_sensor_table(self):
+        """Draw a right-side panel listing sensors and their affected properties with current values."""
+        sensor_values = getattr(self.node, "sensor_values", {})  # live readings, optional
+        env_props = getattr(self.node, "env_properties", {})         # environment values
+
+        # --- Layout ---
+        panel_width = 340
+        panel_x = self.width - panel_width - 8
+        panel_y = 60
+        row_h = 24
+
+        # --- Panel background ---
+        pygame.draw.rect(
+            self.screen, (35, 35, 45),
+            (panel_x, panel_y, panel_width, self.height - panel_y - 10),
+            border_radius=6,
+        )
+        pygame.draw.rect(
+            self.screen, (90, 90, 100),
+            (panel_x, panel_y, panel_width, self.height - panel_y - 10),
+            2, border_radius=6,
+        )
+
+        # === Title ===
+        title = self.bigfont.render("Sensor Table", True, (200, 220, 255))
+        self.screen.blit(title, (panel_x + 10, panel_y + 10))
+
+        col_x = [panel_x + 12, panel_x + 160, panel_x + 260]
+
+        # --------------------------------------------------
+        # ENVIRONMENT PROPERTIES SECTION
+        # --------------------------------------------------
+        y = panel_y + 45
+        self.screen.blit(self.font.render("Environment", True, (160, 200, 255)), (panel_x + 10, y))
+        y += 20
+        pygame.draw.line(self.screen, (70, 70, 80),
+                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
+        y += 8
+
+        for prop, val in env_props.items():
+            val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
+            prop_name = prop.replace("_", " ").title()
+            self.screen.blit(self.font.render(prop_name, True, (200, 200, 200)), (col_x[0], y))
+            self.screen.blit(self.font.render(val_str, True, (180, 255, 180)), (col_x[1], y))
+            y += row_h
+
+        # add a bit of spacing before sensors
+        y += 10
+        pygame.draw.line(self.screen, (90, 90, 100),
+                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
+        y += 12
+
+        # --------------------------------------------------
+        # SENSOR SECTION
+        # --------------------------------------------------
+        self.screen.blit(self.font.render("Sensors", True, (160, 200, 255)), (panel_x + 10, y))
+        y += 20
+        pygame.draw.line(self.screen, (70, 70, 80),
+                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
+        y += 8
+
+        headers = ["Sensor", "Property", "Value"]
+        col_x = [panel_x + 12, panel_x + 130, panel_x + 250]
+        for i, h in enumerate(headers):
+            self.screen.blit(self.font.render(h, True, (160, 200, 220)), (col_x[i], y))
+        y += 18
+        pygame.draw.line(self.screen, (70, 70, 80),
+                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
+        y += 6
+
+        
+        # --- recursive collector that scans *all* node trees ---
+        def collect_sensors_rec(node_section):
+            sensors = {}
+            if not isinstance(node_section, dict):
+                return sensors
+            for name, node in node_section.items():
+                if not isinstance(node, dict):
+                    continue
+                cls = node.get("class", "").lower()
+                if cls == "sensor":
+                    sensors[name] = node
+                else:
+                    for subname, subnode in collect_sensors_rec(node).items():
+                        sensors[subname] = subnode
+            return sensors
+
+        # start from root node tree
+        all_sensors = collect_sensors_rec(self.node.nodes)
+
+        # --- Draw sensors ---
+        for sname, sent in sorted(all_sensors.items()):
+            stype = sent.get("subtype") or sent.get("type") or "Unknown"
+            prop = stype.replace("_", " ").title()
+
+            # strict lookup (no fallback, no default)
+            val = sensor_values.get(sname)
+            # if val is None:
+            #     # skip sensors with no data yet
+            #     continue
+
+            val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
+
+            self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (col_x[0], y))
+            self.screen.blit(self.font.render(prop, True, (200, 200, 200)), (col_x[1], y))
+            self.screen.blit(self.font.render(val_str, True, (180, 255, 180)), (col_x[2], y))
+            y += row_h
+            if y > self.height - 40:
+                break
+            
+    # -----------------------------------------------------
     # ---------------- ENTITY DRAWING ---------------------
     # -----------------------------------------------------
 
@@ -369,6 +483,9 @@ class EnvVisualizer:
                     if isinstance(opos, dict) and all(k in opos for k in ["x", "y", "theta"]):
                         ent = self.node.nodes["obstacles"].get(oname, {"class": "obstacle"})
                         self.draw_entity(opos["x"], opos["y"], opos["theta"], ent, oname)
+                
+                # --- Draw sensor data table ---
+                self.draw_sensor_table()
 
                 pygame.display.flip()
                 self.clock.tick(30)

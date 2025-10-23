@@ -1,18 +1,11 @@
 import sys, time, threading, logging, redis, math
 from commlib.node import Node
 from commlib.transports.redis import ConnectionParameters
-from omnisim.utils.geometry import (
-    PoseMessage,
-    node_pose_callback,
-)
-# --- import affection handlers ---
-from omnisim.utils.affections import (
-    handle_temperature_sensor, handle_humidity_sensor, handle_gas_sensor,
-    handle_microphone_sensor, handle_light_sensor, handle_camera_sensor,
-    handle_rfid_sensor, handle_area_alarm, handle_linear_alarm,
-    handle_distance_sensor, check_affectability,
-)
-# --- import generated node classes ---
+from omnisim.utils.visualizer import EnvVisualizer
+from omnisim.utils.geometry import node_pose_callback
+# Affection handlers
+from omnisim.utils.affections import check_affectability
+# Generated node classes
 {% set placements = (environment.things or []) + (environment.composites or []) %}
 {% for p in placements %}
     {% set ref = p.ref %}
@@ -20,7 +13,11 @@ from omnisim.utils.affections import (
     {% set type = ref.type|lower if ref.type else ref.__class__.__name__|lower %}
     {% set subtype = ref.subtype|lower if ref.subtype is defined and ref.subtype else None %}
     {% set node_classname = subtype|capitalize if subtype else type|capitalize %}
-from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node
+    {% if cls == "sensor" %}
+from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node, {{ node_classname }}Message, PoseMessage
+    {% else %}
+from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node, PoseMessage
+    {% endif %}
 {% endfor %}
 {% macro topic_prefix(obj, parents=None) -%}
     {# Normalize parents input: ensure it's a list of (ptype, pid) tuples #}
@@ -312,23 +309,6 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
         )
     {% endfor %}
 {% endmacro %}
-{# --- imports for messages actually used in this env --- #}
-{% set placements = (environment.things or []) + (environment.actors or []) + (environment.composites or []) %}
-{% for p in placements %}
-  {% set ref = p.ref %}
-  {% set base = p.poseTopic if p.poseTopic else topic_prefix(ref) %}
-  {# now match comms publishers #}
-  {% for comm in comms.communications %}
-    {% for e in comm.endpoints %}
-      {% if e.__class__.__name__ == "Publisher" and e.topic.startswith(base) and e.msg is not none %}
-        {% if e.msg.name not in ns.imported %}
-from .{{ ref.name|lower }} import {{ e.msg.name }}, PoseMessage
-          {% set ns.imported = ns.imported + [e.msg.name] %}
-        {% endif %}
-      {% endif %}
-    {% endfor %}
-  {% endfor %}
-{% endfor %}
 
 class {{ environment.name }}Node(Node):
     def __init__(self, env_name: str, *args, **kwargs):
@@ -342,6 +322,11 @@ class {{ environment.name }}Node(Node):
         self.width = {{ environment.grid[0].width }}
         self.height = {{ environment.grid[0].height }}
         self.cellSizeCm = {{ environment.grid[0].cellSizeCm }}
+        self.env_properties = {
+            {% for p in environment.properties %}
+            "{{ p.type }}": {{ p.value }},
+            {% endfor %}
+        }
         self.poses = {
             "sensors": {},
             "actuators": {},
@@ -720,6 +705,15 @@ class {{ environment.name }}Node(Node):
                 {% endif %})
         )
 
+        {% if cls == "sensor" %}
+        # Data subscriber
+        self.{{ inst }}_data_sub = self.create_subscriber(
+            topic=f"sensor.{{ type }}.{{ subtype if subtype else type }}.{{ inst }}.data",
+            msg_type={{ subtype|capitalize if subtype else type|capitalize }}Message,
+            on_message=lambda msg, sid="{{ inst }}": self._on_sensor_data(msg, sid)
+        )
+        {% endif %}
+
         {% endfor %}
         # Obstacles (static, non-node entities)
         self.nodes["obstacles"] = {}
@@ -755,36 +749,6 @@ class {{ environment.name }}Node(Node):
         {% endfor %}
 
     # Wrappers for affection and pose utils
-    def handle_temperature_sensor(self, sensor_id: str):
-        return handle_temperature_sensor(self.nodes, self.poses, self.log, sensor_id)
-
-    def handle_humidity_sensor(self, sensor_id: str):
-        return handle_humidity_sensor(self.nodes, self.poses, self.log, sensor_id)
-
-    def handle_gas_sensor(self, sensor_id: str):
-        return handle_gas_sensor(self.nodes, self.poses, self.log, sensor_id)
-    
-    def handle_microphone_sensor(self, sensor_id: str):
-        return handle_microphone_sensor(self.nodes, self.poses, self.log, sensor_id)
-
-    def handle_light_sensor(self, sensor_id: str):
-        return handle_light_sensor(self.nodes, self.poses, self.log, sensor_id)
-    
-    def handle_camera_sensor(self, sensor_id: str, with_robots):
-        return handle_camera_sensor(self.nodes, self.poses, self.log, sensor_id, with_robots)
-    
-    def handle_rfid_sensor(self, sensor_id: str):
-        return handle_rfid_sensor(self.nodes, self.poses, self.log, sensor_id)
-    
-    def handle_area_alarm(self, sensor_id: str):
-        return handle_area_alarm(self.nodes, self.poses, self.log, sensor_id)
-
-    def handle_linear_alarm(self, sensor_id: str, lin_alarms_robots=None):
-        return handle_linear_alarm(self.nodes, self.poses, self.log, sensor_id, lin_alarms_robots)
-    
-    def handle_distance_sensor(self, sensor_id: str):
-        return handle_distance_sensor(self.nodes, self.poses, self.log, sensor_id)
-    
     def check_affectability(self, sensor_id: str, env_properties, lin_alarms_robots=None):
         return check_affectability(self.nodes, self.poses, self.log, sensor_id, env_properties, lin_alarms_robots)
 
@@ -799,14 +763,30 @@ class {{ environment.name }}Node(Node):
         """
         category = f"{cls}s"  # e.g., sensors, actuators, composites
         try:
-            if type and subtype and subtype != type:
+            if subtype:
                 return self.poses[category][type][subtype][name]
-            elif type:
-                return self.poses[category][type][name]
             else:
-                return self.poses[category][name]
+                return self.poses[category][type][name]
         except KeyError:
             return None
+
+    def _on_sensor_data(self, msg, sensor_id):
+        """Receive live sensor data from child nodes."""
+        if not hasattr(self, "sensor_values"):
+            self.sensor_values = {}
+        try:
+            # Try to extract the first numeric field (temperature, humidity, etc.)
+            data_dict = msg.__dict__
+            val = None
+            for k, v in data_dict.items():
+                if isinstance(v, (int, float)) and k not in ("range", "pubFreq"):
+                    val = v
+                    break
+            if val is not None:
+                self.sensor_values[sensor_id] = val
+                self.log.debug(f"[SensorData] {sensor_id} = {val}")
+        except Exception as e:
+            self.log.error(f"[SensorData] Error for {sensor_id}: {e}")
 
     def print_tf_tree(self):
         """Print a hierarchical TF tree of all nodes with poses."""
@@ -868,6 +848,30 @@ class {{ environment.name }}Node(Node):
                 for name, val in data.items():
                     recurse(name, val, indent=2)
 
+    def update_affections(self):
+        """Continuously evaluate affectability for all child nodes."""
+        self.log.info("[Env] Affections update thread started.")
+        while getattr(self, "running", False):
+            try:
+                for node_id, node in getattr(self, "children", {}).items():
+                    # Only consider sensors for affectability
+                    node_class = getattr(node, "node_class", None)
+                    if node_class != "sensor":
+                        continue
+                    aff_handler = getattr(node, "affection_handler", None)
+                    if not callable(aff_handler):
+                        continue
+
+                    # Compute and store the simulated data
+                    result = aff_handler(node_id, self.env_properties)
+                    node._sim_data = result
+                    self.log.info(f"[Affection] {node_id} -> {node._sim_data}")
+            except Exception as e:
+                self.log.error(f"[update_affections] {e}")
+
+            # Control update frequency
+            time.sleep(1.0)
+
     def start(self):
         """Start environment and all top-level components."""
         if getattr(self, "running", False):
@@ -913,13 +917,19 @@ class {{ environment.name }}Node(Node):
             node = {{ node_classname }}Node(
                 parent_topic="",
                 initial_pose={'x': {{ pose.x }}, 'y': {{ pose.y }}, 'theta': {{ pose.theta }}},
+                affection_handler=getattr(self, "check_affectability", None),
                 **kwargs
             )
             node.start()
             self.children["{{ inst }}"] = node
         except Exception as e:
             print(f"[{{ environment.name }}Node] ERROR launching '{{ inst }}': {e}")
+        
         {% endfor %}
+
+        # Start affection updater thread
+        self._aff_thread = threading.Thread(target=self.update_affections, daemon=True)
+        self._aff_thread.start()
 
         # Environment main loop
         try:
@@ -941,6 +951,9 @@ class {{ environment.name }}Node(Node):
                     child.stop()
                 except Exception as e:
                     print(f"  [WARN] Could not stop {name}: {e}")
+
+        if hasattr(self, "_aff_thread") and self._aff_thread.is_alive():
+            self._aff_thread.join(timeout=1.0)
 
         if hasattr(self, "_thread") and self._thread.is_alive():
             self._thread.join(timeout=1.0)
@@ -970,7 +983,6 @@ if __name__ == '__main__':
     time.sleep(1.0)
 
     # Start visualizer in the MAIN thread (no lag, proper event loop)
-    from omnisim.utils.visualizer import EnvVisualizer
     vis = EnvVisualizer(node)
 
     try:

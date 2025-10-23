@@ -166,11 +166,14 @@ class {{ thing_name }}Node(Node):
         # --- Extract custom kwargs (not for commlib.Node) ---
         self._rel_pose = kwargs.pop("rel_pose", None)
         self._initial_pose = kwargs.pop("initial_pose", None)
+        self.affection_handler = kwargs.pop("affection_handler", None)
         super().__init__(
             node_name="{{ thing_name.lower() }}",
             connection_params=ConnectionParameters(),
             *args, **kwargs
         )
+        self.node_class = "{{ cls }}"
+
         # --- Topic hierarchy setup ---
         base_topic = "{{ topic_base }}"
         self.parent_topic = parent_topic
@@ -427,30 +430,11 @@ class {{ thing_name }}Node(Node):
         # Always store parent rotation for composite composition
         self.parent_theta = parent_pose["theta"]
     
-    {#
+    {% if cls == "sensor" %}
     def simulate(self):
-        """
-        Apply simple simulation logic to the node’s properties.
-        This can be overridden or extended per node type.
-        """
-        # Create a local dict copy of properties
-        props = {}
-        {% for prop in data_type.properties %}
-        props["{{ prop.name }}"] = self.{{ prop.name }}
-        {% endfor %}
+        return getattr(self, "_sim_data", {})
+    {% endif %}
 
-        # Example: add Gaussian noise to numeric properties
-        for key, val in props.items():
-            if isinstance(val, (int, float)):
-                mean = val
-                # If node has a 'noise' object (Gaussian(mean, std)), use that
-                if hasattr(self, "noise") and hasattr(self.noise, "std"):
-                    std = getattr(self.noise, "std", 0.1)
-                    props[key] = mean + random.gauss(0, std)
-                else:
-                    props[key] = mean + random.gauss(0, 0.1)
-        return props
-    #}
     def start(self):
         """Start this node and all its children (if composite)."""
         if self.running:
@@ -511,18 +495,7 @@ class {{ thing_name }}Node(Node):
                 self.x += self.vel_lin * math.cos(th_rad) * dt
                 self.y += self.vel_lin * math.sin(th_rad) * dt
                 self.theta = (self.theta + self.vel_ang * dt) % 360.0
-            {% endif %}
 
-            # # Recompute absolute pose if this node belongs to a composite (e.g., Pantilt inside Robot)
-            # if self.parent_topic and self.parent_topic.startswith("composite."):
-            #     abs_pose = apply_transformation(
-            #         self._initial_pose or {"x": 0.0, "y": 0.0, "theta": 0.0},
-            #         self._rel_pose or {"x": 0.0, "y": 0.0, "theta": 0.0}
-            #     )
-            #     # Keep parent's translation but preserve local dynamic rotation
-            #     self.x, self.y = abs_pose["x"], abs_pose["y"]
-            #     self.theta = (abs_pose["theta"] + getattr(self, "theta", 0.0)) % 360.0
-            
             if hasattr(self, "children"):
                 # Propagate only translation + parent orientation (not child's orientation)
                 for name, child in self.children.items():
@@ -531,13 +504,48 @@ class {{ thing_name }}Node(Node):
                         child._update_parent_pose(parent_pose)
                     except Exception as e:
                         print(f"[{self.__class__.__name__}] Failed to update child {name}: {e}")
-
-            # --- Publish pose ---
+            {% endif %}
+            # Publish pose
             msg_pose = PoseMessage(x=self.x, y=self.y, theta=self.theta)
             self.pose_publisher.publish(msg_pose)
+            
+            {% if cls == "sensor" %}
+            # Update sensor data
+            updated_props = self.simulate()
+            extracted_value = None
+            main_key = getattr(self, "subtype", getattr(self, "type", "temperature")).lower()
+
+            # Handle the structure returned by affectability handlers
+            if isinstance(updated_props, dict):
+                # --- Case A: {'affections': {'temperature': 34.0}, 'env_properties': {...}} ---
+                if "affections" in updated_props and isinstance(updated_props["affections"], dict):
+                    inner = updated_props["affections"]
+                    if main_key in inner and isinstance(inner[main_key], (int, float)):
+                        extracted_value = inner[main_key]
+                    else:
+                        # fallback: first numeric value in the inner dict
+                        for v in inner.values():
+                            if isinstance(v, (int, float)):
+                                extracted_value = v
+                                break
+                # --- Case B: {'temperature': 25.0} directly ---
+                else:
+                    for v in updated_props.values():
+                        if isinstance(v, (int, float)):
+                            extracted_value = v
+                            break
+
+            # Default fallback (ambient env property)
+            if extracted_value is None:
+                extracted_value = getattr(self, "properties", {}).get(main_key, 0.0)
+
+            # Store in object for next publish
+            setattr(self, main_key, extracted_value)
+            {% endif %}
 
             {% if obj.__class__.__name__ != "CompositeThing" %}
             {% for e in publishers %}
+            # Publish data message
             msg_data = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
                 sensor_id=self.{{ id_field }},
@@ -547,6 +555,8 @@ class {{ thing_name }}Node(Node):
                 {{ prop.name }}=self.{{ prop.name }},
                 {% endfor %}
                 {% endif %}
+                # --- Inject affected variable dynamically ---
+                **{main_key: extracted_value},
             )
             self.data_publisher_{{ e.msg.name|lower|replace('message', '') }}.publish(msg_data)
             {% endfor %}

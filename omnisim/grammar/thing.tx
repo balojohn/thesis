@@ -224,8 +224,9 @@ EnvDevice:
         (
             ('class:' class=ID)
             ('type:' type=[EnvDeviceType])?
-            ('dispersion:' dispersion=DispersionType)?
+            ('subtype:' subtype=ID)?
             ('shape' ':' shape=Shape)?
+            ('dispersion:' dispersion=DispersionType)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('target_value:' target_value=FLOAT)?
             ('range:' range=FLOAT)?
