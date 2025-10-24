@@ -386,48 +386,6 @@ class EnvVisualizer:
         self.draw_arrow(pos, theta, color)
 
     # -----------------------------------------------------
-    # --------------- RECURSIVE DRAWERS -------------------
-    # -----------------------------------------------------
-
-    def _draw_child_composites(self, comp_node, comp_pose):
-        """
-        Recursively draw composites and their internal sensors/actuators/actors.
-        comp_node: dict from self.node.nodes
-        comp_pose: dict from self.node.poses (same structure)
-        """
-        if not isinstance(comp_node, dict) or not isinstance(comp_pose, dict):
-            return
-
-        # === 1. Draw nested composites ===
-        sub_comps_nodes = comp_node.get("composites", {})
-        sub_comps_poses = comp_pose.get("composites", {})
-
-        for sub_type, sub_nodes in sub_comps_nodes.items():
-            if not isinstance(sub_nodes, dict):
-                continue
-            sub_poses_of_type = sub_comps_poses.get(sub_type, {})
-
-            for sub_name, sub_node in sub_nodes.items():
-                sub_pose = sub_poses_of_type.get(sub_name, None)
-                if not sub_pose or not all(k in sub_pose for k in ["x", "y", "theta"]):
-                    continue
-
-                self.draw_entity(sub_pose["x"], sub_pose["y"], sub_pose["theta"], sub_node, sub_name)
-
-                # recurse deeper
-                self._draw_child_composites(sub_node, sub_pose)
-
-        # === 2. Draw this composite's sensors/actuators/actors ===
-        for cat in ["sensors", "actuators", "actors"]:
-            nodes_dict = comp_node.get(cat, {})
-            poses_dict = comp_pose.get(cat, {})
-
-            for name, node in nodes_dict.items():
-                pose = poses_dict.get(name, None)
-                if pose and all(k in pose for k in ["x", "y", "theta"]):
-                    self.draw_entity(pose["x"], pose["y"], pose["theta"], node, name)
-
-    # -----------------------------------------------------
     # ---------------- INPUT HANDLING ---------------------
     # -----------------------------------------------------
 
@@ -479,7 +437,36 @@ class EnvVisualizer:
                 self.zoom *= self.zoom_step
             elif event.y < 0:
                 self.zoom /= self.zoom_step
+    
+    def _draw_all_entities(self):
+        """Traverse all node entities and draw them if a matching pose is found."""
+        def find_pose_by_name(d, name):
+            if not isinstance(d, dict):
+                return None
+            if name in d and isinstance(d[name], dict) and all(k in d[name] for k in ("x", "y", "theta")):
+                return d[name]
+            for v in d.values():
+                if isinstance(v, dict):
+                    res = find_pose_by_name(v, name)
+                    if res:
+                        return res
+            return None
 
+        def recurse(node_branch):
+            if not isinstance(node_branch, dict):
+                return
+            for key, node in node_branch.items():
+                if not isinstance(node, dict):
+                    continue
+                if "class" in node:
+                    pose = find_pose_by_name(self.node.poses, key)
+                    if pose:
+                        self.draw_entity(pose["x"], pose["y"], pose["theta"], node, key)
+                recurse(node)
+
+        for category in ["sensors", "actuators", "actors", "composites", "obstacles"]:
+            recurse(self.node.nodes.get(category, {}))
+    
     # -----------------------------------------------------
     # ---------------- MAIN LOOP --------------------------
     # -----------------------------------------------------
@@ -497,61 +484,9 @@ class EnvVisualizer:
                 self.draw_background()
                 self._label_rects = []   # reset label collision memory
 
-                # --- Draw top-level sensors, actuators, actors ---
-                for category in ["sensors", "actuators", "actors"]:
-                    cat_nodes = self.node.nodes.get(category, {})
-                    cat_poses = self.node.poses.get(category, {})
+                # --- Draw all entities ---
+                self._draw_all_entities()
 
-                    for type_key, type_group in cat_nodes.items():
-                        if not isinstance(type_group, dict):
-                            continue
-
-                        for subtype_key, subtype_group in type_group.items():
-                            # --- Case 1: subtype_group is a dict of entities (normal nesting) ---
-                            if isinstance(subtype_group, dict) and "class" not in subtype_group:
-                                for name, ent in subtype_group.items():
-                                    pose = (
-                                        cat_poses.get(type_key, {})
-                                        .get(subtype_key, {})
-                                        .get(name, None)
-                                        or cat_poses.get(type_key, {}).get(name, None)  # fallback for flat structures
-                                    )
-                                    if pose and all(k in pose for k in ["x", "y", "theta"]):
-                                        self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
-
-                            # --- Case 2: subtype_group directly holds an entity (flat dict case) ---
-                            elif isinstance(subtype_group, dict):
-                                name, ent = subtype_key, subtype_group
-                                pose = (
-                                    cat_poses.get(type_key, {}).get(name, None)
-                                    or cat_poses.get(name, None)
-                                )
-                                if pose and all(k in pose for k in ["x", "y", "theta"]):
-                                    self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
-
-
-                # --- Draw all composites recursively ---
-                composites = self.node.nodes.get("composites", {})
-                for ctype, comps in composites.items():
-                    for cname, comp in comps.items():
-                        if not isinstance(comp, dict):
-                            continue
-                        pose = (
-                            self.node.poses.get("composites", {})
-                            .get(ctype, {})
-                            .get(cname, None)
-                        )
-                        if pose and all(k in pose for k in ["x", "y", "theta"]):
-                            self.draw_entity(pose["x"], pose["y"], pose["theta"], comp, cname)
-                            self._draw_child_composites(comp, pose)
-
-                # --- Draw obstacles (static, non-node entities) ---
-                obstacles = self.node.poses.get("obstacles", {})
-                for oname, opos in obstacles.items():
-                    if isinstance(opos, dict) and all(k in opos for k in ["x", "y", "theta"]):
-                        ent = self.node.nodes["obstacles"].get(oname, {"class": "obstacle"})
-                        self.draw_entity(opos["x"], opos["y"], opos["theta"], ent, oname)
-                
                 # --- Draw sensor data table ---
                 self.draw_sensor_table()
 

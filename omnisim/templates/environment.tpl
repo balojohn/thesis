@@ -375,11 +375,7 @@ class {{ environment.name }}Node(Node):
         self.pantilts = {}
         self.handle_offsets = {}
         self.tree[self.env_name.lower()] = []
-        # # --- Default fallback shape (applies to all nodes if not otherwise defined) ---
-        # shape_data = {
-        #     "type": "Circle",
-        #     "radius": 3.0
-        # }
+
         {# Collect all placements into one list with a category tag #}
         {% set placements = [] %}
         {% for t in environment.things or [] %}
@@ -461,50 +457,40 @@ class {{ environment.name }}Node(Node):
                 "composites": {}
             }
                 {% else %}
-                {# Initialization of sensors, actuators, actors #}
-                {% if type and subtype and subtype != type %}
-        # Example path: sensors[rangefinder][sonar][so_1]
+        {# --- Initialization of sensors, actuators, actors --- #}
+        # Ensure category exists
+        if "{{ category }}" not in self.nodes:
+            self.nodes["{{ category }}"] = {}
+            self.poses["{{ category }}"] = {}
+
+        {% if type and subtype and subtype != type %}
+        # Case 1: category[type][subtype][inst]
         if "{{ type }}" not in self.nodes["{{ category }}"]:
             self.nodes["{{ category }}"]["{{ type }}"] = {}
             self.poses["{{ category }}"]["{{ type }}"] = {}
 
         if "{{ subtype }}" not in self.nodes["{{ category }}"]["{{ type }}"]:
-            self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"] = []
+            self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"] = {}
             self.poses["{{ category }}"]["{{ type }}"]["{{ subtype }}"] = {}
 
-        if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"]:
-            self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"].append("{{ inst }}")
-                {% elif type %}
-        # Fallback path: sensors[microphone][mic_1] or actors/soundsource[sou_1]
+        self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"]["{{ inst }}"] = {}
+        self.poses["{{ category }}"]["{{ type }}"]["{{ subtype }}"]["{{ inst }}"] = {}
+
+        {% elif type %}
+        # Case 2: category[type][inst]
         if "{{ type }}" not in self.nodes["{{ category }}"]:
             self.nodes["{{ category }}"]["{{ type }}"] = {}
             self.poses["{{ category }}"]["{{ type }}"] = {}
 
-        if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ type }}"]:
-            self.nodes["{{ category }}"]["{{ type }}"]["{{ inst }}"] = {
-                "class": "{{ cls }}",
-                "type": "{{ type }}",
-                "name": "{{ inst }}",
-                "properties": {},
-                # "shape": shape_data
-            }
-            self.poses["{{ category }}"]["{{ type }}"]["{{ inst }}"] = {
-                "x": {{ p.pose.x }},
-                "y": {{ p.pose.y }},
-                "theta": {{ p.pose.theta }},
-                # "shape": shape_data
-            }
-               {% else %}
-        # Simple fallback for unnamed categories
-        if "{{ node_name }}" not in self.nodes["{{ category }}"]:
-            self.nodes["{{ category }}"]["{{ node_name }}"] = {}
-            self.poses["{{ category }}"]["{{ node_name }}"] = {}
+        self.nodes["{{ category }}"]["{{ type }}"]["{{ inst }}"] = {}
+        self.poses["{{ category }}"]["{{ type }}"]["{{ inst }}"] = {}
 
-        if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ node_name }}"]:
-            self.nodes["{{ category }}"]["{{ node_name }}"].append("{{ inst }}")
-                {% endif %}
-            {% endif %}
-        
+        {% else %}
+        # Case 3: category[inst]
+        self.nodes["{{ category }}"]["{{ inst }}"] = {}
+        self.poses["{{ category }}"]["{{ inst }}"] = {}
+        {% endif %}
+        {% endif %}
         # Define {{ inst }} node
         {% if category == "composites" %}
         {% set comp_key = type if type else (subtype if subtype else ref.__class__.__name__|lower) %}
@@ -594,14 +580,13 @@ class {{ environment.name }}Node(Node):
         self.poses["composites"]["{{ comp_key }}"]["{{ inst }}"]["shape"] = shape_data
         {% endif %}
         {% else %}
-        self.nodes["{{ inst }}"] = {
-            "class": "{{ ref.class|lower if ref.class is defined and ref.class else ( 'composite' if p.nodeclass == 'CompositePlacement' else obj.__class__.__name__|lower ) }}",
-            {% if type %}
+        # --- Define {{ inst }} node under proper hierarchy ---
+        {% if type and subtype and subtype != type %}
+        # Case: {{ category }}["{{ type }}"]["{{ subtype }}"]["{{ inst }}"]
+        self.nodes["{{ category }}"].setdefault("{{ type }}", {}).setdefault("{{ subtype }}", {})["{{ inst }}"] = {
+            "class": "{{ cls }}",
             "type": "{{ type }}",
-            {% endif %}
-            {% if subtype %}
             "subtype": "{{ subtype }}",
-            {% endif %}
             "name": "{{ node_name }}",
             "pubFreq": {{ p.ref.pubFreq }},
             "properties": {
@@ -631,7 +616,51 @@ class {{ environment.name }}Node(Node):
                 {% endfor %}
             },
         }
-        # --- Add top-level shape for visualizer ---
+        {% elif type %}
+        # Case: {{ category }}["{{ type }}"]["{{ inst }}"]
+        self.nodes["{{ category }}"].setdefault("{{ type }}", {})["{{ inst }}"] = {
+            "class": "{{ cls }}",
+            "type": "{{ type }}",
+            "name": "{{ node_name }}",
+            "pubFreq": {{ p.ref.pubFreq }},
+            "properties": {
+                {% set excluded = [
+                    "class","type","subtype","shape","pubFreq","name","dataModel",
+                    "_tx_position","_tx_model","_tx_position_end","parent",
+                    "actuators","sensors","composites"
+                ] %}
+                {% for attr, val in p.ref.__dict__.items()
+                if attr not in excluded and val is not none %}
+                "{{ attr }}":
+                    {%- if val is number -%} {{ val }}
+                    {%- elif val is string -%} "{{ val }}"
+                    {%- elif val.__class__.__name__ in [
+                        "Constant","Linear","Quadratic","Exponential","Logarithmic",
+                        "Gaussian","Uniform","CustomNoise"
+                    ] -%}
+                        {
+                        {%- for k,v in val.__dict__.items()
+                            if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"]
+                            and v is not none -%}
+                            "{{ k }}": {{ v|tojson }},
+                        {%- endfor -%}
+                        }
+                    {%- else -%} {{ val|tojson }}
+                    {%- endif -%},
+                {% endfor %}
+            },
+        }
+        {% else %}
+        # Case: {{ category }}["{{ inst }}"]
+        self.nodes["{{ category }}"]["{{ inst }}"] = {
+            "class": "{{ cls }}",
+            "name": "{{ node_name }}",
+            "pubFreq": {{ p.ref.pubFreq }},
+            "properties": {},
+        }
+        {% endif %}
+
+        # --- Add shape if exists ---
         {% if p.ref.shape is defined and p.ref.shape %}
         shape_data = {
             "type": "{{ p.ref.shape.__class__.__name__ }}",
@@ -644,25 +673,25 @@ class {{ environment.name }}Node(Node):
             "radius": {{ p.ref.shape.radius }}
             {% elif p.ref.shape.__class__.__name__ == "Line" %}
             "points": [
-                {"x": {{ p.ref.shape.points[0].x }}, "y": {{ p.ref.shape.points[0].y }}},
-                {"x": {{ p.ref.shape.points[1].x }}, "y": {{ p.ref.shape.points[1].y }}}
+                {"x": {{ p.ref.shape.points[0].x }},"y": {{ p.ref.shape.points[0].y }}},
+                {"x": {{ p.ref.shape.points[1].x }},"y": {{ p.ref.shape.points[1].y }}}
             ]
             {% elif p.ref.shape.__class__.__name__ == "ArbitraryShape" %}
             "points": [
                 {% for pt in p.ref.shape.points %}
-                {"x": {{ pt.x }}, "y": {{ pt.y }}},
+                {"x": {{ pt.x }},"y": {{ pt.y }}},
                 {% endfor %}
             ]
             {% endif %}
         }
-        {# {% else %}
-        # Default shape if none specified
-        shape_data = {
-            "type": "Circle",
-            "radius": 3.0
-        } #}
+        {% if type and subtype and subtype != type %}
+        self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"]["{{ inst }}"]["shape"] = shape_data
+        {% elif type %}
+        self.nodes["{{ category }}"]["{{ type }}"]["{{ inst }}"]["shape"] = shape_data
+        {% else %}
+        self.nodes["{{ category }}"]["{{ inst }}"]["shape"] = shape_data
         {% endif %}
-        self.nodes["{{ inst }}"]["shape"] = shape_data
+        {% endif %}
         {% endif %}
 
         # Define {{ inst }} pose
@@ -757,7 +786,7 @@ class {{ environment.name }}Node(Node):
         {% if cls == "sensor" %}
         # Data subscriber
         self.{{ inst }}_data_sub = self.create_subscriber(
-            topic=f"sensor.{{ type }}.{{ subtype if subtype else type }}.{{ inst }}.data",
+            topic=f"sensor.{{ subtype if subtype else type }}.{{ inst }}.data",
             msg_type={{ subtype|capitalize if subtype else type|capitalize }}Message,
             on_message=lambda msg, sid="{{ inst }}": self._on_sensor_data(msg, sid)
         )

@@ -48,14 +48,16 @@ def find_node_by_id(nodes_section, node_id):
         return None
     for key, val in nodes_section.items():
         if isinstance(val, dict):
-            if val.get("name") == node_id:
+            # Match if either dict's name or key matches node_id
+            if key == node_id or val.get("name") == node_id:
                 return val
+
             res = find_node_by_id(val, node_id)
             if res:
                 return res
     return None
 
-def handle_affection_ranged(nodes, poses, log, sensor: dict, node: dict, type_):
+def handle_affection_ranged(nodes, poses, log, sensor: dict, node: dict, type):
     """
     Check if pose_start is within the range of node_id.
     """    
@@ -102,7 +104,7 @@ def handle_affection_ranged(nodes, poses, log, sensor: dict, node: dict, type_):
         return result
     return None
 
-def handle_affection_arced(nodes, poses, log, sensor, node, type_,
+def handle_affection_arced(nodes, poses, log, sensor, node, type,
                            sensor_pose=None, target_pose=None):
     """
     Handles the affection of an arced sensor (FOV-based detection).
@@ -201,7 +203,7 @@ def handle_temperature_sensor(nodes, poses, log, sensor_id, env_properties=None)
     Returns: {"temperature": float}
     """
     try:
-        sensor = nodes[sensor_id]
+        sensor = find_node_by_id(nodes, sensor_id)
         props = sensor.get("properties", {})
         env_temp = (env_properties or {}).get("temperature", 25.0)
         influences = []
@@ -262,7 +264,7 @@ def handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties=None):
                     raises an exception with the error message.
     """
     try:
-        sensor = nodes[sensor_id]
+        sensor = find_node_by_id(nodes, sensor_id)
         props = sensor.get("properties", {})
         env_hum = (env_properties or {}).get("humidity", 40.0)
         influences = []
@@ -316,7 +318,7 @@ def handle_gas_sensor(nodes, poses, log, sensor_id, env_properties=None):
     Returns: {"gas": float}
     """
     try:
-        sensor = nodes[sensor_id]
+        sensor = find_node_by_id(nodes, sensor_id)
         props = sensor.get("properties", {})
         env_gas = (env_properties or {}).get("gas", 0.0)
         influences = []
@@ -365,7 +367,7 @@ def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None):
     Returns: {"sound": float}
     """
     try:
-        sensor = nodes[sensor_id]
+        sensor = find_node_by_id(nodes, sensor_id)
         props = sensor.get("properties", {})
         env_sound = (env_properties or {}).get("sound", 20.0)
         influences = []
@@ -513,33 +515,71 @@ def compute_luminosity(nodes, poses, log, sensor_id, env_properties=None, print_
         raise
 
 # Affected by light, fire
+# Affected by fire (intensity based on its value)
 def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
     Compute perceived light intensity at a sensor.
-    Influences: LEDs, fires.
+    Influences: fires only (intensity derived from fire.value)
     Returns: {"light": float}
     """
     try:
-        sensor = nodes[sensor_id]
+        log.info(f"[LightSensor] Evaluating {sensor_id}")
+
+        sensor = find_node_by_id(nodes, sensor_id)
+        if not sensor:
+            log.warning(f"[LightSensor] Sensor {sensor_id} not found in node tree!")
+            return {"light": (env_properties or {}).get("luminosity", 60.0)}
+
         props = sensor.get("properties", {})
         env_light = (env_properties or {}).get("luminosity", 60.0)
         influences = []
         noise = props.get("noise", 0.0)
 
-        leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
+        log.info(f"[LightSensor] Baseline env_luminosity={env_light}, noise={noise}")
+
+        # --- Collect all fires ---
         fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
+        log.info(f"[LightSensor] Found {len(fires)} fire(s): {[f.get('name') for f in fires]}")
 
-        for target in leds + fires:
+        # --- Evaluate each fire influence ---
+        for target in fires:
+            fname = target.get("name", "unknown")
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "light")
-            if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                val = r.get("value", env_light)
-                influences.append(weight * val + (1 - weight) * env_light)
+            if not r:
+                log.info(f"    [skip] {fname}: out of range or pose not found")
+                continue
 
-        sensed_light = sum(influences) / len(influences) if influences else env_light
-        sensed_light = apply_noise(sensed_light, noise)
+            dist = r["distance"]
+            rng = r["range"]
+            weight = max(0.0, 1.0 - dist / rng)
+
+            if target["subtype"] == "fire":
+                # --- Smoke intensity derived from heat value ---
+                fire_val = target.get("properties", {}).get("value", 0.0)
+                luminosity_factor = 0.3   # 30 % of fire intensity becomes luminosity
+                target_val = fire_val * luminosity_factor
+            else:
+                target_val = env_light
+            
+            influences.append(weight * target_val + (1 - weight) * env_light)
+
+            log.info(
+                f"    [fire] {fname}: value={fire_val}, dist={dist:.1f}, "
+                f"range={rng}, weight={weight:.3f}, contrib={target_val:.2f}"
+            )
+
+        # --- Combine influences ---
+        if influences:
+            sensed_light = sum(influences) / len(influences)
+            log.info(f"[LightSensor] Combined {len(influences)} influence(s) -> {sensed_light:.2f}")
+        else:
+            sensed_light = env_light
+            log.info(f"[LightSensor] No fires in range -> using baseline {sensed_light:.2f}")
+
+        # --- Apply noise ---
+        # sensed_light = apply_noise(sensed_light, noise)
+        log.info(f"[LightSensor] Final (after noise) -> {sensed_light:.2f}")
+
         return {"light": round(sensed_light, 2)}
 
     except Exception as e:
