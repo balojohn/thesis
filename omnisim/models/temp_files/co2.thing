@@ -1,8 +1,0 @@
-EnvSensor CO2
-    class: Sensor
-    type: CO2
-    // dataModel: EnvSensorData
-    shape: Rectangle(5, 2)
-    pubFreq: 1
-    range: 10
-end

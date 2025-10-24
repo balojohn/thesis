@@ -1,9 +1,9 @@
-RangeFinder IR
+RangeFinder ir_1
     class: Sensor
     type: RangeFinder
-    // dataModel: RangeData
-    shape: Rectangle(2, 2)
-    pubFreq: 1
+    subtype: IR
+    shape: Square(4)
+    pubFreq: 10
     fov: 60.0
     range: 250
     noise: Gaussian(mean: 0.0, std: 1.5)

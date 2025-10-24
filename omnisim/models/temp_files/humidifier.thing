@@ -1,8 +1,0 @@
-EnvDevice humact_1
-    class: Actuator
-    type: Humidifier
-    dispersion: Quadratic(a: 1, b: 0, c: 0)
-    // dataModel: EnvDeviceData
-    shape: Rectangle(5, 2)
-    pubFreq: 1
-end

@@ -11,6 +11,7 @@ class EnvVisualizer:
         """
         self.node = env_node
         self.running = True
+        self._last_sensor_values = {}
 
         # === Environment info ===
         self.env_width = getattr(env_node, "width", 20.0)
@@ -36,11 +37,19 @@ class EnvVisualizer:
 
         # === Setup pygame ===
         pygame.display.set_caption(f"{env_node.env_name} Environment")
-        self.screen = pygame.display.set_mode((self.width, self.height))
+
+        # --- Add extra width for side info panel ---
+        self.panel_width = 520  # enough space for all sensor info
+        total_width = self.width + self.panel_width
+
+        # Main display
+        self.screen = pygame.display.set_mode((total_width, self.height))
+
+        # --- Fonts and clock ---
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("consolas", 14)
         self.bigfont = pygame.font.SysFont("consolas", 18, bold=True)
-
+        
         # === Colors ===
         self.bg_color = (25, 25, 30)
         self.grid_color = (40, 40, 45)
@@ -121,115 +130,132 @@ class EnvVisualizer:
     # -----------------------------------------------------
 
     def draw_sensor_table(self):
-        """Draw a right-side panel listing sensors and their affected properties with current values."""
-        sensor_values = getattr(self.node, "sensor_values", {})  # live readings, optional
-        env_props = getattr(self.node, "env_properties", {})         # environment values
+        """Draw a right-side panel listing sensors and their current values/detections."""
+        sensor_values = getattr(self.node, "sensor_values", {})
+        env_props = getattr(self.node, "env_properties", {})
 
         # --- Layout ---
-        panel_width = 340
-        panel_x = self.width - panel_width - 8
-        panel_y = 60
-        row_h = 24
+        panel_x = self.width  # start of the right panel
+        panel_y = 40
+        panel_width = self.panel_width
+        row_h = 28
 
-        # --- Panel background ---
+        # --- Background ---
         pygame.draw.rect(
-            self.screen, (35, 35, 45),
-            (panel_x, panel_y, panel_width, self.height - panel_y - 10),
-            border_radius=6,
+            self.screen, (28, 30, 38),
+            (panel_x, panel_y, panel_width, self.height - panel_y - 16),
+            border_radius=8,
         )
         pygame.draw.rect(
-            self.screen, (90, 90, 100),
-            (panel_x, panel_y, panel_width, self.height - panel_y - 10),
-            2, border_radius=6,
+            self.screen, (75, 80, 95),
+            (panel_x, panel_y, panel_width, self.height - panel_y - 16),
+            2, border_radius=8,
         )
 
-        # === Title ===
-        title = self.bigfont.render("Sensor Table", True, (200, 220, 255))
-        self.screen.blit(title, (panel_x + 10, panel_y + 10))
+        # --- Title ---
+        title = self.bigfont.render("Affection results", True, (210, 220, 255))
+        self.screen.blit(title, (panel_x + 16, panel_y + 12))
+        y = panel_y + 48
 
-        col_x = [panel_x + 12, panel_x + 160, panel_x + 260]
-
-        # --------------------------------------------------
-        # ENVIRONMENT PROPERTIES SECTION
-        # --------------------------------------------------
-        y = panel_y + 45
-        self.screen.blit(self.font.render("Environment", True, (160, 200, 255)), (panel_x + 10, y))
-        y += 20
-        pygame.draw.line(self.screen, (70, 70, 80),
-                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
-        y += 8
-
-        for prop, val in env_props.items():
-            val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
-            prop_name = prop.replace("_", " ").title()
-            self.screen.blit(self.font.render(prop_name, True, (200, 200, 200)), (col_x[0], y))
-            self.screen.blit(self.font.render(val_str, True, (180, 255, 180)), (col_x[1], y))
-            y += row_h
-
-        # add a bit of spacing before sensors
-        y += 10
-        pygame.draw.line(self.screen, (90, 90, 100),
-                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
+        # --- Environment section ---
+        self.screen.blit(self.font.render("Environment", True, (160, 200, 255)), (panel_x + 14, y))
+        y += 6
+        pygame.draw.line(self.screen, (70, 70, 80), (panel_x + 12, y), (panel_x + panel_width - 12, y))
         y += 12
 
-        # --------------------------------------------------
-        # SENSOR SECTION
-        # --------------------------------------------------
-        self.screen.blit(self.font.render("Sensors", True, (160, 200, 255)), (panel_x + 10, y))
-        y += 20
-        pygame.draw.line(self.screen, (70, 70, 80),
-                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
+        for prop, val in env_props.items():
+            label = prop.replace("_", " ").title()
+            val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
+            self.screen.blit(self.font.render(label, True, (200, 200, 200)), (panel_x + 22, y))
+            self.screen.blit(self.font.render(val_str, True, (160, 255, 160)), (panel_x + 210, y))
+            y += row_h
+
+        # --- Separator ---
         y += 8
-
-        headers = ["Sensor", "Property", "Value"]
-        col_x = [panel_x + 12, panel_x + 130, panel_x + 250]
-        for i, h in enumerate(headers):
-            self.screen.blit(self.font.render(h, True, (160, 200, 220)), (col_x[i], y))
+        pygame.draw.line(self.screen, (95, 95, 110), (panel_x + 10, y), (panel_x + panel_width - 10, y))
         y += 18
-        pygame.draw.line(self.screen, (70, 70, 80),
-                         (panel_x + 8, y), (panel_x + panel_width - 8, y))
-        y += 6
 
-        
-        # --- recursive collector that scans *all* node trees ---
-        def collect_sensors_rec(node_section):
+        # --- Sensor section header ---
+        self.screen.blit(self.font.render("Sensors", True, (160, 200, 255)), (panel_x + 14, y))
+        y += 6
+        pygame.draw.line(self.screen, (70, 70, 80), (panel_x + 12, y), (panel_x + panel_width - 12, y))
+        y += 14
+
+        headers = ["Name", "Property", "Value", "Detection"]
+        col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
+        for i, h in enumerate(headers):
+            self.screen.blit(self.font.render(h, True, (150, 160, 190)), (col_x[i], y))
+        y += 22
+        pygame.draw.line(self.screen, (70, 70, 80), (panel_x + 10, y), (panel_x + panel_width - 10, y))
+        y += 12
+
+        # --- Recursive sensor collector ---
+        def collect_sensors(node_section):
             sensors = {}
             if not isinstance(node_section, dict):
                 return sensors
             for name, node in node_section.items():
                 if not isinstance(node, dict):
                     continue
-                cls = node.get("class", "").lower()
-                if cls == "sensor":
+                if node.get("class") == "sensor":
                     sensors[name] = node
                 else:
-                    for subname, subnode in collect_sensors_rec(node).items():
-                        sensors[subname] = subnode
+                    sensors.update(collect_sensors(node))
             return sensors
 
-        # start from root node tree
-        all_sensors = collect_sensors_rec(self.node.nodes)
+        all_sensors = collect_sensors(self.node.nodes)
 
-        # --- Draw sensors ---
+        # --- Draw rows ---
         for sname, sent in sorted(all_sensors.items()):
             stype = sent.get("subtype") or sent.get("type") or "Unknown"
-            prop = stype.replace("_", " ").title()
-
-            # strict lookup (no fallback, no default)
             val = sensor_values.get(sname)
-            # if val is None:
-            #     # skip sensors with no data yet
-            #     continue
+            # --- Cache previous values to prevent flicker (esp. camera) ---
+            if val in (None, {}, []):
+                # reuse last non-empty value if available
+                val = self._last_sensor_values.get(sname, val)
+            else:
+                # store this new value
+                self._last_sensor_values[sname] = val
+            det_str = ""
+            # Format value and detection cleanly
+            if isinstance(val, dict):
+                if "distance" in val and "detected_name" in val:
+                    target = val.get("detected_name", "None")
+                    dist = val.get("distance", 0)
+                    det_str = f"{target} ({dist:.1f})"
+                    val_str = f"{dist:.1f}"
+                elif stype.lower() == "camera":
+                    # --- Camera-specific: show summary ---
+                    detected = [k for k, v in val.items() if isinstance(v, dict)]
+                    if detected:
+                        val_str = f"{len(detected)} target(s)"
+                        det_str = ", ".join(detected[:2])
+                        if len(detected) > 2:
+                            det_str += ", …"
+                    else:
+                        val_str = "-"
+                        det_str = ""
+                elif len(val) == 1:
+                    k, v = next(iter(val.items()))
+                    val_str = f"{v:.2f}" if isinstance(v, (int, float)) else str(v)
+                else:
+                    val_str = ", ".join(f"{k}:{v:.1f}" if isinstance(v, (int, float)) else f"{k}:{v}"
+                                        for k, v in val.items())
+            elif isinstance(val, (int, float)):
+                val_str = f"{val:.2f}"
+            else:
+                val_str = str(val) if val else "-"
 
-            val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
-
-            self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (col_x[0], y))
-            self.screen.blit(self.font.render(prop, True, (200, 200, 200)), (col_x[1], y))
-            self.screen.blit(self.font.render(val_str, True, (180, 255, 180)), (col_x[2], y))
+            color = (180, 255, 180) if isinstance(val, (int, float, dict)) else (200, 200, 200)
+            self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (col_x[0], y + 2))
+            self.screen.blit(self.font.render(stype.title(), True, (200, 200, 200)), (col_x[1], y))
+            self.screen.blit(self.font.render(val_str, True, color), (col_x[2], y))
+            if det_str:
+                self.screen.blit(self.font.render(det_str, True, (180, 220, 255)), (col_x[3], y))
             y += row_h
+
             if y > self.height - 40:
                 break
-            
     # -----------------------------------------------------
     # ---------------- ENTITY DRAWING ---------------------
     # -----------------------------------------------------

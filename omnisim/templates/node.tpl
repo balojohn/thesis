@@ -151,6 +151,7 @@ def redis_start():
     except Exception as e:
         print(f"[ERROR] Could not start Redis: {e}")
         sys.exit(1)
+
 {% if obj.__class__.__name__ != "CompositeThing" %}
 {# --- generate message classes for this node --- #}
 {% for e in publishers %}
@@ -295,7 +296,8 @@ class {{ thing_name }}Node(Node):
                 'x': self._initial_pose["x"] if self._initial_pose else self.abs_init_x,
                 'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
                 'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
-            }
+            },
+            affection_handler=self.affection_handler
         )
         {% endfor %}
         {% for posed_actuator in obj.actuators %}
@@ -314,7 +316,8 @@ class {{ thing_name }}Node(Node):
                 'x': self._initial_pose["x"] if self._initial_pose else self.abs_init_x,
                 'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
                 'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
-            }
+            },
+            affection_handler=self.affection_handler
         )
         {% endfor %}
         {% for posed_cthing in obj.composites %}
@@ -334,7 +337,8 @@ class {{ thing_name }}Node(Node):
                 'x': self._initial_pose["x"] if self._initial_pose else self.abs_init_x,
                 'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
                 'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
-            }
+            },
+            affection_handler=self.affection_handler
         )
             {% endif %}
         {% endfor %}
@@ -427,6 +431,16 @@ class {{ thing_name }}Node(Node):
         self.x = abs_pose["x"]
         self.y = abs_pose["y"]
 
+        # If pantilt is NOT automated, follow parent's rotation fully
+        if not getattr(self, "automated", False):
+            # Inherit parent + relative offset rotation
+            self.theta = (parent_pose["theta"] + self._rel_pose["theta"]) % 360.0
+            self.local_theta = 0.0  # reset any independent servo rotation
+        # If automated, keep independent local_theta tracking
+        else:
+            # Keep existing self.theta which is managed by _follow_targets()
+            pass
+
         # Always store parent rotation for composite composition
         self.parent_theta = parent_pose["theta"]
     
@@ -510,37 +524,47 @@ class {{ thing_name }}Node(Node):
             self.pose_publisher.publish(msg_pose)
             
             {% if cls == "sensor" %}
-            # Update sensor data
+            def _extract_numeric_or_summary(sensor_type, updated_props):
+                """Extract a stable numeric or summary value from affectability output."""
+                if not isinstance(updated_props, dict):
+                    return None
+
+                # Case A: direct numeric
+                for v in updated_props.values():
+                    if isinstance(v, (int, float)):
+                        return v
+
+                # Case B: {"affections": {...}}
+                if "affections" in updated_props:
+                    affs = updated_props["affections"]
+                    if isinstance(affs, dict):
+                        # --- Sonar or rangefinder ---
+                        if sensor_type in ("sonar", "rangefinder"):
+                            for v in affs.values():
+                                if isinstance(v, (int, float)):
+                                    return v
+                                if isinstance(v, dict) and "distance" in v:
+                                    return v["distance"]
+                        # --- Camera ---
+                        if sensor_type == "camera":
+                            return len(affs)  # number of detections
+                return None
+
+            # Get simulation/affection results
+            # Determine main key
+            subtype = getattr(self, "subtype", "").lower()
+            type_ = getattr(self, "type", "").lower()
+            main_key = subtype or type_
             updated_props = self.simulate()
-            extracted_value = None
-            main_key = getattr(self, "subtype", getattr(self, "type", "temperature")).lower()
+            extracted_value = _extract_numeric_or_summary(subtype, updated_props)
 
-            # Handle the structure returned by affectability handlers
-            if isinstance(updated_props, dict):
-                # --- Case A: {'affections': {'temperature': 34.0}, 'env_properties': {...}} ---
-                if "affections" in updated_props and isinstance(updated_props["affections"], dict):
-                    inner = updated_props["affections"]
-                    if main_key in inner and isinstance(inner[main_key], (int, float)):
-                        extracted_value = inner[main_key]
-                    else:
-                        # fallback: first numeric value in the inner dict
-                        for v in inner.values():
-                            if isinstance(v, (int, float)):
-                                extracted_value = v
-                                break
-                # --- Case B: {'temperature': 25.0} directly ---
-                else:
-                    for v in updated_props.values():
-                        if isinstance(v, (int, float)):
-                            extracted_value = v
-                            break
-
-            # Default fallback (ambient env property)
+            # Default fallback
             if extracted_value is None:
                 extracted_value = getattr(self, "properties", {}).get(main_key, 0.0)
 
-            # Store in object for next publish
+            # Store value in object and sensor_values
             setattr(self, main_key, extracted_value)
+            self._sim_data = {main_key: extracted_value}
             {% endif %}
 
             {% if obj.__class__.__name__ != "CompositeThing" %}

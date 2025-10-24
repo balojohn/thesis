@@ -2,7 +2,7 @@ CThing pt_1
     type: Pantilt
     pubFreq: 10
     shape: Rectangle(60, 20)
-    automated: True
+    automated: False
     targets:
         - Angle(0)
         - Angle(45)
@@ -14,6 +14,6 @@ CThing pt_1
         - Angle(-45)
         - Angle(0)
     sensors:
-        - cam_1 @ Transform(4, 4, 0)
-        - so_1 @ Transform(-4, 4, 180)
+        - so_1 @ Transform(4, 4, 0)
+        - cam_1 @ Transform(-4, 4, 180)
 end

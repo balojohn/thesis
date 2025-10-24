@@ -2,49 +2,22 @@ import math, random
 from omnisim.utils.utils import apply_noise
 from omnisim.utils.geometry import calc_distance, check_lines_intersection
 
-def find_pose_by_metadata(poses_section, cls, type_, subtype, name):
-    """
-    Recursively search for an entity pose in poses_section
-    matching the given metadata.
-    """
+def find_pose_by_metadata(poses_section, cls, type, subtype, name):
     if not isinstance(poses_section, dict):
         return None
 
-    # --- Direct level matches ---
-    # e.g. poses['sensors']['envsensor']['temperature']['te_1']
-    if cls + "s" in poses_section:
-        poses_section = poses_section[cls + "s"]
-
-    # Try type/subtype/names in different combinations
     for key, val in poses_section.items():
-        if key == type_ and isinstance(val, dict):
-            # e.g. ['envsensor'] or ['robot']
-            res = find_pose_by_metadata(val, cls, type_, subtype, name)
-            if res:
-                return res
-        elif key == subtype and isinstance(val, dict):
-            # e.g. ['temperature'], ['sonar']
-            if name in val:
-                pose = val[name]
-                if isinstance(pose, dict) and all(k in pose for k in ("x", "y", "theta")):
-                    return pose
-            else:
-                res = find_pose_by_metadata(val, cls, type_, subtype, name)
-                if res:
-                    return res
-        elif key == name and isinstance(val, dict):
-            if all(k in val for k in ("x", "y", "theta")):
-                return val
-            elif "rel_pose" in val:
-                # relative pose only, skip (not an absolute one)
-                continue
-        elif isinstance(val, dict):
-            res = find_pose_by_metadata(val, cls, type_, subtype, name)
-            if res:
-                return res
+        if key == name and isinstance(val, dict) and all(k in val for k in ("x", "y", "theta")):
+            return val
+
+        # recurse into nested dicts
+        found = find_pose_by_metadata(val, cls, type, subtype, name)
+        if found is not None:
+            return found
+
     return None
 
-def find_nodes_by_metadata(nodes_section, cls=None, type_=None, subtype=None):
+def find_nodes_by_metadata(nodes_section, cls=None, type=None, subtype=None):
     """
     Recursively collect all node dicts from `nodes_section` matching metadata.
     Returns a list of node dicts.
@@ -59,15 +32,28 @@ def find_nodes_by_metadata(nodes_section, cls=None, type_=None, subtype=None):
         t = nodes_section.get("type", "").lower() or None
         st = nodes_section.get("subtype", "").lower() or None
         if ((cls is None or c == cls) and
-            (type_ is None or t == type_) and
+            (type is None or t == type) and
             (subtype is None or st == subtype)):
             found.append(nodes_section)
 
     # Recurse into nested dicts
     for val in nodes_section.values():
         if isinstance(val, dict):
-            found.extend(find_nodes_by_metadata(val, cls, type_, subtype))
+            found.extend(find_nodes_by_metadata(val, cls, type, subtype))
     return found
+
+def find_node_by_id(nodes_section, node_id):
+    """Recursively find a node by its name (e.g., so_1) anywhere in the tree."""
+    if not isinstance(nodes_section, dict):
+        return None
+    for key, val in nodes_section.items():
+        if isinstance(val, dict):
+            if val.get("name") == node_id:
+                return val
+            res = find_node_by_id(val, node_id)
+            if res:
+                return res
+    return None
 
 def handle_affection_ranged(nodes, poses, log, sensor: dict, node: dict, type_):
     """
@@ -116,89 +102,78 @@ def handle_affection_ranged(nodes, poses, log, sensor: dict, node: dict, type_):
         return result
     return None
 
-def handle_affection_arced(nodes, poses, log, sensor, node, type_):
+def handle_affection_arced(nodes, poses, log, sensor, node, type_,
+                           sensor_pose=None, target_pose=None):
     """
-    Handles the affection of an arced sensor.
-    This method calculates the distance between two points and checks if the 
-    second point (node_id) is within the range and field of view (FOV) of the first 
-    point (pose_start). If the second point is within the range and FOV, it returns 
-    a dictionary with information about the affection.
-    Args:
-        sensor_id (str): The name of the first point (sensor).
-        node_id (str): The name of the second point (target).
-        type (str): The type of the second point (e.g., "robot" or other).
-    Returns:
-        dict or None: A dictionary containing information about the affection 
-        if the second point is within range and FOV, otherwise None. The 
-        dictionary contains the following keys:
-            - 'type': The type of the second point.
-            - 'info': Properties of the second point.
-            - 'distance': The distance between the two points.
-            - 'min_sensor_ang': The minimum angle of the sensor's FOV.
-            - 'max_sensor_ang': The maximum angle of the sensor's FOV.
-            - 'actor_ang': The angle of the second point relative to the first.
-            - 'name': The name of the second point.
-            - 'id': The ID of the second point (if applicable).
+    Handles the affection of an arced sensor (FOV-based detection).
+    Now supports explicit sensor_pose / target_pose overrides.
     """
-    # Sensor info
-    sensor_class = sensor.get("class", "").lower()          # e.g. "sensor"
-    sensor_type = sensor.get("type", "").lower() or None    # e.g. "rangefinder"
-    sensor_subtype = sensor.get("subtype", "").lower() or None
-    sensor_name = sensor.get("name", "").lower()
+    try:
+        # --- Sensor info ---
+        sensor_class = sensor.get("class", "").lower()
+        sensor_type = sensor.get("type", "").lower() or None
+        sensor_subtype = sensor.get("subtype", "").lower() or None
+        sensor_name = sensor.get("name", "").lower()
 
-    pose_start = find_pose_by_metadata(poses, sensor_class, sensor_type, sensor_subtype, sensor_name)
-    if not pose_start:
-        log.warning(f"[Affection] Pose not found for arced sensor {sensor_name}")
-        return None
+        # --- Get sensor pose (either passed or found) ---
+        pose_start = sensor_pose or find_pose_by_metadata(
+            poses, sensor_class, sensor_type, sensor_subtype, sensor_name
+        )
+        if not pose_start:
+            log.warning(f"[Affection] Pose not found for arced sensor {sensor_name}")
+            return None
 
-    # Target node info
-    node_class = node.get("class", "").lower()              # e.g. "actor", "composite", "sensor"
-    node_type = node.get("type", "").lower() or None
-    node_subtype = node.get("subtype", "").lower() or None
-    node_name = node.get("name", "").lower()
-    node_id = node.get("id", node_name)
+        # --- Target info ---
+        node_class = node.get("class", "").lower()
+        node_type = node.get("type", "").lower() or None
+        node_subtype = node.get("subtype", "").lower() or None
+        node_name = node.get("name", "").lower()
+        node_id = node.get("id", node_name)
 
-    pose_end = find_pose_by_metadata(poses, node_class, node_type, node_subtype, node_name)
-    if not pose_end:
-        log.warning(f"[Affection] Pose not found for target {node_name}")
-        return None
-    
-    # Distance between sensor and target
-    dist = calc_distance(
-        [pose_start['x'], pose_start['y']],
-        [pose_end['x'], pose_end['y']]
-    )
-    sensor_props = sensor.get("properties", {})
-    sensor_range = sensor_props.get("range", 0)
-    fov_deg = sensor_props.get("fov", 0)
-    fov_rad = math.radians(fov_deg)
-    log.info(f"[Affection:Arced] {sensor_name} -> {node_name} | dist={dist:.2f}, range={sensor_range}, FOV={fov_deg}")
+        pose_end = target_pose or find_pose_by_metadata(
+            poses, node_class, node_type, node_subtype, node_name
+        )
+        if not pose_end:
+            log.warning(f"[Affection] Pose not found for target {node_name}")
+            return None
 
-    if dist > sensor_range:
-        return None  # Out of range
+        # --- Distance and FOV ---
+        dist = calc_distance(
+            [pose_start["x"], pose_start["y"]],
+            [pose_end["x"], pose_end["y"]]
+        )
+        props = sensor.get("properties", {})
+        sensor_range = props.get("range", sensor.get("range", 0))
+        fov_deg = props.get("fov", sensor.get("fov", 0))
+        fov_rad = math.radians(fov_deg)
 
-    # === Angle / FOV check ===
-    # Convert sensor and target to angles
-    theta_s = math.radians(pose_start["theta"])
-    dx = pose_end["x"] - pose_start["x"]
-    dy = pose_end["y"] - pose_start["y"]
-    actor_ang = math.atan2(dy, dx)
+        log.info(f"[Affection:Arced] {sensor_name} -> {node_name} | dist={dist:.2f}, range={sensor_range}, FOV={fov_deg}")
 
-    # Normalize to [-π, π]
-    def normalize_angle(a):
-        return (a + math.pi) % (2 * math.pi) - math.pi
+        if dist > sensor_range:
+            return None
 
-    min_a = normalize_angle(theta_s - fov_rad / 2)
-    max_a = normalize_angle(theta_s + fov_rad / 2)
-    actor_ang_n = normalize_angle(actor_ang)
+        # --- Compute angles ---
+        theta_s = math.radians(pose_start["theta"])
+        dx = pose_end["x"] - pose_start["x"]
+        dy = pose_end["y"] - pose_start["y"]
+        angle = math.atan2(dy, dx)
 
-    # Check if actor_ang lies within [min_a, max_a], handling wraparound
-    def in_fov(min_a, max_a, angle):
-        if min_a <= max_a:
-            return min_a <= angle <= max_a
-        return angle >= min_a or angle <= max_a
+        def normalize_angle(a):
+            return (a + math.pi) % (2 * math.pi) - math.pi
 
-    if in_fov(min_a, max_a, actor_ang_n):
+        min_a = normalize_angle(theta_s - fov_rad / 2)
+        max_a = normalize_angle(theta_s + fov_rad / 2)
+        angle_n = normalize_angle(angle)
+
+        def in_fov(min_a, max_a, angle):
+            if min_a <= max_a:
+                return min_a <= angle <= max_a
+            return angle >= min_a or angle <= max_a
+
+        if not in_fov(min_a, max_a, angle_n):
+            return None
+
+        # --- Build result ---
         result = {
             "class": node_class,
             "type": node_type,
@@ -208,14 +183,16 @@ def handle_affection_arced(nodes, poses, log, sensor, node, type_):
             "distance": dist,
             "min_sensor_ang": min_a,
             "max_sensor_ang": max_a,
-            "actor_ang": actor_ang_n,
+            "angle": angle_n,
             "range": sensor_range,
             "fov": fov_deg,
         }
         result.update(node.get("properties", {}))
         return result
 
-    return None
+    except Exception as e:
+        log.error(f"handle_affection_arced: {e}")
+        raise
 
 def handle_temperature_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
@@ -230,8 +207,8 @@ def handle_temperature_sensor(nodes, poses, log, sensor_id, env_properties=None)
         influences = []
         noise = props.get("noise", 0.0)  # sensor-specific noise amplitude
 
-        thermostats = find_nodes_by_metadata(nodes, cls="actuator", type_="envdevice", subtype="thermostat")
-        fires = find_nodes_by_metadata(nodes, cls="actor", type_="envactor", subtype="fire")
+        thermostats = find_nodes_by_metadata(nodes, cls="actuator", type="envdevice", subtype="thermostat")
+        fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
 
         # --- Thermostat influences ---
         for target in thermostats:
@@ -270,7 +247,7 @@ def handle_temperature_sensor(nodes, poses, log, sensor_id, env_properties=None)
 
 
 # Affected by humidifiers and waters
-def handle_humidity_sensor(nodes, poses, log, sensor_id):
+def handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
     Handles the humidity data for an environmental sensor.
     This method processes the humidity data for a given environmental sensor by 
@@ -286,209 +263,242 @@ def handle_humidity_sensor(nodes, poses, log, sensor_id):
     """
     try:
         sensor = nodes[sensor_id]
-        humidities = {}
+        props = sensor.get("properties", {})
+        env_hum = (env_properties or {}).get("humidity", 40.0)
+        influences = []
+        noise = props.get("noise", 0.0)  # sensor-specific noise amplitude
 
-        humidifiers = find_nodes_by_metadata(nodes, cls="actuator", type_="envdevice", subtype="humidifier")
-        waters = find_nodes_by_metadata(nodes, cls="actor", type_="envactor", subtype="water")
+        humidifiers = find_nodes_by_metadata(nodes, cls="actuator", type="envdevice", subtype="humidifier")
+        waters = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="water")
 
-        for target in humidifiers + waters:
-            target_id = target["name"]
+        # Humidifier influences
+        for target in humidifiers:
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "humidity")
             if r:
-                humidities[target_id] = r
-        return humidities
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                target_val = r.get("target_value", env_hum)
+                influences.append(weight * target_val + (1 - weight) * env_hum)
+
+        # Water influences
+        for target in waters:
+            r = handle_affection_ranged(nodes, poses, log, sensor, target, "temperature")
+            if r:
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                val = r.get("value", env_hum)
+                influences.append(weight * val + (1 - weight) * env_hum)
+
+        # Compute final reading
+        if influences:
+            sensed_hum = sum(influences) / len(influences)
+        else:
+            sensed_hum = env_hum
+
+        # Apply noise
+        sensed_hum = apply_noise(sensed_hum, noise)
+
+        return {"humidity": round(sensed_hum, 2)}
+    
     except Exception as e:
         log.error(f"handle_humidity_sensor: {e}")
         raise
 
 # Affected by humans and fires
-def handle_gas_sensor(nodes, poses, log, sensor_id):
+def handle_gas_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
-    Handles the environmental sensor for gas detection.
-    This method processes the environmental sensor data for gas detection by 
-    determining the effect of various actors (humans and fire) on the sensor 
-    based on their proximity.
-    Args:
-        name (str): The name of the place where the sensor is located.
-    Returns:
-        dict: A dictionary containing the actors and their respective effects 
-              on the sensor.
-    Raises:
-        Exception: If an error occurs during the processing, it logs the error and 
-                    raises an exception with the error message.
+    Compute gas concentration for an environmental sensor.
+    Influences: humans, fires.
+    Returns: {"gas": float}
     """
     try:
         sensor = nodes[sensor_id]
-        gases = {}
+        props = sensor.get("properties", {})
+        env_gas = (env_properties or {}).get("gas", 0.0)
+        influences = []
+        noise = props.get("noise", 0.0)
 
         humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
-        fires = find_nodes_by_metadata(nodes, cls="actor", type_="envactor", subtype="fire")
+        fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
 
         for target in humans + fires:
-            target_id = target["name"]
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "gas")
             if r:
-                gases[target_id] = r
-        return gases
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                target_val = r.get("value", env_gas)
+                influences.append(weight * target_val + (1 - weight) * env_gas)
+
+        sensed_gas = sum(influences) / len(influences) if influences else env_gas
+        sensed_gas = apply_noise(sensed_gas, noise)
+        return {"gas": round(sensed_gas, 2)}
+
     except Exception as e:
         log.error(f"handle_gas_sensor: {e}")
         raise
 
 # Affected by humans with sound, sound sources, speakers (when playing smth),
 # robots (when moving)
-def handle_microphone_sensor(nodes, poses, log, sensor_id):
+def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
-    Handles the microphone sensor for a given place name.
-    This method processes the microphone sensor data for a specified place,
-    identifying and handling sound-related information for human actors and
-    sound sources within the range of the microphone.
-    Args:
-        name (str): The name of the place where the microphone sensor is located.
-    Returns:
-        dict: A dictionary containing the affected human actors and sound sources
-                within the range of the microphone. The keys are the identifiers of
-                the actors or sound sources, and the values are the results of the
-                affection handling.
-    Raises:
-        Exception: If an error occurs during the processing, an exception is raised
-                    and logged.
+    Compute perceived sound level at a microphone.
+    Influences: humans (speaking), sound sources, speakers.
+    Returns: {"sound": float}
     """
     try:
         sensor = nodes[sensor_id]
-        sounds = {}
+        props = sensor.get("properties", {})
+        env_sound = (env_properties or {}).get("sound", 20.0)
+        influences = []
+        noise = props.get("noise", 0.0)
 
         speakers = find_nodes_by_metadata(nodes, cls="actuator", subtype="speaker")
         humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
         soundsources = find_nodes_by_metadata(nodes, cls="actor", subtype="soundsource")
 
-        for target in speakers:
-            target_id = target["name"]
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "speaker")
+        for target in speakers + humans + soundsources:
+            if target.get("properties", {}).get("sound", 1) == 0:
+                continue
+            r = handle_affection_ranged(nodes, poses, log, sensor, target, "sound")
             if r:
-                sounds[target_id] = r
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                val = r.get("value", env_sound)
+                influences.append(weight * val + (1 - weight) * env_sound)
 
-        for target in humans:
-            if target.get("properties", {}).get("sound") == 1:
-                target_id = target["name"]
-                r = handle_affection_ranged(nodes, poses, log, sensor, target, "human")
-                if r:
-                    sounds[target_id] = r
+        sensed_sound = sum(influences) / len(influences) if influences else env_sound
+        sensed_sound = apply_noise(sensed_sound, noise)
+        return {"sound": round(sensed_sound, 2)}
 
-        for target in soundsources:
-            target_id = target["name"]
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "soundsource")
-            if r:
-                sounds[target_id] = r
-
-        return sounds
     except Exception as e:
         log.error(f"handle_microphone_sensor: {e}")
         raise
 
-# def compute_luminosity(nodes, poses, log, env_name, name, print_debug = False):
-#     """
-#     Compute the luminosity at a given place identified by `name`.
-#     This method calculates the luminosity at a specific location by considering
-#     the contributions from environmental light sources, robot LEDs, and actor fires.
-#     It also factors in the environmental luminosity and ensures the final luminosity
-#     value is within the range [0, 100]. Optionally, it can print debug information
-#     during the computation process.
-#     Args:
-#         name (str): The name of the place for which to compute the luminosity.
-#         print_debug (bool, optional): If True, prints debug information. Defaults to False.
-#     Returns:
-#         float: The computed luminosity value, with a small random variation added.
-#     """
-#     lum = 0
-#     sensor_pose = [poses["sensors"][name]['x'], poses["sensors"][name]['y']]
+def compute_luminosity(nodes, poses, log, sensor_id, env_properties=None, print_debug=False):
+    """
+    Compute the luminosity at a given place identified by `name`.
+    This method calculates the luminosity at a specific location by considering
+    the contributions from environmental light sources, robot LEDs, and actor fires.
+    It also factors in the environmental luminosity and ensures the final luminosity
+    value is within the range [0, 100]. Optionally, it can print debug information
+    during the computation process.
+    Args:
+        name (str): The name of the place for which to compute the luminosity.
+        print_debug (bool, optional): If True, prints debug information. Defaults to False.
+    Returns:
+        float: The computed luminosity value, with a small random variation added.
+    """
+    try:
+        # --- Initialization ---
+        sensor = find_node_by_id(nodes, sensor_id)
+        if not sensor:
+            raise Exception(f"[Luminosity] Sensor '{sensor_id}' not found in nodes")
+        env_luminosity = (env_properties or {}).get("luminosity", 60.0)
+        lum = 0.0
+        noise = sensor.get("properties", {}).get("noise", 0.0)
 
-#     if print_debug:
-#         log.info("Computing luminosity for %s", name)
+        # --- Find sensor pose ---
+        pose = find_pose_by_metadata(
+            poses,
+            cls=sensor.get("class", "").lower(),
+            type=sensor.get("type", "").lower(),
+            subtype=sensor.get("subtype", "").lower(),
+            name=sensor.get("name", "").lower()
+        )
+        if not pose:
+            log.warning(f"[Luminosity] Pose not found for {sensor_id}")
+            return env_luminosity
 
-#     # - env light
-#     for node in nodes['sensor']['light']:
-#         r = handle_affection_ranged(sensor_pose, node, 'light')
-#         if r is not None:
-#             # th_t = effectors_get_rpcs[node].call({})
-#             new_r = r
-#             # new_r['info'] = th_t
-#             rel_range = 1 - new_r['distance'] / new_r['range']
-#             lum += rel_range * new_r['info']['luminosity']
-#             if print_debug:
-#                 log.info("\t%s - %s", node, new_r['info']['luminosity'])
-#     # - robot leds
-#     for node in nodes['robot']['actuator']['leds']:
-#         r = handle_affection_ranged(sensor_pose, node, 'light')
-#         if r is not None:
-#             # th_t = effectors_get_rpcs[node].call({})
-#             new_r = r
-#             # new_r['info'] = th_t
-#             rel_range = 1 - new_r['distance'] / new_r['range']
-#             lum += rel_range * new_r['info']['luminosity']
-#             if print_debug:
-#                 log.info("\t%s - %s", node, new_r['info']['luminosity'])
-#     # - actor fire
-#     for node in nodes['actor']['fire']:
-#         r = handle_affection_ranged(sensor_pose, node, 'fire')
-#         if r is not None:
-#             rel_range = 1 - r['distance'] / r['range']
-#             lum += 100 * rel_range
-#             if print_debug:
-#                 log.info("\t%s - 100", node)
+        sensor_pose = [pose["x"], pose["y"]]
+        if print_debug:
+            log.info(f"[Luminosity] Computing for {sensor_id} at {sensor_pose}")
 
-#     env_luminosity = env_name['properties']
-#     if print_debug:
-#         log.info("\tEnv luminosity: %s", env_luminosity)
+        # --- (1) Environmental lights (LEDs) ---
+        leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
+        for led in leds:
+            r = handle_affection_ranged(nodes, poses, log, sensor, led, "light")
+            if r:
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                led_val = r.get("value", 100.0)
+                lum += weight * led_val
+                if print_debug:
+                    log.info(f"\t[LED] {led['name']} @dist {dist:.1f} contributes {weight * led_val:.1f}")
+                    src = led.get("parent", {}).get("name", "environment")
+                    log.info(f"\t[LED] {led['name']} from {src} -> +{weight * led_val:.1f}")
 
-#     if lum < env_luminosity:
-#         lum = lum * 0.1 + env_luminosity
-#     else:
-#         lum = env_luminosity * 0.1 + lum
+        # --- (2) Fire actors ---
+        fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
+        for fire in fires:
+            r = handle_affection_ranged(nodes, poses, log, sensor, fire, "light")
+            if r:
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                fire_val = r.get("value", 100.0)
+                lum += weight * fire_val
+                if print_debug:
+                    log.info(f"\t[Fire] {fire['name']} @dist {dist:.1f} contributes {weight * fire_val:.1f}")
 
-#     if lum > 100:
-#         lum = 100
-#     if lum < 0:
-#         lum = 0
+        # (3) Blend with environmental baseline
+        if lum < env_luminosity:
+            lum = lum * 0.1 + env_luminosity
+        else:
+            lum = env_luminosity * 0.1 + lum
+        # Clamp and add noise
+        lum = max(0.0, min(100.0, lum))
+        lum = apply_noise(lum, noise)
+        lum += random.uniform(-0.25, 0.25)
 
-#     if print_debug:
-#         log.info("\tComputed luminosity: %s", lum)
+        if print_debug:
+            log.info(f"\t[Final Luminosity] {lum:.2f} (env={env_luminosity})")
 
-#     return lum + random.uniform(-0.25, 0.25)
+        return round(lum, 2)
+    except Exception as e:
+        log.error(f"compute_luminosity: {e}")
+        raise
 
 # Affected by light, fire
-def handle_light_sensor(nodes, poses, log, sensor_id):
+def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
-    Handles the light sensor for a given place.
-    This method processes the light sensor data for a specified place
-    by calculating the affection range of light and fire actuators and retrieving
-    relevant information from the effectors.
-    Args:
-        name (str): The name of the place to handle the light sensor for.
-    Returns:
-        dict: A dictionary containing the processed data for light and fire actuators
-                that affect the specified place.
-    Raises:
-        Exception: If an error occurs during processing, an exception is raised and logged.
+    Compute perceived light intensity at a sensor.
+    Influences: LEDs, fires.
+    Returns: {"light": float}
     """
     try:
         sensor = nodes[sensor_id]
-        lights = {}
+        props = sensor.get("properties", {})
+        env_light = (env_properties or {}).get("luminosity", 60.0)
+        influences = []
+        noise = props.get("noise", 0.0)
 
-        leds = find_nodes_by_metadata(nodes, cls="actuator", type_="singleled", subtype="led")
-        fires = find_nodes_by_metadata(nodes, cls="actor", type_="envactor", subtype="fire")
+        leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
+        fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
 
         for target in leds + fires:
-            target_id = target["name"]
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "light")
             if r:
-                lights[target_id] = r
-        return lights
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                val = r.get("value", env_light)
+                influences.append(weight * val + (1 - weight) * env_light)
+
+        sensed_light = sum(influences) / len(influences) if influences else env_light
+        sensed_light = apply_noise(sensed_light, noise)
+        return {"light": round(sensed_light, 2)}
+
     except Exception as e:
         log.error(f"handle_light_sensor: {e}")
         raise
 
 # Affected by barcode, color, human, qr, text
-def handle_camera_sensor(nodes, poses, log, sensor_id, with_robots = False):
+def handle_camera_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
     Processes sensor data from a camera and handles different types of actors 
     (human, qr, barcode, color, text) and optionally robots.
@@ -511,56 +521,113 @@ def handle_camera_sensor(nodes, poses, log, sensor_id, with_robots = False):
     6. Logs and raises an exception if any error occurs during processing.
     """
     try:
-        sensor = nodes[sensor_id]
+        sensor = find_node_by_id(nodes, sensor_id)
+        if not sensor:
+            # Fallback: search within composites manually
+            sensors = find_nodes_by_metadata(nodes, cls="sensor", subtype="camera")
+            for s in sensors:
+                if s.get("name") == sensor_id:
+                    sensor = s
+                    break
+                
+        if not sensor:
+            log.warning(f"[Camera] Sensor {sensor_id} not found in node tree.")
+            return {}
+        props = sensor.get("properties", {})
         detections = {}
+        noise = props.get("noise", 0.0)
 
+        # (1) Retrieve pose
+        pose = find_pose_by_metadata(
+            poses,
+            cls=sensor.get("class", "").lower(),
+            type=sensor.get("type", "").lower(),
+            subtype=sensor.get("subtype", "").lower(),
+            name=sensor.get("name", "").lower()
+        )
+        if not pose:
+            log.warning(f"[Camera] Pose not found for {sensor_id}")
+            return {}
+        
+        # (2) Compute luminosity
+        luminosity = compute_luminosity(nodes, poses, log, sensor_id, env_properties)
+        log.info(f"[Camera] {sensor_id}: local luminosity = {round(luminosity, 2)}")
+
+        # (3) Gather visible target types ==
         humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
-        qrs = find_nodes_by_metadata(nodes, cls="actor", type_="text", subtype="qrcode")
-        barcodes = find_nodes_by_metadata(nodes, cls="actor", type_="text", subtype="barcode")
-        texts = find_nodes_by_metadata(nodes, cls="actor", type_="text", subtype="plaintext")
+        qrs = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="qrcode")
+        barcodes = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="barcode")
+        texts = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="plaintext")
         colors = find_nodes_by_metadata(nodes, cls="actor", subtype="color")
-        leds = find_nodes_by_metadata(nodes, cls="actuator", type_="singleled", subtype="led")
-        robots = find_nodes_by_metadata(nodes, cls="composite", type_="robot") if with_robots else []
+        leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
+        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
 
-        for target in humans + qrs + barcodes + texts + colors + leds + robots:
+        visible_targets = humans + qrs + barcodes + texts + colors + leds + robots
+
+        # (4) Check visibility (FOV/range detection)
+        for target in visible_targets:
             handler = handle_affection_arced if target["class"] != "actuator" else handle_affection_ranged
-            target_id = target["name"]
             r = handler(nodes, poses, log, sensor, target, target.get("subtype"))
             if r:
-                detections[target_id] = r
+                detections[target["name"]] = {
+                    "class": r["class"],
+                    "type": r["type"],
+                    "subtype": r["subtype"],
+                    "distance": round(apply_noise(r["distance"], noise), 2),
+                    "angle": round(math.degrees(r.get("angle", 0.0)), 2) if "angle" in r else None,
+                    "fov": r.get("fov", None),
+                    "visible": True,
+                }
+        
+        # (5) Filter based on luminosity
+        # If light < 30, randomly drop detections to simulate low-light failure
+        if luminosity < 30 and detections:
+            fail_prob = (30 - luminosity) / 30.0  # 0 → 1 range
+            dropped = [
+                k for k in list(detections.keys()) if random.random() < fail_prob
+            ]
+            for k in dropped:
+                detections.pop(k, None)
+            if dropped:
+                log.info(f"[Camera] {sensor_id}: low light ({luminosity:.1f}) -> lost {len(dropped)} detections")
 
         return detections
+    
     except Exception as e:
         log.error(f"handle_camera_sensor: {e}")
         raise
-
+    
 # Affected by rfid_tags
 def handle_rfid_sensor(nodes, poses, log, sensor_id):
     """
-    Handles the RFID reader sensor data for a given place name.
-    This method processes the RFID reader sensor data associated with a specific place
-    identified by the given name. It retrieves the absolute position (x, y) and orientation 
-    (theta) of the place, and then processes the RFID tags associated with actors in that place.
-    Args:
-        name (str): The name of the place to handle the RFID reader sensor data for.
+    Detect RFID tags within range/FOV of the RFID reader.
     Returns:
-        dict: A dictionary containing the processed RFID tag data for actors in the specified 
-        place.
-    Raises:
-        Exception: If an error occurs during the processing of the RFID reader sensor data.
+        dict of detections: {tag_name: {distance, signal_strength, ...}}
     """
     try:
         sensor = nodes[sensor_id]
-        rfids = {}
+        detections = {}
 
-        tags = find_nodes_by_metadata(nodes, cls="actor", type_="text", subtype="rfidtag")
+        tags = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="rfidtag")
 
         for target in tags:
-            target_id = target["name"]
             r = handle_affection_arced(nodes, poses, log, sensor, target, "rfid_tag")
             if r:
-                rfids[target_id] = r
-        return rfids
+                dist = r["distance"]
+                rng = r["range"]
+                weight = max(0.0, 1.0 - dist / rng)
+                signal = round(weight * 100.0, 2)  # signal strength percentage
+                detections[target["name"]] = {
+                    "distance": dist,
+                    "signal_strength": signal,
+                    "range": rng,
+                    "class": r["class"],
+                    "type": r["type"],
+                    "subtype": r["subtype"],
+                }
+
+        return detections
+
     except Exception as e:
         log.error(f"handle_rfid_sensor: {e}")
         raise
@@ -586,7 +653,7 @@ def handle_area_alarm(nodes, poses, log, sensor_id):
         sensor = nodes[sensor_id]
         detections = {}
 
-        robots = find_nodes_by_metadata(nodes, cls="composite", type_="robot")
+        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
 
         for target in robots:
             target_id = target["name"]
@@ -599,33 +666,91 @@ def handle_area_alarm(nodes, poses, log, sensor_id):
         raise
 
 # Affected by robots
-def handle_distance_sensor(nodes, poses, log, sensor_id):
+def handle_distance_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
-    Calculate the distance of all robots from a specified place and determine if they are 
-    within range.
-    Args:
-        name (str): The name of the place to check distances from.
-    Returns:
-        dict: A dictionary where the keys are robot names and the values are dictionaries 
-        containing:
-            - "distance" (float): The distance of the robot from the specified place.
-            - "range" (float): The range within which the robot is considered to be.
-    Raises:
-        Exception: If an error occurs during the calculation, it logs the error and raises an 
-        Exception.
+    Compute distance readings for robots in range.
+    Returns: {"distance": float} of the nearest detected robot.
     """
     try:
-        sensor = nodes[sensor_id]
-        distances = {}
+        # --- Find the sensor node (recursively) ---
+        sensor = find_node_by_id(nodes, sensor_id)
+        if not sensor:
+            log.warning(f"[Sonar] Sensor {sensor_id} not found in node tree.")
+            return {"distance": 0.0}
+        
+        props = sensor.get("properties", {})
+        noise = props.get("noise", 0.0)
 
-        robots = find_nodes_by_metadata(nodes, cls="composite", type_="robot")
+        # --- Find sensor pose recursively ---
+        sensor_pose = find_pose_by_metadata(
+            poses,
+            sensor.get("class", ""),
+            sensor.get("type", ""),
+            sensor.get("subtype", ""),
+            sensor.get("name", "")
+        )
+        if not sensor_pose:
+            log.warning(f"[Sonar] Pose for {sensor_id} not found in pose tree.")
+            return {"distance": 0.0}
 
-        for target in robots:
-            target_id = target["name"]
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "robot")
+        # --- Collect potential targets ---
+        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
+        obstacles = find_nodes_by_metadata(nodes, cls="obstacle")
+        actors = find_nodes_by_metadata(nodes, cls="actor")  # optional (fires, humans, etc.)
+        potential_targets = robots + obstacles + actors
+
+        min_dist = None
+        nearest_obj = None
+
+        for target in potential_targets:
+            if target.get("name") == sensor.get("name"):
+                continue
+
+            # --- Compute target pose recursively ---
+            target_pose = find_pose_by_metadata(
+                poses,
+                target.get("class", ""),
+                target.get("type", ""),
+                target.get("subtype", ""),
+                target.get("name", "")
+            )
+            if not target_pose:
+                continue
+
+            # --- Perform distance + FOV intersection check ---
+            r = handle_affection_arced(
+                nodes, poses, log,
+                sensor, target, target.get("subtype"),
+                sensor_pose=sensor_pose, target_pose=target_pose
+            )
+
             if r:
-                distances[target_id] = r
-        return distances
+                d = r["distance"]
+                if min_dist is None or d < min_dist:
+                    min_dist = d
+                    nearest_obj = r
+
+        # --- Fallback: nothing detected ---
+        if min_dist is None:
+            sensed_dist = props.get("range", 0)
+            return {
+                "distance": round(apply_noise(sensed_dist, noise), 2),
+                "detected_class": None,
+                "detected_type": None,
+                "detected_subtype": None,
+                "detected_name": None,
+            }
+
+        # --- Return detection result ---
+        sensed_dist = apply_noise(min_dist, noise)
+        return {
+            "distance": round(sensed_dist, 2),
+            "detected_class": nearest_obj.get("class"),
+            "detected_type": nearest_obj.get("type"),
+            "detected_subtype": nearest_obj.get("subtype"),
+            "detected_name": nearest_obj.get("name"),
+        }
+
     except Exception as e:
         log.error(f"handle_distance_sensor: {e}")
         raise
@@ -664,14 +789,14 @@ def handle_linear_alarm(nodes, poses, log, sensor_id, lin_alarms_robots):
         end = [line_end["x"], line_end["y"]]
 
         detected = {}
-        robots = find_nodes_by_metadata(nodes, cls="composite", type_="robot")
+        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
         # Check all robots
         for robot in robots:
             robot_name = robot.get("name")
             robot_pose = find_pose_by_metadata(
                 poses,
                 cls="composite",
-                type_="robot",
+                type="robot",
                 subtype=None,
                 name=robot_name
             )

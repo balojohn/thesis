@@ -160,6 +160,29 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             "subtype": "{{ ssub }}",
             {% endif %}
             "name": "{{ sid }}",
+            "properties": {
+                {% set excluded = [
+                    "class","type","subtype","shape","pubFreq","name","dataModel",
+                    "_tx_position","_tx_model","_tx_position_end","parent",
+                    "actuators","sensors","composites"
+                ] %}
+                {% for attr, val in sen.ref.__dict__.items()
+                if attr not in excluded and val is not none %}
+                "{{ attr }}":
+                    {%- if val is number -%} {{ val }}
+                    {%- elif val is string -%} "{{ val }}"
+                    {%- elif val.__class__.__name__ in ["Gaussian","Uniform","Quadratic"] -%}
+                        {
+                        {%- for k,v in val.__dict__.items()
+                            if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"]
+                            and v is not none -%}
+                            "{{ k }}": {{ v|tojson }},
+                        {%- endfor -%}
+                        }
+                    {%- else -%} {{ val|tojson }}
+                    {%- endif -%},
+                {% endfor %}
+            },
             {% if sen.ref.shape is defined and sen.ref.shape %}
             "shape": {
                 "type": "{{ sen.ref.shape.__class__.__name__ }}",
@@ -322,6 +345,7 @@ class {{ environment.name }}Node(Node):
         self.width = {{ environment.grid[0].width }}
         self.height = {{ environment.grid[0].height }}
         self.cellSizeCm = {{ environment.grid[0].cellSizeCm }}
+        self.sensor_values = {}
         self.env_properties = {
             {% for p in environment.properties %}
             "{{ p.type }}": {{ p.value }},
@@ -849,28 +873,44 @@ class {{ environment.name }}Node(Node):
                     recurse(name, val, indent=2)
 
     def update_affections(self):
-        """Continuously evaluate affectability for all child nodes."""
+        """Continuously evaluate affectability for all sensors (including nested ones)."""
         self.log.info("[Env] Affections update thread started.")
+
+        def recurse_children(node_dict):
+            """Recursively walk through composites and evaluate sensor affections."""
+            if not isinstance(node_dict, dict):
+                return
+            for node_id, node in node_dict.items():
+                # --- If it's a sensor node, evaluate its affectability ---
+                node_class = getattr(node, "node_class", None)
+                if node_class == "sensor":
+                    aff_handler = getattr(node, "affection_handler", None)
+                    if callable(aff_handler):
+                        try:
+                            result = aff_handler(node_id, self.env_properties)
+                            node._sim_data = result
+                            self.log.info(f"[Affection] {node_id} -> {node._sim_data}")
+                            # store for visualizer
+                            if "affections" in result:
+                                self.sensor_values[node_id] = result["affections"]
+                            elif isinstance(result, dict):
+                                # also accept flat dicts like {'distance': 123.4}
+                                self.sensor_values[node_id] = result
+                        except Exception as e:
+                            self.log.error(f"[AffectionError] {node_id}: {e}")
+
+                # --- If node has children (e.g. composite), go deeper ---
+                if hasattr(node, "children") and isinstance(node.children, dict):
+                    recurse_children(node.children)
+
         while getattr(self, "running", False):
             try:
-                for node_id, node in getattr(self, "children", {}).items():
-                    # Only consider sensors for affectability
-                    node_class = getattr(node, "node_class", None)
-                    if node_class != "sensor":
-                        continue
-                    aff_handler = getattr(node, "affection_handler", None)
-                    if not callable(aff_handler):
-                        continue
-
-                    # Compute and store the simulated data
-                    result = aff_handler(node_id, self.env_properties)
-                    node._sim_data = result
-                    self.log.info(f"[Affection] {node_id} -> {node._sim_data}")
+                recurse_children(getattr(self, "children", {}))
             except Exception as e:
                 self.log.error(f"[update_affections] {e}")
 
-            # Control update frequency
             time.sleep(1.0)
+
 
     def start(self):
         """Start environment and all top-level components."""

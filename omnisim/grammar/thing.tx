@@ -63,9 +63,9 @@ EnvSensor:
     'EnvSensor' name=ID
         (
             ('class:' class=ID)
-            ('type:' type=[EnvSensorType])?
-            ('subtype:' subtype=ID)?
-            ('shape' ':' shape=Shape)?
+            ('type:' type=ID)?
+            ('subtype:' subtype=[EnvSensorType])?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('noise:' noise=Noise)?
             ('range:' range=FLOAT)?
@@ -174,7 +174,7 @@ Light:
         (
             ('class:' class=ID)
             ('type:' type=ID)?
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('luminosity:' luminosity=FLOAT)?
             ('color:' color=STRING)?
@@ -225,7 +225,7 @@ EnvDevice:
             ('class:' class=ID)
             ('type:' type=[EnvDeviceType])?
             ('subtype:' subtype=ID)?
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('dispersion:' dispersion=DispersionType)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('target_value:' target_value=FLOAT)?
@@ -244,11 +244,10 @@ Relay:
         (
             ('class:' class=ID)
             ('type:' type=ID)?
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxFreq:' maxFreq=FLOAT)?
             ('state:' state=STRING)?
-            ('allowed_states:' allowed_states=FLOAT)?
+            ('allowed_states:' allowed_states=INT)?
         )#
     'end'
 ;
@@ -261,7 +260,7 @@ Button:
             ('class:' class=ID)
             ('type:' type=[ButtonType])?
             ('subtype:' subtype=ID)?
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('state:' state=INT)?
             ('size:' size=INT)?
@@ -277,7 +276,7 @@ Led:
             ('class:' class=ID)
             ('type:' type=[LedType])?
             ('subtype:' subtype=ID)?
-            ('shape' ':' shape=Shape)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('color' ':' color=STRING)?
         )#
@@ -288,8 +287,8 @@ Speaker:
     'Speaker' name=ID
         (
             ('class:' class=ID)
-            
-            ('shape' ':' shape=Shape)?
+            ('type:' type=ID)?
+            ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('soundlevelDB:' soundlevelDB=FLOAT)?
         )#

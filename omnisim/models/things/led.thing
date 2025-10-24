@@ -1,8 +1,8 @@
-Led Led
+Led led_1
     class: Actuator
     type: SingleLed
-    // dataModel: LedData
+    subtype: Led
     shape: Circle(1)
-    pubFreq: 1.0
+    pubFreq: 1
     color: "#FF0000"
 end

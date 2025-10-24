@@ -5,6 +5,6 @@ RangeFinder so_1
     shape: Square(4)
     pubFreq: 10
     fov: 100.0
-    range: 250
+    range: 2500
     noise: Gaussian(mean: 0.0, std: 1.5)
 end
