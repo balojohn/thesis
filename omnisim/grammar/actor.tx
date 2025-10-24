@@ -12,29 +12,33 @@ Model:
 CompositeActor:
     'CActor' name=ID
 	(
-        ('shape' ':' shape=Shape)?
+        ('type:' type=ID)
+        ('pubFreq:' pubFreq=FLOAT)?
+        ('shape:' shape=Shape)?
+        ('automated:' automated=BOOL)?
+        ('targets:'
+             '-' targets+=TargetPose['-'])?
         ('actors' ':'
              '-' actors+=PosedActor['-'])?
         ('composites' ':'
              '-' composites+=PosedCActor['-'])?
-        ('dataModel:' dataModel=[DataType:FQN])?
 	)#
     'end'
 ;
 
 PosedActor:
-    ref=[Actor:FQN|+m:actor] ('('name=ID')')? (transformation=Transformation)?
+    (ref=[Actor:FQN]) ('('name=ID')')? (transformation=Transformation)?
 ;
 
 PosedCActor:
-    ref=[CompositeActor:FQN|+m:thing] (transformation=Transformation)?
+    (ref=[CompositeActor:FQN]) ('('name=ID')')? (transformation=Transformation)?
 ;
 
 Actor:
+    EnvActor    |
     SoundSource |
     Color       |
     Text        |
-    EnvActor    |
     Human        
 ;
 
@@ -42,12 +46,11 @@ EnvActor:
     'EnvActor' name=ID
         (
             ('class:' class=ID)
-            ('type:' type=[EnvActorType])?
-            // ('properties:' '-' EnvProperties+=EnvironmentalPropertyType['-'])?
-            // ('dispersion:' dispersion=DispersionType)?
-            ('dataModel:' dataModel=[DataType:FQN])?
+            ('type:' type=ID)?
+            ('subtype:' subtype=[EnvActorType])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('dispersion:' dispersion=DispersionType)?
             ('value:' value=FLOAT)?
             ('range:' range=FLOAT)?
         )#
@@ -56,32 +59,18 @@ EnvActor:
 
 EnvActorType: 'Water' | 'Fire';
 
-EnvironmentalPropertyType:
-    name=EnvironmentalPropertyName ':' value=FLOAT;
-
-EnvironmentalPropertyName:
-    'temperature'     |
-    'airQuality'      |
-    'soundLevelDB'    |
-    'co2'             |
-    'gas'             |
-    'luminosity'     |
-    'humidity'
-;
-
 SoundSource:
     'SoundSource' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])?
+            ('type:' type=ID)?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
+            ('range:' range=FLOAT)?
             ('sound' ':' sound=INT)?
             ('language' ':' language=STRING)?
             ('speech:' speech=STRING)?
             ('emotion:' emotion=STRING)?
-            ('range:' range=FLOAT)?
         )#
     'end'
 ;
@@ -90,10 +79,9 @@ Color:
     'Color' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])?
+            ('type:' type=ID)
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
             ('r' ':' r=INT)?
             ('g' ':' g=INT)?
             ('b' ':' b=INT)?
@@ -105,8 +93,8 @@ Text:
     'Text' name=ID
         (
             ('class:' class=ID)
-            ('type:' type=[TextType])?
-            ('subtype:' subtype=ID)?
+            ('type:' type=ID)?
+            ('subtype:' subtype=[TextType])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('message' ':' message=STRING)?
@@ -125,11 +113,11 @@ Human:
     'Human' name=ID
         (
             ('class:' class=ID)
-            ('dataModel:' dataModel=[DataType:FQN])?
+            ('type:' type=ID)?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            // ('maxfreq:' maxFreq=FLOAT)?
             ('sound' ':' sound=INT)?
+            ('range' ':' range=INT)?
             ('motion' ':' motion=STRING)?
             ('language' ':' language=STRING)?
             ('speech:' speech=STRING)?
@@ -137,45 +125,4 @@ Human:
             ('age:' age=INT)?
         )#
     'end'
-;
-
-DispersionType:
-    Constant      |
-    Linear        |
-    Quadratic     |
-    Exponential   |
-    Logarithmic
-;
-
-Constant:
-    'Constant' '(' 'value' ':' value=FLOAT ')'
-;
-
-Linear:
-    'Linear' '('
-        'start' ':' startingPoint=FLOAT ',' 
-        'step' ':' step=FLOAT
-    ')'
-;
-
-Quadratic:
-    'Quadratic' '('
-        'a' ':' a=FLOAT ',' 
-        'b' ':' b=FLOAT ',' 
-        'c' ':' c=FLOAT
-    ')'
-;
-
-Exponential:
-    'Exponential' '('
-        'base' ':' base=FLOAT ',' 
-        'yIntercept' ':' yIntercept=FLOAT
-    ')'
-;
-
-Logarithmic:
-    'Logarithmic' '('
-        'base' ':' base=FLOAT ',' 
-        'alpha' ':' alpha=FLOAT
-    ')'
 ;

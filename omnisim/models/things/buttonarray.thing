@@ -1,0 +1,8 @@
+CThing b_array_1
+    type: ButtonArray
+    shape: Rectangle(20, 4)
+    actuators:
+        - b_1 @ Transform(0, 0, 0)
+        - b_1 @ Transform(1, 0, 0)
+        - b_1 @ Transform(2, 0, 0)
+end

@@ -1,7 +1,8 @@
 Speaker speak_1
     class: Actuator
     type: Speaker
-    shape: Square(10)
+    shape: Square(4)
     pubFreq: 1.0
-    soundlevelDB: 50.0
+    sound: 50
+    range: 500
 end

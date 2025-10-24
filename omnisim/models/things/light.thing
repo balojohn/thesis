@@ -1,0 +1,8 @@
+Light li_1
+    class: Sensor
+    type: Light
+    shape: Circle(2)
+    pubFreq: 1
+    luminosity: 60
+    range: 100
+end

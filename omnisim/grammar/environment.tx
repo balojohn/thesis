@@ -86,3 +86,11 @@ EnvPropertyType:
 FQN: ID('.'ID)*;
 FQNI: ID+['.']('.*')?;
 Import: 'import' importURI=STRING ('as' name=ID)?;
+
+Description: /\#(.*?)$/;
+
+Comment: CommentLine | CommentBlock ;
+
+CommentLine: /\/\/.*?$/;
+
+CommentBlock: /\/\*(.|\n)*?\*\//;

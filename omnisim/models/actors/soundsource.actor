@@ -1,0 +1,11 @@
+SoundSource sou_1
+    class: Actor
+    type: SoundSource
+    shape: Square(4)
+    pubFreq: 1.0
+    sound: 80
+    language: "EN"
+    speech: "Hi there"
+    emotion: "happy"
+    range: 500
+end

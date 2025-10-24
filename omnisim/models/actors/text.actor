@@ -1,8 +1,0 @@
-Text txt_1
-    class: Actor
-    type: Text
-    subtype: PlainText
-    shape: Rectangle(1, 1)
-    pubFreq: 1
-    message: "This is a text"
-end

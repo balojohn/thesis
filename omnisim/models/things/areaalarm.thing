@@ -1,0 +1,10 @@
+Alarm aral_1
+    class: Sensor
+    type: Alarm
+    subtype: AreaAlarm
+    shape: Circle(2)
+    pubFreq: 10
+    triggered: 1
+    range: 100
+    hz: 3000
+end

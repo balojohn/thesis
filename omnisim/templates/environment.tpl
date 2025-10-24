@@ -102,7 +102,7 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             "width": {{ comp.ref.shape.width }},
             "length": {{ comp.ref.shape.length }}
             {% elif comp.ref.shape.__class__.__name__ == "Square" %}
-            "size": {{ comp.ref.shape.length }}
+            "length": {{ comp.ref.shape.length }}
             {% elif comp.ref.shape.__class__.__name__ == "Circle" %}
             "radius": {{ comp.ref.shape.radius }}
             {% elif comp.ref.shape.__class__.__name__ in ["Line","ArbitraryShape"] %}
@@ -147,7 +147,7 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             "width": {{ sen.ref.shape.width }},
             "length": {{ sen.ref.shape.length }}
             {% elif sen.ref.shape.__class__.__name__ == "Square" %}
-            "size": {{ sen.ref.shape.length }}
+            "length": {{ sen.ref.shape.length }}
             {% elif sen.ref.shape.__class__.__name__ == "Circle" %}
             "radius": {{ sen.ref.shape.radius }}
             {% endif %}
@@ -171,7 +171,10 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
                 "{{ attr }}":
                     {%- if val is number -%} {{ val }}
                     {%- elif val is string -%} "{{ val }}"
-                    {%- elif val.__class__.__name__ in ["Gaussian","Uniform","Quadratic"] -%}
+                    {%- elif val.__class__.__name__ in [
+                        "Constant","Linear","Quadratic","Exponential","Logarithmic",
+                        "Gaussian","Uniform","CustomNoise"
+                    ] -%}
                         {
                         {%- for k,v in val.__dict__.items()
                             if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"]
@@ -190,7 +193,7 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
                 "width": {{ sen.ref.shape.width }},
                 "length": {{ sen.ref.shape.length }}
                 {% elif sen.ref.shape.__class__.__name__ == "Square" %}
-                "size": {{ sen.ref.shape.length }}
+                "length": {{ sen.ref.shape.length }}
                 {% elif sen.ref.shape.__class__.__name__ == "Circle" %}
                 "radius": {{ sen.ref.shape.radius }}
                 {% endif %}
@@ -222,7 +225,7 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             "width": {{ act.ref.shape.width }},
             "length": {{ act.ref.shape.length }}
             {% elif act.ref.shape.__class__.__name__ == "Square" %}
-            "size": {{ act.ref.shape.length }}
+            "length": {{ act.ref.shape.length }}
             {% elif act.ref.shape.__class__.__name__ == "Circle" %}
             "radius": {{ act.ref.shape.radius }}
             {% endif %}
@@ -242,7 +245,7 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
                 "width": {{ act.ref.shape.width }},
                 "length": {{ act.ref.shape.length }}
                 {% elif act.ref.shape.__class__.__name__ == "Square" %}
-                "size": {{ act.ref.shape.length }}
+                "length": {{ act.ref.shape.length }}
                 {% elif act.ref.shape.__class__.__name__ == "Circle" %}
                 "radius": {{ act.ref.shape.radius }}
                 {% endif %}
@@ -372,7 +375,11 @@ class {{ environment.name }}Node(Node):
         self.pantilts = {}
         self.handle_offsets = {}
         self.tree[self.env_name.lower()] = []
-
+        # # --- Default fallback shape (applies to all nodes if not otherwise defined) ---
+        # shape_data = {
+        #     "type": "Circle",
+        #     "radius": 3.0
+        # }
         {# Collect all placements into one list with a category tag #}
         {% set placements = [] %}
         {% for t in environment.things or [] %}
@@ -468,17 +475,29 @@ class {{ environment.name }}Node(Node):
         if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"]:
             self.nodes["{{ category }}"]["{{ type }}"]["{{ subtype }}"].append("{{ inst }}")
                 {% elif type %}
-        # Fallback path: sensors[microphone][mic_1]
+        # Fallback path: sensors[microphone][mic_1] or actors/soundsource[sou_1]
         if "{{ type }}" not in self.nodes["{{ category }}"]:
-            self.nodes["{{ category }}"]["{{ type }}"] = []
+            self.nodes["{{ category }}"]["{{ type }}"] = {}
             self.poses["{{ category }}"]["{{ type }}"] = {}
 
         if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ type }}"]:
-            self.nodes["{{ category }}"]["{{ type }}"].append("{{ inst }}")
+            self.nodes["{{ category }}"]["{{ type }}"]["{{ inst }}"] = {
+                "class": "{{ cls }}",
+                "type": "{{ type }}",
+                "name": "{{ inst }}",
+                "properties": {},
+                # "shape": shape_data
+            }
+            self.poses["{{ category }}"]["{{ type }}"]["{{ inst }}"] = {
+                "x": {{ p.pose.x }},
+                "y": {{ p.pose.y }},
+                "theta": {{ p.pose.theta }},
+                # "shape": shape_data
+            }
                {% else %}
         # Simple fallback for unnamed categories
         if "{{ node_name }}" not in self.nodes["{{ category }}"]:
-            self.nodes["{{ category }}"]["{{ node_name }}"] = []
+            self.nodes["{{ category }}"]["{{ node_name }}"] = {}
             self.poses["{{ category }}"]["{{ node_name }}"] = {}
 
         if "{{ inst }}" not in self.nodes["{{ category }}"]["{{ node_name }}"]:
@@ -506,7 +525,10 @@ class {{ environment.name }}Node(Node):
                 "{{ attr }}":
                     {%- if val is number -%} {{ val }}
                     {%- elif val is string -%} "{{ val }}"
-                    {%- elif val.__class__.__name__ in ["Gaussian","Uniform","Quadratic"] -%}
+                    {%- elif val.__class__.__name__ in [
+                        "Constant","Linear","Quadratic","Exponential","Logarithmic",
+                        "Gaussian","Uniform","CustomNoise"
+                    ] -%}
                         {
                         {%- for k,v in val.__dict__.items()
                             if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"]
@@ -593,7 +615,10 @@ class {{ environment.name }}Node(Node):
                 "{{ attr }}":
                     {%- if val is number -%} {{ val }}
                     {%- elif val is string -%} "{{ val }}"
-                    {%- elif val.__class__.__name__ in ["Gaussian","Uniform","Quadratic"] -%}
+                    {%- elif val.__class__.__name__ in [
+                        "Constant","Linear","Quadratic","Exponential","Logarithmic",
+                        "Gaussian","Uniform","CustomNoise"
+                    ] -%}
                         {
                         {%- for k,v in val.__dict__.items()
                             if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"]
@@ -614,7 +639,7 @@ class {{ environment.name }}Node(Node):
             "width": {{ p.ref.shape.width }},
             "length": {{ p.ref.shape.length }}
             {% elif p.ref.shape.__class__.__name__ == "Square" %}
-            "size": {{ p.ref.shape.length }}
+            "length": {{ p.ref.shape.length }}
             {% elif p.ref.shape.__class__.__name__ == "Circle" %}
             "radius": {{ p.ref.shape.radius }}
             {% elif p.ref.shape.__class__.__name__ == "Line" %}
@@ -630,12 +655,12 @@ class {{ environment.name }}Node(Node):
             ]
             {% endif %}
         }
-        {% else %}
+        {# {% else %}
         # Default shape if none specified
         shape_data = {
             "type": "Circle",
             "radius": 3.0
-        }
+        } #}
         {% endif %}
         self.nodes["{{ inst }}"]["shape"] = shape_data
         {% endif %}
@@ -756,11 +781,11 @@ class {{ environment.name }}Node(Node):
                 "width": {{ shape.width }},
                 "length": {{ shape.length }}
                 {% elif shape and shape.__class__.__name__ == "Square" %}
-                "size": {{ shape.length }}
+                "length": {{ shape.length }}
                 {% elif shape and shape.__class__.__name__ == "Circle" %}
                 "radius": {{ shape.radius }}
                 {% else %}
-                "size": 10.0
+                "length": 10.0
                 {% endif %}
             }
         }

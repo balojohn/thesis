@@ -14,7 +14,7 @@ Thing: Sensor | Actuator | CompositeThing;
 CompositeThing:
     'CThing' name=ID
 	(
-        ('type:' type=ID)?
+        ('type:' type=ID)
         ('pubFreq:' pubFreq=FLOAT)?
         ('shape:' shape=Shape)?
         ('automated:' automated=BOOL)?
@@ -37,7 +37,7 @@ TargetPose:
 PosedThing: PosedSensor | PosedActuator | PosedCThing;
 
 PosedCThing:
-    ( ref=[CompositeThing:FQN]) ('('name=ID')')? (transformation=DTransformation)?
+    (ref=[CompositeThing:FQN]) ('('name=ID')')? (transformation=DTransformation)?
 ;
 
 PosedSensor:
@@ -106,12 +106,10 @@ LiDAR:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('distance:' distance=FLOAT)?
             ('minAngle:' minAngle=FLOAT)?
             ('maxAngle:' maxAngle=FLOAT)?
             ('numBeams:' numBeams=FLOAT)?
-            ('minRange:' minRange=FLOAT)?
-            ('maxRange:' maxRange=FLOAT)?
+            ('range:' range=FLOAT)?
             ('noise:' noise=Noise)?
         )#
     'end'
@@ -140,8 +138,8 @@ Alarm:
     'Alarm' name=ID
         (
             ('class:' class=ID)
-            ('type:' type=[AlarmType])
-            ('subtype:' subtype=ID)?
+            ('type:' type=ID)
+            ('subtype:' subtype=[AlarmType])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('triggered:' triggered=INT)?
@@ -290,7 +288,8 @@ Speaker:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('soundlevelDB:' soundlevelDB=FLOAT)?
+            ('sound:' sound=FLOAT)?
+            ('range:' range=FLOAT)?
         )#
     'end'
 ;
@@ -333,7 +332,7 @@ DispersionType:
 ;
 
 Constant:
-    'Constant' '(' 'value' ':' value=FLOAT ')'
+    'Constant' '(' 'value:' value=FLOAT ')'
 ;
 
 Linear:

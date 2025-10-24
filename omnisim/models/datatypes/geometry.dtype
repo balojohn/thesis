@@ -1,47 +1,47 @@
-DataType Transform
-    translation: Vector3
-    rotation: Quaternion
-end
-
-DataType Vector3
-    x: float
-    y: float
-    z: float
-end
-
-DataType Point
-    x: float
-    y: float
-end
-
-DataType Quaternion
-    x: float
-    y: float
-    z: float
-    w: float
-end
-
-DataType RPY
-    roll: float
-    pitch: float
-    yaw: float
-end
-
-DataType Pose
-    position: Point
-    orientation: RPY
-end
-
-DataType Twist
-    linear: Vector3
-    angular: Vector3
-end
-
-DataType Odometry
-    pose: Pose
-    twist: Twist
-end
-
-DataType Path
-    poses: Pose[]
-end
+// DataType Transform
+//     translation: Vector3
+//     rotation: Quaternion
+// end
+// 
+// DataType Vector3
+//     x: float
+//     y: float
+//     z: float
+// end
+// 
+// DataType Point
+//     x: float
+//     y: float
+// end
+// 
+// DataType Quaternion
+//     x: float
+//     y: float
+//     z: float
+//     w: float
+// end
+// 
+// DataType RPY
+//     roll: float
+//     pitch: float
+//     yaw: float
+// end
+// 
+// DataType Pose
+//     position: Point
+//     orientation: RPY
+// end
+// 
+// DataType Twist
+//     linear: Vector3
+//     angular: Vector3
+// end
+// 
+// DataType Odometry
+//     pose: Pose
+//     twist: Twist
+// end
+// 
+// DataType Path
+//     poses: Pose[]
+// end

@@ -1,5 +1,0 @@
-CThing Arm
-    shape: Rectangle(3, 1)
-    actuators:
-        - Button(b_1) @ Transform(1, 0, 0)
-end

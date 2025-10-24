@@ -310,7 +310,9 @@ def handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties=None):
 def handle_gas_sensor(nodes, poses, log, sensor_id, env_properties=None):
     """
     Compute gas concentration for an environmental sensor.
-    Influences: humans, fires.
+    Influences:
+      - Humans (CO₂ emission)
+      - Fires (smoke emission, derived from fire.value)
     Returns: {"gas": float}
     """
     try:
@@ -325,12 +327,26 @@ def handle_gas_sensor(nodes, poses, log, sensor_id, env_properties=None):
 
         for target in humans + fires:
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "gas")
-            if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                target_val = r.get("value", env_gas)
-                influences.append(weight * target_val + (1 - weight) * env_gas)
+            log.info(f"[GasCheck] {sensor_id} -> {target['name']}, result={r}")
+            if not r:
+                continue
+
+            dist = r["distance"]
+            rng = r["range"]
+            weight = max(0.0, 1.0 - dist / rng)
+
+            if target["subtype"] == "fire":
+                # --- Smoke intensity derived from heat value ---
+                fire_val = target.get("properties", {}).get("value", 0.0)
+                smoke_factor = 0.3   # 30 % of fire intensity becomes smoke
+                target_val = fire_val * smoke_factor
+            elif target["subtype"] == "human":
+                # Human CO₂ emission (can come from r["value"] or fixed)
+                target_val = r.get("value", env_gas + 5.0)
+            else:
+                target_val = env_gas
+
+            influences.append(weight * target_val + (1 - weight) * env_gas)
 
         sensed_gas = sum(influences) / len(influences) if influences else env_gas
         sensed_gas = apply_noise(sensed_gas, noise)
@@ -354,29 +370,62 @@ def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None):
         env_sound = (env_properties or {}).get("sound", 20.0)
         influences = []
         noise = props.get("noise", 0.0)
+        mic_range = props.get("range", sensor.get("range", 0))  # new
 
         speakers = find_nodes_by_metadata(nodes, cls="actuator", subtype="speaker")
-        humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
-        soundsources = find_nodes_by_metadata(nodes, cls="actor", subtype="soundsource")
+        humans = find_nodes_by_metadata(nodes, cls="actor", type="human")
+        soundsources = find_nodes_by_metadata(nodes, cls="actor", type="soundsource")
 
+        log.info(f"[Microphone] Evaluating {sensor_id} at env_sound={env_sound}")
         for target in speakers + humans + soundsources:
-            if target.get("properties", {}).get("sound", 1) == 0:
+            tname = target.get("name", "unknown")
+            props_t = target.get("properties", {})
+            src_sound = props_t.get("sound", target.get("sound", env_sound))
+            src_range = props_t.get("range", target.get("range", 0))
+            if src_sound == 0:
                 continue
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "sound")
-            if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                val = r.get("value", env_sound)
-                influences.append(weight * val + (1 - weight) * env_sound)
 
-        sensed_sound = sum(influences) / len(influences) if influences else env_sound
+            r = handle_affection_ranged(nodes, poses, log, sensor, target, "sound")
+            if not r:
+                log.debug(f"    [skip] {tname}: out of range or not visible")
+                continue
+
+            dist = r["distance"]
+
+            # --- FIX: use the *larger* of source/sensor ranges ---
+            rng = max(src_range, mic_range, r.get("range", 0))
+            if rng <= 0:
+                log.debug(f"    [skip] {tname}: invalid range {rng}")
+                continue
+
+            weight = max(0.0, 1.0 - dist / rng)
+            sensed_val = weight * src_sound + (1 - weight) * env_sound
+
+            if weight > 0.0:
+                influences.append(sensed_val)
+                log.info(f"    [src] {tname}: sound={src_sound}, dist={dist:.1f}, "
+                         f"range={rng}, weight={weight:.3f}, contrib={sensed_val:.2f}")
+            else:
+                log.debug(f"    [skip] {tname}: out of range ({dist:.1f}>{rng})")
+
+        # --- Combine all contributions ---
+        if influences:
+            sensed_sound = max(env_sound, sum(influences) / len(influences))
+            log.info(f"    [mix] Averaged {len(influences)} influences -> {sensed_sound:.2f}")
+        else:
+            sensed_sound = env_sound
+            log.info(f"    [mix] No influences -> baseline {sensed_sound:.2f}")
+
+        # --- Add noise ---
         sensed_sound = apply_noise(sensed_sound, noise)
+        log.info(f"    [final] After noise ({noise}) -> {sensed_sound:.2f}")
+
         return {"sound": round(sensed_sound, 2)}
 
     except Exception as e:
         log.error(f"handle_microphone_sensor: {e}")
         raise
+
 
 def compute_luminosity(nodes, poses, log, sensor_id, env_properties=None, print_debug=False):
     """
@@ -873,15 +922,15 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, lin_alarms
             subtype = node_subtype or node_type
 
             if subtype == "temperature":
-                affected = handle_temperature_sensor(nodes, poses, log, sensor_id)
+                affected = handle_temperature_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "humidity":
-                affected = handle_humidity_sensor(nodes, poses, log, sensor_id)
+                affected = handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "gas":
-                affected = handle_gas_sensor(nodes, poses, log, sensor_id)
+                affected = handle_gas_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "microphone":
-                affected = handle_microphone_sensor(nodes, poses, log, sensor_id)
+                affected = handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "camera":
-                affected = handle_camera_sensor(nodes, poses, log, sensor_id)
+                affected = handle_camera_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "rfid":
                 affected = handle_rfid_sensor(nodes, poses, log, sensor_id)
             elif subtype == "areaalarm":
@@ -891,26 +940,26 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, lin_alarms
             elif subtype in ("sonar", "ir"):
                 affected = handle_distance_sensor(nodes, poses, log, sensor_id)
             elif subtype == "light":
-                affected = handle_light_sensor(nodes, poses, log, sensor_id)
+                affected = handle_light_sensor(nodes, poses, log, sensor_id, env_properties)
 
         # --- Composite sensors (robot-mounted sensors, pantilt, etc.) ---
         elif node_class == "composite" and node_type == "robot":
             subtype = node_subtype or node_name
 
             if subtype == "microphone":
-                affected = handle_microphone_sensor(nodes, poses, log, sensor_id)
+                affected = handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "camera":
-                affected = handle_camera_sensor(nodes, poses, log, sensor_id)
+                affected = handle_camera_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "rfid":
                 affected = handle_rfid_sensor(nodes, poses, log, sensor_id)
-            elif subtype in ("sonar", "ir", "rangefinder"):
+            elif subtype in ("sonar", "ir"):
                 affected = handle_distance_sensor(nodes, poses, log, sensor_id)
-            elif subtype == "envcombo":
-                affected = {
-                    "temperature": handle_temperature_sensor(nodes, poses, log, sensor_id),
-                    "humidity": handle_humidity_sensor(nodes, poses, log, sensor_id),
-                    "gas": handle_gas_sensor(nodes, poses, log, sensor_id),
-                }
+            elif subtype == "temperature":
+                affected = handle_temperature_sensor(nodes, poses, log, sensor_id, env_properties)
+            elif subtype == "humidity":
+                affected = handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties)
+            elif subtype == "gas":
+                affected = handle_gas_sensor(nodes, poses, log, sensor_id, env_properties)
 
         # --- Optional: pure actuator or actor cases could go here in future ---
 

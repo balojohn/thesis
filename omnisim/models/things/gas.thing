@@ -4,5 +4,5 @@ EnvSensor gas_1
     subtype: Gas
     shape: Circle(3)
     pubFreq: 1
-    range: 10
+    range: 100
 end

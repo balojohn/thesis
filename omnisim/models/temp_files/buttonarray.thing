@@ -1,6 +1,0 @@
-CThing ButtonArray
-    actuators:
-        - Button @ Transform(0, 0, 0)
-        - Button @ Transform(1, 0, 0)
-        - Button @ Transform(2, 0, 0)
-end

@@ -266,18 +266,42 @@ class EnvVisualizer:
         eclass = entity.get("class", "").lower()
         color = self.colors.get(eclass, (200, 200, 200))
 
-        # Accept both top-level and nested shapes
-        shape = {}
-        if "shape" in entity:
+        # --- Try to find shape in multiple possible sources ---
+        shape = None
+        # Directly on the entity (node-level)
+        if isinstance(entity.get("shape"), dict):
             shape = entity["shape"]
-        elif "properties" in entity and "shape" in entity["properties"]:
+        # Inside properties
+        elif isinstance(entity.get("properties", {}).get("shape"), dict):
             shape = entity["properties"]["shape"]
-        shape_type = shape.get("type", "").lower() if isinstance(shape, dict) else ""
+        # In the matching pose (pose may hold shape)
+        elif hasattr(self.node, "poses"):
+            found_pose = None
+            # Find pose by label (slow but safe)
+            def find_pose(d):
+                for k, v in d.items():
+                    if k == label and isinstance(v, dict) and "shape" in v:
+                        return v
+                    elif isinstance(v, dict):
+                        res = find_pose(v)
+                        if res:
+                            return res
+                return None
+            found_pose = find_pose(self.node.poses)
+            if found_pose and isinstance(found_pose.get("shape"), dict):
+                shape = found_pose["shape"]
+
+        # --- Fallback ---
+        if not isinstance(shape, dict):
+            shape = {}
+
+        shape_type = shape.get("type", "").lower()
 
         # === Draw by shape type ===
-        if shape_type in ["rectangle", "square"]:
-            w = shape.get("width", shape.get("size", 1.0))
-            l = shape.get("length", shape.get("size", 1.0))
+        if shape_type == "rectangle":
+            # Rectangle(width, length)
+            w = shape.get("width", 1.0)
+            l = shape.get("length", 1.0)
             hw, hl = (w / 2) * self.scale * self.zoom, (l / 2) * self.scale * self.zoom
             pts = [(-hw, -hl), (hw, -hl), (hw, hl), (-hw, hl)]
             rot = math.radians(theta)
@@ -290,6 +314,21 @@ class EnvVisualizer:
             ]
             pygame.draw.polygon(self.screen, color, rotated, 2)
 
+        elif shape_type == "square":
+            # Square(length)
+            length = shape.get("length", 1.0)
+            hw = hl = (length / 2) * self.scale * self.zoom
+            pts = [(-hw, -hl), (hw, -hl), (hw, hl), (-hw, hl)]
+            rot = math.radians(theta)
+            rotated = [
+                (
+                    pos[0] + px * math.cos(rot) - py * math.sin(rot),
+                    pos[1] - (px * math.sin(rot) + py * math.cos(rot))
+                )
+                for px, py in pts
+            ]
+            pygame.draw.polygon(self.screen, color, rotated, 2)
+        
         elif shape_type == "circle":
             r = shape.get("radius", shape.get("size", 0.5)) * self.scale * self.zoom
             pygame.draw.circle(self.screen, color, pos, int(r), 2)
@@ -464,29 +503,32 @@ class EnvVisualizer:
                     cat_poses = self.node.poses.get(category, {})
 
                     for type_key, type_group in cat_nodes.items():
-                        # Each type_group can have dicts or lists (depending on generator)
-                        for subtype_key, subtype_group in (type_group.items() if isinstance(type_group, dict) else []):
-                            if isinstance(subtype_group, list):
-                                # Just a list of names (lookup entities by name)
-                                for name in subtype_group:
-                                    ent = self.node.nodes.get(name)
-                                    pose = (
-                                        cat_poses.get(type_key, {})
-                                        .get(subtype_key, {})
-                                        .get(name, None)
-                                    )
-                                    if ent and isinstance(pose, dict) and all(k in pose for k in ["x", "y", "theta"]):
-                                        self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
-                            elif isinstance(subtype_group, dict):
-                                # Full dictionary of entities
+                        if not isinstance(type_group, dict):
+                            continue
+
+                        for subtype_key, subtype_group in type_group.items():
+                            # --- Case 1: subtype_group is a dict of entities (normal nesting) ---
+                            if isinstance(subtype_group, dict) and "class" not in subtype_group:
                                 for name, ent in subtype_group.items():
                                     pose = (
                                         cat_poses.get(type_key, {})
                                         .get(subtype_key, {})
                                         .get(name, None)
+                                        or cat_poses.get(type_key, {}).get(name, None)  # fallback for flat structures
                                     )
-                                    if ent and isinstance(pose, dict) and all(k in pose for k in ["x", "y", "theta"]):
+                                    if pose and all(k in pose for k in ["x", "y", "theta"]):
                                         self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
+
+                            # --- Case 2: subtype_group directly holds an entity (flat dict case) ---
+                            elif isinstance(subtype_group, dict):
+                                name, ent = subtype_key, subtype_group
+                                pose = (
+                                    cat_poses.get(type_key, {}).get(name, None)
+                                    or cat_poses.get(name, None)
+                                )
+                                if pose and all(k in pose for k in ["x", "y", "theta"]):
+                                    self.draw_entity(pose["x"], pose["y"], pose["theta"], ent, name)
+
 
                 # --- Draw all composites recursively ---
                 composites = self.node.nodes.get("composites", {})
@@ -519,7 +561,6 @@ class EnvVisualizer:
         except KeyboardInterrupt:
             print("[Visualizer] Interrupted by user.")
             self.stop()
-
     # -----------------------------------------------------
     # ----------------- LIFECYCLE -------------------------
     # -----------------------------------------------------

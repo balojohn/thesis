@@ -4,6 +4,6 @@ EnvSensor te_1
     subtype: Temperature
     shape: Circle(3)
     pubFreq: 1
-    range: 50
+    range: 500
     noise: Gaussian(mean: 0.0, std: 1.5)
 end

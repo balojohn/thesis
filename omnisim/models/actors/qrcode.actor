@@ -1,7 +1,7 @@
-Text QRcode
+Text qr_1
     class: Actor
     type: Text
-    // dataModel: TextData
+    subtype: QRcode
     shape: Rectangle(2, 1)
     pubFreq: 1.0
     message: "This is a QR code"

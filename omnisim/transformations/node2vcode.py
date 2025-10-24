@@ -69,7 +69,7 @@ def build_node(obj, comms, dtypes) -> str:
         data_model = None
     else:
         data_model_name = f"{getattr(obj, 'subtype', getattr(obj, 'type', obj.__class__.__name__))}Data"
-        data_model = next((t for t in dtypes.types if t.name == data_model_name), None)
+        data_model = next((t for t in dtypes.types if t.name.lower() == data_model_name.lower()), None)
         if data_model is None:
             raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")
     context = {

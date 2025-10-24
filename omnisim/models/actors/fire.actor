@@ -1,8 +1,10 @@
-EnvActor Fire
+EnvActor fi_1
     class: Actor
     type: EnvActor
-    // dataModel: FireData
+    subtype: Fire
     shape: Rectangle(5, 2)
     pubFreq: 1.0
+    dispersion: Constant(value: 100)
     value: 1000
+    range: 100
 end

@@ -1,6 +1,6 @@
-Color Color
+Color co_1
     class: Actor
-    // dataModel: ColorData
+    type: Color
     shape: Circle(1)
     pubFreq: 1.0
     r: 0

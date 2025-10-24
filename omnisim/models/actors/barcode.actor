@@ -1,7 +1,7 @@
-Text Barcode
+Text bar_1
     class: Actor
-    type: Text 
-    // dataModel: TextData
+    type: Text
+    subtype: Barcode
     shape: Rectangle(2, 1)
     pubFreq: 1.0
     message: "This is a barcode"

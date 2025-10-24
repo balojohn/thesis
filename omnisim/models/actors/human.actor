@@ -1,9 +1,10 @@
-Human Human
+Human Lefteris
     class: Actor
-    // dataModel: HumanData
-    shape: Square(1)
+    type: Human
+    shape: Square(4)
     pubFreq: 1.0
-    sound: 1
+    sound: 10
+    range: 100
     motion: "forward"
     language: "EN"
     speech: "Hey Siri"

@@ -1,0 +1,10 @@
+LiDAR lidar_1
+    class: Sensor
+    type: LiDAR
+    shape: Cylinder(6, 2)
+    pubFreq: 10
+    maxAngle: 360
+    numBeams: 64
+    range: 250.0
+    noise: Gaussian(mean: 0.0, std: 1.5)
+end

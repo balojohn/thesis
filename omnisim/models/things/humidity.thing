@@ -4,6 +4,6 @@ EnvSensor hum_1
     subtype: Humidity
     shape: Circle(3)
     pubFreq: 1
-    range: 50
+    range: 100
     noise: Gaussian(mean: 0.0, std: 1.5)
 end
