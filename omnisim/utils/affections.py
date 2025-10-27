@@ -537,12 +537,14 @@ def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
 
         log.info(f"[LightSensor] Baseline env_luminosity={env_light}, noise={noise}")
 
-        # --- Collect all fires ---
+        # --- Collect all light sources: fires + LEDs ---
         fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
-        log.info(f"[LightSensor] Found {len(fires)} fire(s): {[f.get('name') for f in fires]}")
+        leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
+        sources = fires + leds
+        log.info(f"[LightSensor] Found {len(sources)} light source(s): {[s.get('name') for s in sources]}")
 
         # --- Evaluate each fire influence ---
-        for target in fires:
+        for target in sources:
             fname = target.get("name", "unknown")
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "light")
             if not r:
@@ -558,11 +560,20 @@ def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
                 fire_val = target.get("properties", {}).get("value", 0.0)
                 luminosity_factor = 0.3   # 30 % of fire intensity becomes luminosity
                 target_val = fire_val * luminosity_factor
+            elif target["subtype"] == "led":
+                color_hex = target.get("properties", {}).get("color", "#FFFFFF")
+                # Convert hex → RGB [0..1]
+                r = int(color_hex[1:3], 16) / 255.0
+                g = int(color_hex[3:5], 16) / 255.0
+                b = int(color_hex[5:7], 16) / 255.0
+                # Compute luminance (perceived brightness)
+                luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                # Scale to 0–100 range
+                target_val = luminance * 100.0
             else:
                 target_val = env_light
             
-            influences.append(weight * target_val + (1 - weight) * env_light)
-
+            influences.append(weight * target_val)
             log.info(
                 f"    [fire] {fname}: value={fire_val}, dist={dist:.1f}, "
                 f"range={rng}, weight={weight:.3f}, contrib={target_val:.2f}"
@@ -570,12 +581,15 @@ def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
 
         # --- Combine influences ---
         if influences:
-            sensed_light = sum(influences) / len(influences)
+            sensed_light = env_light + sum(influences)
+            # sensed_light = sum(influences) / len(influences)
+            # sensed_light = min(env_light + sum(influences), 100.0)
             log.info(f"[LightSensor] Combined {len(influences)} influence(s) -> {sensed_light:.2f}")
         else:
             sensed_light = env_light
             log.info(f"[LightSensor] No fires in range -> using baseline {sensed_light:.2f}")
 
+        # sensed_light = max(0.0, min(100.0, sensed_light))
         # --- Apply noise ---
         # sensed_light = apply_noise(sensed_light, noise)
         log.info(f"[LightSensor] Final (after noise) -> {sensed_light:.2f}")

@@ -10,6 +10,7 @@ CThing r_1
         - Point(500, 400)
     actuators:
         - b_1 @ Transform(-20, -15, 180)
+        - led_1 @ Transform(-85, 0, 0)
     composites:
         - pt_1 @ Transform(0, 30, 0)
 end
