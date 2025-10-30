@@ -13,12 +13,12 @@ for folder in folders:
         fpath = os.path.join(folder, fname)
         if fname.endswith(".actor"):
             print(f"\n[RUNNING] {fpath}")
-            # subprocess.run(["python", "-m", "omnisim.cli.cli", "t2d", fpath])
-            # subprocess.run(["python", "-m", "omnisim.cli.cli", "t2vc", fpath])
+            subprocess.run(["python", "-m", "omnisim.cli.cli", "t2d", fpath])
+            subprocess.run(["python", "-m", "omnisim.cli.cli", "t2vc", fpath])
         elif fname.endswith(".thing"):
             print(f"\n[RUNNING] {fpath}")
-            # subprocess.run(["python", "-m", "omnisim.cli.cli", "t2d", fpath])
-            # subprocess.run(["python", "-m", "omnisim.cli.cli", "t2c", fpath])
+            subprocess.run(["python", "-m", "omnisim.cli.cli", "t2d", fpath])
+            subprocess.run(["python", "-m", "omnisim.cli.cli", "t2c", fpath])
             subprocess.run(["python", "-m", "omnisim.cli.cli", "t2vc", fpath])
         elif fname.endswith(".env"):
             # Check if this env file contains a real Environment definition

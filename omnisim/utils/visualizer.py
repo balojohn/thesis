@@ -235,12 +235,46 @@ class EnvVisualizer:
                     else:
                         val_str = "-"
                         det_str = ""
-                elif len(val) == 1:
-                    k, v = next(iter(val.items()))
-                    val_str = f"{v:.2f}" if isinstance(v, (int, float)) else str(v)
+                elif stype.lower() in ("areaalarm", "linearalarm", "alarm"):
+                    # --- Alarms: show triggered state and detections ---
+                    trig = val.get("triggered")
+                    dets = val.get("detections", {})
+
+                    # --- Triggered state ---
+                    if isinstance(trig, (bool, int, float)):
+                        val_str = "Triggered" if float(trig) > 0 else "Idle"
+                    else:
+                        val_str = "-"
+
+                    # --- Detection formatting (camera-style) ---
+                    detected = []
+                    if isinstance(dets, dict):
+                        detected = list(dets.keys())
+                    elif isinstance(dets, (list, tuple, set)):
+                        detected = [str(d) for d in dets if d]
+                    # Support nested structures like {"r_1": {"x":...}}
+                    elif dets:
+                        try:
+                            detected = [str(dets)]
+                        except Exception:
+                            detected = []
+
+                    if detected:
+                        det_str = ", ".join(detected[:2])
+                        if len(detected) > 2:
+                            det_str += ", …"
+                    else:
+                        det_str = ""
                 else:
-                    val_str = ", ".join(f"{k}:{v:.1f}" if isinstance(v, (int, float)) else f"{k}:{v}"
-                                        for k, v in val.items())
+                    # Default dict formatting
+                    if len(val) == 1:
+                        k, v = next(iter(val.items()))
+                        val_str = f"{v:.2f}" if isinstance(v, (int, float)) else str(v)
+                    else:
+                        val_str = ", ".join(
+                            f"{k}:{v:.1f}" if isinstance(v, (int, float)) else f"{k}:{v}"
+                            for k, v in val.items()
+                        )
             elif isinstance(val, (int, float)):
                 val_str = f"{val:.2f}"
             else:
@@ -333,18 +367,35 @@ class EnvVisualizer:
             r = shape.get("radius", shape.get("size", 0.5)) * self.scale * self.zoom
             pygame.draw.circle(self.screen, color, pos, int(r), 2)
 
-        elif shape_type == "line":
+        elif shape_type == "arbitraryshape":
             pts = shape.get("points", [])
-            if len(pts) == 2:
-                p1 = self.world_to_screen(pts[0]["x"], pts[0]["y"])
-                p2 = self.world_to_screen(pts[1]["x"], pts[1]["y"])
-                pygame.draw.line(self.screen, color, p1, p2, 2)
+            if len(pts) >= 2:
+                # Alarm pose is the local origin (anchor)
+                ent_x, ent_y, ent_theta = x, y, theta
+                rot = math.radians(ent_theta)
 
-        elif shape_type == "polygon":
-            pts = shape.get("points", [])
-            if pts:
-                screen_pts = [self.world_to_screen(p["x"], p["y"]) for p in pts]
-                pygame.draw.polygon(self.screen, color, screen_pts, 2)
+                # Convert local shape points → world → screen coords
+                screen_pts = []
+                for p in pts:
+                    # Local point relative to entity pose
+                    wx = ent_x + (p["x"] * math.cos(rot) - p["y"] * math.sin(rot))
+                    wy = ent_y + (p["x"] * math.sin(rot) + p["y"] * math.cos(rot))
+                    sx, sy = self.world_to_screen(wx, wy)
+                    screen_pts.append((sx, sy))
+
+                # --- Base color: sensor color ---
+                base_color = self.colors.get("sensor", (0, 200, 255))
+                color = base_color
+                width = 2
+
+                # --- Change color only if triggered ---
+                val = self.node.sensor_values.get(label)
+                if isinstance(val, dict) and val.get("triggered", 0) > 0:
+                    color = (255, 60, 60)
+                    width = 4
+
+                # Draw line segment (laser beam)
+                pygame.draw.lines(self.screen, color, False, screen_pts, width)
 
         else:
             pygame.draw.circle(self.screen, color, pos, 4)

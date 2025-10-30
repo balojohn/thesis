@@ -1,54 +1,37 @@
-{# t2d.jinja #}
+{# --- Excluded internal attributes --- #}
 {%- set excluded = [
     "class", "type", "shape", "pubFreq", "noise",
     "_tx_position", "_tx_position_end", "_tx_model",
     "parent", "name", "subtype", "dispersion"
 ] -%}
-{%- macro render_properties(obj) -%}
-{% for attr, val in obj.__dict__.items() if attr not in excluded %}
-    {% if val is number %}
-    {{ attr }}: float
-    {% elif val is string %}
-    {{ attr }}: str
-    {% elif val is boolean %}
+
+{# --- Determine proper DataType name --- #}
+{%- set dt_name = (
+    thing.subtype if thing.subtype is defined and thing.subtype else thing.type
+) ~ "Data" -%}
+
+{# --- Header --- #}
+DataType {{ dt_name }}
+{% if thing.properties %}
+    {% for attr, val in thing.properties.items() if attr not in excluded %}
+    {% if val is boolean %}
     {{ attr }}: bool
+    {% elif val is number %}
+    {{ attr }}: float
     {% else %}
-    {{ attr }}: {{ val.__class__.__name__ }}
+    {{ attr }}: string
     {% endif %}
-{% endfor %}
-{%- endmacro %}
-{%- macro render_datatypes(thing) -%}
-{# === Atomic Thing (Sensor/Actuator) === #}
-{% if thing and not (thing.sensors is defined or thing.actuators is defined or thing.composites is defined) %}
-{% set base = thing.subtype if thing.subtype is defined and thing.subtype else thing.type %}
-DataType {{ base|capitalize }}Data
-{{ render_properties(thing) }}
+    {% endfor %}
+{% else %}
+    {# fallback if no properties block defined #}
+    {% for attr, val in thing.__dict__.items() if attr not in excluded and (val or val in [True, False]) %}
+    {% if val is boolean %}
+    {{ attr }}: bool
+    {% elif val is number %}
+    {{ attr }}: float
+    {% else %}
+    {{ attr }}: string
+    {% endif %}
+    {% endfor %}
+{% endif %}
 end
-{% endif %}
-{# === Composite with nested sensors === #}
-{% if thing and thing.sensors is defined %}
-{% for sensor in thing.sensors | map(attribute="ref") | unique %}
-{% set base = sensor.subtype if sensor.subtype is defined and sensor.subtype else sensor.type %}
-DataType {{ base|capitalize }}Data
-{{ render_properties(sensor) }}
-end
-{% endfor %}
-{% endif %}
-{# === Composite with nested actuators === #}
-{% if thing and thing.actuators is defined %}
-{% for actuator in thing.actuators | map(attribute="ref") | unique %}
-{% set base = actuator.subtype if actuator.subtype is defined and actuator.subtype else actuator.type %}
-DataType {{ base|capitalize }}Data
-{{ render_properties(actuator) }}
-end
-{% endfor %}
-{% endif %}
-{# === Composite with nested composites === #}
-{% if thing and thing.composites is defined %}
-{% for comp in thing.composites | map(attribute="ref") | unique %}
-{{ render_datatypes(comp) }}
-{% endfor %}
-{% endif %}
-{%- endmacro %}
-{# ==== ENTRY POINT ==== #}
-{{ render_datatypes(thing) }}

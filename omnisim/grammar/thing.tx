@@ -142,7 +142,7 @@ Alarm:
             ('subtype:' subtype=[AlarmType])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
-            ('triggered:' triggered=INT)?
+            ('triggered:' triggered=BOOL)?
             ('range:' range=FLOAT)?
             ('hz:' hz=FLOAT)?
         )#

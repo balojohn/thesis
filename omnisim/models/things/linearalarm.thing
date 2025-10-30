@@ -2,9 +2,9 @@ Alarm linal_1
     class: Sensor
     type: Alarm
     subtype: LinearAlarm
-    shape: ArbitraryShape(Point(1.0, 1.0), Point(5.0, 1.0)) 
+    shape: ArbitraryShape(Point(1, 1), Point(200, 1))
     pubFreq: 10
-    triggered: 1
-    range: 10.0
+    triggered: False
+    range: 2
     hz: 3000
 end

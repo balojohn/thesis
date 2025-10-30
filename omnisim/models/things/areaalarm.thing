@@ -4,7 +4,7 @@ Alarm aral_1
     subtype: AreaAlarm
     shape: Circle(2)
     pubFreq: 10
-    triggered: 1
-    range: 100
+    triggered: False
+    range: 300
     hz: 3000
 end

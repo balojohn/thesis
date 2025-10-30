@@ -5,14 +5,25 @@ from omnisim.utils.visualizer import EnvVisualizer
 from omnisim.utils.geometry import node_pose_callback
 # Affection handlers
 from omnisim.utils.affections import check_affectability
+{# KEY FIX: Store ORIGINAL values before lowercasing #}
+{% macro camelcase(name) -%}
+{%- set parts = name.split('_') -%}
+{%- if parts | length == 1 -%}
+{{ name }}
+{%- else -%}
+{{ parts | map('capitalize') | join('') | replace(' ', '') }}
+{%- endif -%}
+{%- endmacro %}
 # Generated node classes
 {% set placements = (environment.things or []) + (environment.composites or []) %}
 {% for p in placements %}
     {% set ref = p.ref %}
     {% set cls = ref.class|lower %}
-    {% set type = ref.type|lower if ref.type else ref.__class__.__name__|lower %}
-    {% set subtype = ref.subtype|lower if ref.subtype is defined and ref.subtype else None %}
-    {% set node_classname = subtype|capitalize if subtype else type|capitalize %}
+    {% set type_orig = ref.type if ref.type else ref.__class__.__name__ %}
+    {% set type = type_orig|lower %}
+    {% set subtype_orig = ref.subtype if ref.subtype is defined and ref.subtype else None %}
+    {% set subtype = subtype_orig|lower if subtype_orig else None %}
+    {% set node_classname = camelcase(subtype_orig) if subtype_orig else camelcase(type_orig) %}
     {% if cls == "sensor" %}
 from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node, {{ node_classname }}Message, PoseMessage
     {% else %}
@@ -784,10 +795,13 @@ class {{ environment.name }}Node(Node):
         )
 
         {% if cls == "sensor" %}
+        {% set subtype_orig = ref.subtype if ref.subtype is defined and ref.subtype else None %}
+        {% set type_orig = ref.type if ref.type else ref.__class__.__name__ %}
+        {% set node_classname = camelcase(subtype_orig) if subtype_orig else camelcase(type_orig) %}
         # Data subscriber
         self.{{ inst }}_data_sub = self.create_subscriber(
-            topic=f"sensor.{{ subtype if subtype else type }}.{{ inst }}.data",
-            msg_type={{ subtype|capitalize if subtype else type|capitalize }}Message,
+            topic=f"sensor.{{ type }}{{ '.' ~ subtype if subtype and subtype != type else '' }}.{{ inst }}.data",
+            msg_type={{ node_classname }}Message,
             on_message=lambda msg, sid="{{ inst }}": self._on_sensor_data(msg, sid)
         )
         {% endif %}
@@ -827,8 +841,8 @@ class {{ environment.name }}Node(Node):
         {% endfor %}
 
     # Wrappers for affection and pose utils
-    def check_affectability(self, sensor_id: str, env_properties, lin_alarms_robots=None):
-        return check_affectability(self.nodes, self.poses, self.log, sensor_id, env_properties, lin_alarms_robots)
+    def check_affectability(self, sensor_id: str, env_properties):
+        return check_affectability(self.nodes, self.poses, self.log, sensor_id, env_properties)
 
     def node_pose_callback(self, node: dict, parent_pose):
         return node_pose_callback(self.nodes, self.poses, self.log, node, parent_pose)
@@ -985,10 +999,10 @@ class {{ environment.name }}Node(Node):
         {% for p in placements %}
             {% set ref = p.ref %}
             {% set cls = ref.class|lower %}
-            {% set type = ref.type|lower if ref.type else ref.__class__.__name__|lower %}
-            {% set subtype = ref.subtype|lower if ref.subtype is defined and ref.subtype else None %}
+            {% set type_orig = ref.type if ref.type else ref.__class__.__name__ %}
+            {% set subtype_orig = ref.subtype if ref.subtype is defined and ref.subtype else None %}
+            {% set node_classname = camelcase(subtype_orig) if subtype_orig else camelcase(type_orig) %}
             {% set inst = p.instance_id if p.instance_id else ref.name|lower %}
-            {% set node_classname = subtype|capitalize if subtype else type|capitalize %}
             {% set node_class = 
                 ("composite" if cls == "composite" or p.__class__.__name__ == "CompositePlacement"
                 else "sensor" if cls == "sensor"

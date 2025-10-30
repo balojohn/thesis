@@ -340,3 +340,38 @@ def recurse(d, parent_pose, log):
         for subsec in ("actuators", "sensors", "composites"):
             if subsec in v and isinstance(v[subsec], dict):
                 recurse(v[subsec], abs_pose, log)
+
+def get_shape_world_points(pose, shape):
+    """Return list of world-space (x, y) points for the given pose+shape dict."""
+    if not isinstance(shape, dict):
+        return []
+
+    x, y, theta = pose.get("x", 0.0), pose.get("y", 0.0), math.radians(pose.get("theta", 0.0))
+    stype = shape.get("type", "").lower()
+
+    pts = []
+    if stype == "rectangle":
+        w, l = shape.get("width", 1.0), shape.get("length", 1.0)
+        hw, hl = w / 2.0, l / 2.0
+        local = [(-hl, -hw), (-hl, hw), (hl, hw), (hl, -hw)]
+    elif stype == "square":
+        length = shape.get("length", 1.0)
+        h = length / 2.0
+        local = [(-h, -h), (-h, h), (h, h), (h, -h)]
+    elif stype == "circle":
+        r = shape.get("radius", 1.0)
+        # approximate as octagon for intersection test
+        local = [
+            (r * math.cos(a), r * math.sin(a))
+            for a in [i * math.pi / 4 for i in range(8)]
+        ]
+    elif stype == "arbitraryshape":
+        local = [(p["x"], p["y"]) for p in shape.get("points", [])]
+    else:
+        return []
+
+    for lx, ly in local:
+        wx = x + lx * math.cos(theta) - ly * math.sin(theta)
+        wy = y + lx * math.sin(theta) + ly * math.cos(theta)
+        pts.append((wx, wy))
+    return pts

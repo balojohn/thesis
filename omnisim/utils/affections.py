@@ -1,21 +1,29 @@
 import math, random
 from omnisim.utils.utils import apply_noise
-from omnisim.utils.geometry import calc_distance, check_lines_intersection
+from omnisim.utils.geometry import (
+    calc_distance,
+    check_lines_intersection,
+    get_shape_world_points,
+)
 
 def find_pose_by_metadata(poses_section, cls, type, subtype, name):
+    """Recursively find a pose dict with x,y,theta by name inside poses tree."""
     if not isinstance(poses_section, dict):
         return None
 
     for key, val in poses_section.items():
-        if key == name and isinstance(val, dict) and all(k in val for k in ("x", "y", "theta")):
-            return val
+        if key == name and isinstance(val, dict):
+            if all(k in val for k in ("x", "y", "theta")):
+                return val
 
-        # recurse into nested dicts
-        found = find_pose_by_metadata(val, cls, type, subtype, name)
-        if found is not None:
-            return found
+        # Only recurse deeper if the value is a dict
+        if isinstance(val, dict):
+            found = find_pose_by_metadata(val, cls, type, subtype, name)
+            if found:
+                return found
 
     return None
+
 
 def find_nodes_by_metadata(nodes_section, cls=None, type=None, subtype=None):
     """
@@ -43,19 +51,20 @@ def find_nodes_by_metadata(nodes_section, cls=None, type=None, subtype=None):
     return found
 
 def find_node_by_id(nodes_section, node_id):
-    """Recursively find a node by its name (e.g., so_1) anywhere in the tree."""
-    if not isinstance(nodes_section, dict):
+    try:
+        if not isinstance(nodes_section, dict):
+            return None
+        for key, val in nodes_section.items():
+            if isinstance(val, dict):
+                if key == node_id or val.get("name") == node_id:
+                    return val
+                res = find_node_by_id(val, node_id)
+                if res:
+                    return res
         return None
-    for key, val in nodes_section.items():
-        if isinstance(val, dict):
-            # Match if either dict's name or key matches node_id
-            if key == node_id or val.get("name") == node_id:
-                return val
-
-            res = find_node_by_id(val, node_id)
-            if res:
-                return res
-    return None
+    except Exception as e:
+        print(f"[find_node_by_id ERROR] {e} in section keys={list(nodes_section.keys())}")
+        return None
 
 def handle_affection_ranged(nodes, poses, log, sensor: dict, node: dict, type):
     """
@@ -581,9 +590,8 @@ def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
 
         # --- Combine influences ---
         if influences:
+            # Absolute addition (without clamping to 0-100)
             sensed_light = env_light + sum(influences)
-            # sensed_light = sum(influences) / len(influences)
-            # sensed_light = min(env_light + sum(influences), 100.0)
             log.info(f"[LightSensor] Combined {len(influences)} influence(s) -> {sensed_light:.2f}")
         else:
             sensed_light = env_light
@@ -598,6 +606,97 @@ def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
 
     except Exception as e:
         log.error(f"handle_light_sensor: {e}")
+        raise
+
+# Affected by robots
+def handle_distance_sensor(nodes, poses, log, sensor_id, env_properties=None):
+    """
+    Compute distance readings for robots in range.
+    Returns: {"distance": float} of the nearest detected robot.
+    """
+    try:
+        # --- Find the sensor node (recursively) ---
+        sensor = find_node_by_id(nodes, sensor_id)
+        if not sensor:
+            log.warning(f"[Sonar] Sensor {sensor_id} not found in node tree.")
+            return {"distance": 0.0}
+        
+        props = sensor.get("properties", {})
+        noise = props.get("noise", 0.0)
+
+        # --- Find sensor pose recursively ---
+        sensor_pose = find_pose_by_metadata(
+            poses,
+            sensor.get("class", ""),
+            sensor.get("type", ""),
+            sensor.get("subtype", ""),
+            sensor.get("name", "")
+        )
+        if not sensor_pose:
+            log.warning(f"[Sonar] Pose for {sensor_id} not found in pose tree.")
+            return {"distance": 0.0}
+
+        # --- Collect potential targets ---
+        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
+        obstacles = find_nodes_by_metadata(nodes, cls="obstacle")
+        actors = find_nodes_by_metadata(nodes, cls="actor")  # optional (fires, humans, etc.)
+        potential_targets = robots + obstacles + actors
+
+        min_dist = None
+        nearest_obj = None
+
+        for target in potential_targets:
+            if target.get("name") == sensor.get("name"):
+                continue
+
+            # --- Compute target pose recursively ---
+            target_pose = find_pose_by_metadata(
+                poses,
+                target.get("class", ""),
+                target.get("type", ""),
+                target.get("subtype", ""),
+                target.get("name", "")
+            )
+            if not target_pose:
+                continue
+
+            # --- Perform distance + FOV intersection check ---
+            r = handle_affection_arced(
+                nodes, poses, log,
+                sensor, target, target.get("subtype"),
+                sensor_pose=sensor_pose, target_pose=target_pose
+            )
+
+            if r:
+                d = r["distance"]
+                if min_dist is None or d < min_dist:
+                    min_dist = d
+                    nearest_obj = r
+
+        # --- Fallback: nothing detected ---
+        if min_dist is None:
+            sensed_dist = props.get("range", 0)
+            return {
+                "distance": round(apply_noise(sensed_dist, noise), 2),
+                "detected_class": None,
+                "detected_type": None,
+                "detected_subtype": None,
+                "detected_name": None,
+            }
+
+        # --- Return detection result ---
+        sensed_dist = apply_noise(min_dist, noise)
+        return {
+            "distance": round(sensed_dist, 2),
+            "detected_class": nearest_obj.get("class"),
+            "detected_type": nearest_obj.get("type"),
+            "detected_subtype": nearest_obj.get("subtype"),
+            "detected_name": nearest_obj.get("name"),
+        }
+
+    except Exception as e:
+        import traceback
+        log.error(f"handle_distance_sensor({sensor_id}) crashed: {e}\n{traceback.format_exc()}")
         raise
 
 # Affected by barcode, color, human, qr, text
@@ -736,130 +835,82 @@ def handle_rfid_sensor(nodes, poses, log, sensor_id):
         raise
 
 # Affected by robots
-def handle_area_alarm(nodes, poses, log, sensor_id):
+def handle_area_alarm(nodes, poses, log, sensor_id, env_properties=None):
     """
-    Handle area alarm for a given place name.
-    This method checks if any robots are within the specified range of the given place.
-    If a robot is within range, it adds the robot's name and its distance from the place
-    to the return dictionary.
-    Args:
-        name (str): The name of the place to check for area alarms.
-    Returns:
-        dict: A dictionary where the keys are the names of the robots within range,
-                and the values are dictionaries containing the distance of the robot
-                from the place and the range.
-    Raises:
-        Exception: If an error occurs during the process, it logs the error and raises 
-        an exception.
+    Compute area alarm trigger based on proximity of robots.
+    Influences: robots (composite.type=robot)
+    Returns: {"triggered": bool, "detections": {robot_id: {"distance": float, "range": float}}}
     """
     try:
-        sensor = nodes[sensor_id]
-        detections = {}
+        log.info(f"[AreaAlarm] Evaluating {sensor_id}")
 
-        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
-
-        for target in robots:
-            target_id = target["name"]
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "robot")
-            if r:
-                detections[target_id] = r
-        return detections
-    except Exception as e:
-        log.error(f"handle_area_alarm: {e}")
-        raise
-
-# Affected by robots
-def handle_distance_sensor(nodes, poses, log, sensor_id, env_properties=None):
-    """
-    Compute distance readings for robots in range.
-    Returns: {"distance": float} of the nearest detected robot.
-    """
-    try:
-        # --- Find the sensor node (recursively) ---
+        # --- Locate the alarm sensor node ---
         sensor = find_node_by_id(nodes, sensor_id)
         if not sensor:
-            log.warning(f"[Sonar] Sensor {sensor_id} not found in node tree.")
-            return {"distance": 0.0}
-        
+            log.warning(f"[AreaAlarm] Sensor {sensor_id} not found in node tree.")
+            return {"triggered": False, "detections": {}}
+
         props = sensor.get("properties", {})
+        sensor_range = props.get("range", 100.0)
         noise = props.get("noise", 0.0)
 
-        # --- Find sensor pose recursively ---
+        # --- Find the alarm’s pose ---
         sensor_pose = find_pose_by_metadata(
             poses,
-            sensor.get("class", ""),
-            sensor.get("type", ""),
-            sensor.get("subtype", ""),
-            sensor.get("name", "")
+            cls=sensor.get("class", "").lower(),
+            type=sensor.get("type", "").lower(),
+            subtype=sensor.get("subtype", "").lower(),
+            name=sensor.get("name", "").lower()
         )
         if not sensor_pose:
-            log.warning(f"[Sonar] Pose for {sensor_id} not found in pose tree.")
-            return {"distance": 0.0}
+            log.warning(f"[AreaAlarm] Pose not found for {sensor_id}")
+            return {"triggered": False, "detections": {}}
 
-        # --- Collect potential targets ---
+        # --- Collect all robots ---
         robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
-        obstacles = find_nodes_by_metadata(nodes, cls="obstacle")
-        actors = find_nodes_by_metadata(nodes, cls="actor")  # optional (fires, humans, etc.)
-        potential_targets = robots + obstacles + actors
+        detections = {}
+        triggered = False
 
-        min_dist = None
-        nearest_obj = None
-
-        for target in potential_targets:
-            if target.get("name") == sensor.get("name"):
+        # --- Check each robot ---
+        for target in robots:
+            rid = target.get("name")
+            r = handle_affection_ranged(nodes, poses, log, sensor, target, "robot")
+            if not r:
                 continue
-
-            # --- Compute target pose recursively ---
-            target_pose = find_pose_by_metadata(
-                poses,
-                target.get("class", ""),
-                target.get("type", ""),
-                target.get("subtype", ""),
-                target.get("name", "")
-            )
-            if not target_pose:
+            
+            if not r or "distance" not in r or r["distance"] is None:
+                log.debug(f"[AreaAlarm][DEBUG] Skipping {rid}: no valid distance {r}")
                 continue
+            dist = r["distance"]
+            rng = r["range"]
+            weight = max(0.0, 1.0 - dist / rng)
 
-            # --- Perform distance + FOV intersection check ---
-            r = handle_affection_arced(
-                nodes, poses, log,
-                sensor, target, target.get("subtype"),
-                sensor_pose=sensor_pose, target_pose=target_pose
-            )
-
-            if r:
-                d = r["distance"]
-                if min_dist is None or d < min_dist:
-                    min_dist = d
-                    nearest_obj = r
-
-        # --- Fallback: nothing detected ---
-        if min_dist is None:
-            sensed_dist = props.get("range", 0)
-            return {
-                "distance": round(apply_noise(sensed_dist, noise), 2),
-                "detected_class": None,
-                "detected_type": None,
-                "detected_subtype": None,
-                "detected_name": None,
+            # Store detection details
+            detections[rid] = {
+                "distance": round(apply_noise(dist, noise), 2),
+                "range": rng,
+                "weight": round(weight, 3)
             }
 
-        # --- Return detection result ---
-        sensed_dist = apply_noise(min_dist, noise)
-        return {
-            "distance": round(sensed_dist, 2),
-            "detected_class": nearest_obj.get("class"),
-            "detected_type": nearest_obj.get("type"),
-            "detected_subtype": nearest_obj.get("subtype"),
-            "detected_name": nearest_obj.get("name"),
+            if dist <= rng:
+                triggered = True
+                log.info(f"[AreaAlarm] Triggered by {rid} at {dist:.1f}/{rng:.1f}")
+
+        # --- Result ---
+        result = {
+            "triggered": True if triggered else False,
+            "detections": ", ".join(detections.keys()) if detections else "{}"
         }
+        log.info(f"[AreaAlarm] Result for {sensor_id}: {result}")
+        return result
 
     except Exception as e:
-        log.error(f"handle_distance_sensor: {e}")
-        raise
+        import traceback
+        log.error(f"handle_area_alarm({sensor_id}) crashed: {e}\n{traceback.format_exc()}")
+        return {"triggered": False, "detections": "{}"}
 
 # Affected by robots
-def handle_linear_alarm(nodes, poses, log, sensor_id, lin_alarms_robots):
+def handle_linear_alarm(nodes, poses, log, sensor_id):
     """
     Handles linear alarms for robots based on their positions and declared linear paths.
     Args:
@@ -880,63 +931,98 @@ def handle_linear_alarm(nodes, poses, log, sensor_id, lin_alarms_robots):
     6. Logs and raises any exceptions encountered during processing.
     """
     try:
-        sensor = nodes[sensor_id]
-        # --- Find start/end poses ---
-        line_start = sensor.get("pose", {}).get("start")
-        line_end = sensor.get("pose", {}).get("end")
-        if not line_start or not line_end:
-            log.warning(f"[LinearAlarm] Missing start/end pose for {sensor_id}")
-            return {}
+        log.info(f"[LinearAlarm] Evaluating {sensor_id}")
 
-        start = [line_start["x"], line_start["y"]]
-        end = [line_end["x"], line_end["y"]]
+        # --- Locate the alarm sensor node ---
+        sensor = find_node_by_id(nodes, sensor_id)
+        if not isinstance(sensor, dict):
+            log.warning(f"[LinearAlarm] Sensor {sensor_id} not found or invalid")
+            return {"triggered": False, "detections": {}}
 
-        detected = {}
+        shape = sensor.get("shape")
+        if not shape or not isinstance(shape, dict):
+            log.warning(f"[LinearAlarm] Sensor {sensor_id} has no valid shape! shape={shape}")
+            return {"triggered": False, "detections": {}}
+
+        points = shape.get("points")
+        if not points or len(points) < 2:
+            log.warning(f"[LinearAlarm] Sensor {sensor_id} shape has insufficient points!")
+            return {"triggered": False, "detections": {}}
+
+        # --- Retrieve pose ---
+        pose = find_pose_by_metadata(
+            poses,
+            cls=sensor.get("class", "").lower(),
+            type=sensor.get("type", "").lower(),
+            subtype=sensor.get("subtype", "").lower(),
+            name=sensor.get("name", "").lower(),
+        )
+        if not pose:
+            log.warning(f"[LinearAlarm] Pose not found for {sensor_id}")
+            return {"triggered": False, "detections": {}}
+
+        ent_x, ent_y, ent_theta = pose["x"], pose["y"], pose["theta"]
+        rot = math.radians(ent_theta)
+
+        # --- Beam endpoints in world coordinates ---
+        start = [
+            ent_x + (points[0]["x"] * math.cos(rot) - points[0]["y"] * math.sin(rot)),
+            ent_y + (points[0]["x"] * math.sin(rot) + points[0]["y"] * math.cos(rot))
+        ]
+        end = [
+            ent_x + (points[1]["x"] * math.cos(rot) - points[1]["y"] * math.sin(rot)),
+            ent_y + (points[1]["x"] * math.sin(rot) + points[1]["y"] * math.cos(rot))
+        ]
+
+        # --- Gather robots ---
         robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
-        # Check all robots
+        detections = []
+        triggered = False
+
+        log.info(f"[LinearAlarm][DEBUG] Beam start={start}, end={end}")
         for robot in robots:
-            robot_name = robot.get("name")
-            robot_pose = find_pose_by_metadata(
-                poses,
-                cls="composite",
-                type="robot",
-                subtype=None,
-                name=robot_name
-            )
+            rname = robot.get("name")
+            robot_pose = find_pose_by_metadata(poses, "composite", "robot", None, rname)
             if not robot_pose:
-                log.warning(f"[LinearAlarm] Missing pose for robot {robot_name}")
                 continue
 
-            curr = [robot_pose["x"], robot_pose["y"]]
-            prev = lin_alarms_robots.get(sensor_id, {}).get(robot_name, {}).get("curr", curr)
+            shape_r = robot.get("shape", {})
+            if not shape_r:
+                continue
+            # === Compute world-space corners using your visualizer logic ===
+            # (this helper produces the same points visualized on screen)
+            world_pts = get_shape_world_points(robot_pose, shape_r)
 
-            # Initialize tracking entry if missing
-            lin_alarms_robots.setdefault(sensor_id, {}).setdefault(robot_name, {
-                "prev": curr,
-                "curr": curr
-            })
+            if not world_pts or len(world_pts) < 2:
+                continue
 
-            # Shift prev->curr
-            lin_alarms_robots[sensor_id][robot_name]["prev"] = lin_alarms_robots[sensor_id][robot_name]["curr"]
-            lin_alarms_robots[sensor_id][robot_name]["curr"] = curr
+            log.info(f"[LinearAlarm][DEBUG] Robot {rname} pose={robot_pose}")
+            log.info(f"[LinearAlarm][DEBUG] Robot {rname} world_pts={world_pts}")
 
-            # Check if robot’s segment intersects the linear alarm area
-            intersection = check_lines_intersection(
-                start, end,
-                lin_alarms_robots[sensor_id][robot_name]["prev"],
-                lin_alarms_robots[sensor_id][robot_name]["curr"]
-            )
+            # --- Build robot edges from its perimeter ---
+            edges = list(zip(world_pts, world_pts[1:] + [world_pts[0]]))
 
-            if intersection:
-                detected[robot_name] = True
-                log.info(f"[LinearAlarm] Robot {robot_name} crossed linear region {sensor_id}")
+            # --- Check intersection between beam and robot edges ---
+            for edge_start, edge_end in edges:
+                if check_lines_intersection(start, end, edge_start, edge_end):
+                    triggered = True
+                    detections.append(rname)
+                    log.info(f"[LinearAlarm] Robot {rname} intersects beam {sensor_id}")
+                    break
 
-        return detected
+        result = {
+            "triggered": True if triggered else False,
+            "detections": ", ".join(detections) if detections else "{}"
+        }
+        log.info(f"[LinearAlarm] Result for {sensor_id}: {result}")
+        return result
+
     except Exception as e:
-        log.error(f"[LinearAlarm] {e}")
-        raise
+        import traceback
+        log.error(f"handle_linear_alarm({sensor_id}) crashed: {e}\n{traceback.format_exc()}")
+        return {"triggered": False, "detections": {}}
 
-def check_affectability(nodes, poses, log, sensor_id, env_properties, lin_alarms_robots=None):
+def check_affectability(nodes, poses, log, sensor_id, env_properties):
     """
     Check the affectability of a device based on its type and subtype.
     Parameters:
@@ -990,7 +1076,7 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, lin_alarms
             elif subtype == "areaalarm":
                 affected = handle_area_alarm(nodes, poses, log, sensor_id)
             elif subtype == "linearalarm":
-                affected = handle_linear_alarm(nodes, poses, log, sensor_id, lin_alarms_robots)
+                affected = handle_linear_alarm(nodes, poses, log, sensor_id)
             elif subtype in ("sonar", "ir"):
                 affected = handle_distance_sensor(nodes, poses, log, sensor_id)
             elif subtype == "light":

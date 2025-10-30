@@ -25,5 +25,6 @@ type_builtins = {
     'float32': PrimitiveDataType(None, 'float32'),
     'float64': PrimitiveDataType(None, 'float64'),
     'str': PrimitiveDataType(None, 'str'),
+    'bool': PrimitiveDataType(None, 'bool'),
     'Transformation': PrimitiveDataType(None, 'Transformation')
 }

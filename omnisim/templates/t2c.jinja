@@ -1,18 +1,18 @@
-{% set comm_name = (thing.subtype|capitalize if thing.subtype is defined else thing.type|capitalize) %}
+{% set comm_name = thing.subtype if thing.subtype is defined else thing.type %}
 Communication {{ comm_name }}Comms
     endpoints
         {% if thing.sensors is defined and thing.sensors|length > 0 %}
             {# ---- Case: Composite or Multi-Sensor Thing ---- #}
             {% for sensor in thing.sensors %}
                 {% set type = sensor.ref.type|lower if sensor.ref.type is defined else sensor.ref.__class__.__name__|lower %}
-                {% set subtype = (
-                    sensor.ref.subtype.name|lower
+                {% set subtype_orig = (
+                    sensor.ref.subtype.name
                     if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
-                    else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                    else (sensor.ref.subtype if sensor.ref.subtype is defined else sensor.ref.type)
                 ) %}
         publisher
-            topic: 'sensor.{{ type }}.{{ subtype }}'
-            msg: {{ subtype|capitalize }}Message
+            topic: 'sensor.{{ type }}.{{ subtype_orig|lower }}'
+            msg: {{ subtype_orig }}Message
         end
             {% endfor %}
         {% elif thing.composites is defined and thing.composites|length > 0 %}
@@ -21,14 +21,14 @@ Communication {{ comm_name }}Comms
                 {% if comp.ref.sensors is defined and comp.ref.sensors|length > 0 %}
                     {% for sensor in comp.ref.sensors %}
                         {% set type = sensor.ref.type|lower if sensor.ref.type is defined else sensor.ref.__class__.__name__|lower %}
-                        {% set subtype = (
-                            sensor.ref.subtype.name|lower
+                        {% set subtype_orig = (
+                            sensor.ref.subtype.name
                             if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
-                            else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                            else (sensor.ref.subtype if sensor.ref.subtype is defined else sensor.ref.type)
                         ) %}
         publisher
-            topic: 'sensor.{{ type }}.{{ subtype }}'
-            msg: {{ subtype|capitalize }}Message
+            topic: 'sensor.{{ type }}.{{ subtype_orig|lower }}'
+            msg: {{ subtype_orig }}Message
         end
                     {% endfor %}
                 {% endif %}
@@ -36,10 +36,10 @@ Communication {{ comm_name }}Comms
         {% elif thing.class == "Sensor" %}
             {# ---- Case: Simple single Sensor ---- #}
             {% set type = thing.type|lower if thing.type is defined else "sensor" %}
-            {% set subtype = thing.subtype|lower if thing.subtype is defined else "" %}
+            {% set subtype_orig = thing.subtype if thing.subtype is defined else "" %}
         publisher
-            topic: 'sensor.{{ type }}{{ "." ~ subtype if subtype else "" }}'
-            msg: {{ subtype|capitalize if subtype else type|capitalize }}Message
+            topic: 'sensor.{{ type }}{{ "." ~ subtype_orig|lower if subtype_orig else "" }}'
+            msg: {{ subtype_orig if subtype_orig else thing.type }}Message
         end
         {% endif %}
     end
@@ -47,12 +47,12 @@ Communication {{ comm_name }}Comms
     messages
         {% if thing.sensors is defined and thing.sensors|length > 0 %}
             {% for sensor in thing.sensors %}
-                {% set subtype = (
-                    sensor.ref.subtype.name|lower
+                {% set subtype_orig = (
+                    sensor.ref.subtype.name
                     if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
-                    else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                    else (sensor.ref.subtype if sensor.ref.subtype is defined else sensor.ref.type)
                 ) %}
-        TopicMsg {{ subtype|capitalize }}Message
+        TopicMsg {{ subtype_orig }}Message
             pubFreq: float
             type: str
             sensor_id: str
@@ -62,12 +62,12 @@ Communication {{ comm_name }}Comms
             {% for comp in thing.composites %}
                 {% if comp.ref.sensors is defined and comp.ref.sensors|length > 0 %}
                     {% for sensor in comp.ref.sensors %}
-                        {% set subtype = (
-                            sensor.ref.subtype.name|lower
+                        {% set subtype_orig = (
+                            sensor.ref.subtype.name
                             if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
-                            else (sensor.ref.subtype|lower if sensor.ref.subtype is defined else sensor.ref.type|lower)
+                            else (sensor.ref.subtype if sensor.ref.subtype is defined else sensor.ref.type)
                         ) %}
-        TopicMsg {{ subtype|capitalize }}Message
+        TopicMsg {{ subtype_orig }}Message
             pubFreq: float
             type: str
             sensor_id: str
@@ -76,18 +76,12 @@ Communication {{ comm_name }}Comms
                 {% endif %}
             {% endfor %}
         {% elif thing.class == "Sensor" %}
-            {% set subtype = thing.subtype|lower if thing.subtype is defined else "" %}
+            {% set subtype_orig = thing.subtype if thing.subtype is defined else "" %}
             {% set type = thing.type|lower if thing.type is defined else "sensor" %}
-        TopicMsg {{ subtype|capitalize if subtype else type|capitalize }}Message
+        TopicMsg {{ subtype_orig if subtype_orig else thing.type }}Message
             pubFreq: float
             type: str
             sensor_id: str
-            {# --- Inject dtype attributes if available --- #}
-            {% if dtype is defined and dtype and dtype.properties is defined %}
-                {% for p in dtype.properties %}
-            {{ p.name }}: {{ p.type }}
-                {% endfor %}
-            {% endif %}
         end
         {% endif %}
     end
