@@ -35,6 +35,9 @@ from .{{ comp_type }} import {{ posed_cthing.ref.type|default(comp_type|capitali
         {% endif %}
     {% endfor %}
 {% endif %}
+{% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+from commlib.msg import RPCMessage
+{% endif %}
 {% macro topic_prefix(obj, parent=None) -%}
     {# parent is a tuple like ("pantilt", "pt_1") #}
     {% set cls = obj.class|lower %}
@@ -184,6 +187,7 @@ class {{ thing_name }}Node(Node):
         else:
             # Top-level node (like Robot or top composite)
             full_topic_prefix = base_topic
+        self.full_topic_prefix = full_topic_prefix
         print(f"[{self.__class__.__name__}] parent_topic={parent_topic}, base_topic={base_topic}, full_topic_prefix={full_topic_prefix}")
         self.{{ id_field }} = {{ id_field }}
         self.pub_freq = {{ obj.pubFreq }}
@@ -247,7 +251,7 @@ class {{ thing_name }}Node(Node):
         self.current_target_idx = 0
         self.has_target = False
         self._last_t = time.monotonic()
-
+        
         if not self.automated:
             self.vel_sub = self.create_subscriber(
                 topic=f"{full_topic_prefix}.{self.{{ id_field }}}.cmd_vel",
@@ -270,14 +274,26 @@ class {{ thing_name }}Node(Node):
             msg_type=PoseMessage
         )
         
-        {% if obj.__class__.__name__ != "CompositeThing" %}
+        {% if cls == "sensor" %}
+        {% if obj.subtype|lower not in ["camera", "rfid", "microphone"] %}
+        # --- Passive sensor: publish data messages ---
         {% for e in publishers %}
-        # Data publisher for {{ e.msg.name }}
         self.data_publisher_{{ e.msg.name|lower|replace('message', '') }} = self.create_publisher(
             topic=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.data",
             msg_type={{ e.msg.name }}
         )
         {% endfor %}
+        {% endif %}
+        {% endif %}
+        
+        # === RPC client setup for active sensor ===
+        {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+        self.rpc_read_client = self.create_rpc_client(
+            rpc_name=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.read"
+        )
+        # Ensure Redis connection is established before usage
+        # if hasattr(self.rpc_read_client, "_transport") and self.rpc_read_client._transport:
+        #     self.rpc_read_client._transport.connect()
         {% endif %}
 
         {% for posed_sensor in obj.sensors %}
@@ -440,7 +456,6 @@ class {{ thing_name }}Node(Node):
         else:
             # Keep existing self.theta which is managed by _follow_targets()
             pass
-
         # Always store parent rotation for composite composition
         self.parent_theta = parent_pose["theta"]
     
@@ -453,29 +468,15 @@ class {{ thing_name }}Node(Node):
         """Start this node and all its children (if composite)."""
         if self.running:
             return
-        print(f"[{self.__class__.__name__}] Starting main loop...")
-
-        # --- Initialize all publishers/subscribers BEFORE running Redis ---
-        if not hasattr(self, "pose_publisher"):
-            self.pose_publisher = self.create_publisher(
-                topic=f"{self.full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.pose",
-                msg_type=PoseMessage
-            )
-
-        {% if obj.__class__.__name__ != "CompositeThing" %}
-        {% for e in publishers %}
-        if not hasattr(self, "data_publisher_{{ e.msg.name|lower|replace('message', '') }}"):
-            self.data_publisher_{{ e.msg.name|lower|replace('message', '') }} = self.create_publisher(
-                topic=f"{self.full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.data",
-                msg_type={{ e.msg.name }}
-            )
-        {% endfor %}
+        {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+        print(f"[{self.__class__.__name__}] Starting active RPC main loop...")
+        {% else %}
+        print(f"[{self.__class__.__name__}] Starting main loop at {self.pub_freq} Hz...")
         {% endif %}
 
         # --- Connect to Redis transport ---
         threading.Thread(target=super().run, daemon=True).start()
         time.sleep(0.2)  # short delay so Redis connection stabilizes
-
 
         # --- Start loop ---
         self.running = True
@@ -490,11 +491,11 @@ class {{ thing_name }}Node(Node):
                 node.start()
         {% endif %}
 
-
     def _run_loop(self):
         """Internal loop: publish pose (and data, if applicable)."""
         rate = Rate(self.pub_freq)
         self._last_t = time.monotonic()
+        last_detections = set()  # to prevent duplicate RPC calls
 
         while self.running:
             {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
@@ -539,15 +540,19 @@ class {{ thing_name }}Node(Node):
                     affs = updated_props["affections"]
                     if isinstance(affs, dict):
                         # --- Sonar or rangefinder ---
-                        if sensor_type in ("sonar", "rangefinder"):
+                        if sensor_type in ("sonar", "ir"):
                             for v in affs.values():
                                 if isinstance(v, (int, float)):
                                     return v
                                 if isinstance(v, dict) and "distance" in v:
                                     return v["distance"]
                         # --- Camera ---
-                        if sensor_type == "camera":
-                            return len(affs)  # number of detections
+                        # if sensor_type == "camera":
+                        #     # Prefer detection count if provided via RPC
+                        #     if "detections" in updated_props:
+                        #         dets = updated_props["detections"]
+                        #         if isinstance(dets, dict):
+                        #             return len(dets)
                 return None
 
             # Get simulation/affection results
@@ -555,10 +560,45 @@ class {{ thing_name }}Node(Node):
             subtype = getattr(self, "subtype", "").lower()
             type_ = getattr(self, "type", "").lower()
             main_key = subtype or type_
-            updated_props = self.simulate()
-            extracted_value = _extract_numeric_or_summary(subtype, updated_props)
+            
+            {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+            # --- Active sensor mode: perform RPC only when new detections appear ---
+            try:
+                rpc_req = {"sensor_id": self.{{ id_field }}}
+                resp = self.rpc_read_client.call(rpc_req, timeout=2.0)
+                print(f"[CameraNode] Calling RPC {self.rpc_read_client._rpc_name}")
+            except Exception as e:
+                print(f"[{{ thing_name }}Node] RPC call failed: {e}")
+                resp = {}
+            
+            detections = resp.get("detections", {}) if isinstance(resp, dict) else {}
+            new_detections = set(detections.keys())
+            appeared = new_detections - last_detections
+            disappeared = last_detections - new_detections
+            last_detections = new_detections
 
-            # Default fallback
+            # --- Trigger one-time RPC read for new text detections ---
+            updated_props = resp
+            for name in appeared:
+                info = detections.get(name, {})
+                if info.get("class") == "actor" and info.get("type") == "text":
+                    print(f"[{{ thing_name }}Node] New text detected: {name}, requesting content...")
+                    try:
+                        read_req = {"sensor_id": name}
+                        read_resp = self.rpc_read_client.call(read_req, timeout=2.0)
+                        message = read_resp.get("message") if isinstance(read_resp, dict) else None
+                        print(f"[{{ thing_name }}Node] Text '{name}' content: {message}")
+                        # Optionally store message in local state
+                        updated_props.setdefault("messages", {})[name] = message
+                    except Exception as e:
+                        print(f"[{{ thing_name }}Node] RPC read for text '{name}' failed: {e}")
+
+            {% else %}
+            # --- Passive sensor mode: local affection handler ---
+            updated_props = self.simulate()
+            {% endif %}
+            
+            extracted_value = _extract_numeric_or_summary(subtype, updated_props)
             if extracted_value is None:
                 extracted_value = getattr(self, "properties", {}).get(main_key, 0.0)
 
@@ -566,7 +606,7 @@ class {{ thing_name }}Node(Node):
             setattr(self, main_key, extracted_value)
             self._sim_data = {main_key: extracted_value}
             {% endif %}
-
+            {% if obj.subtype|lower not in ["camera", "rfid", "microphone"] %}
             {% if obj.__class__.__name__ != "CompositeThing" %}
             {% for e in publishers %}
             # Publish data message
@@ -579,11 +619,11 @@ class {{ thing_name }}Node(Node):
                 {{ prop.name }}=self.{{ prop.name }},
                 {% endfor %}
                 {% endif %}
-                # --- Inject affected variable dynamically ---
                 **{main_key: extracted_value},
             )
             self.data_publisher_{{ e.msg.name|lower|replace('message', '') }}.publish(msg_data)
             {% endfor %}
+            {% endif %}
             {% endif %}
             rate.sleep()
 

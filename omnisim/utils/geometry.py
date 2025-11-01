@@ -302,44 +302,38 @@ def node_pose_callback(nodes, poses, log, node: dict, parent_pose=None):
             if isinstance(entity_data, dict):
                 recurse(entity_data, node_pose, log)
 
-        log.info(f"[PoseUpdate] {node_class} {node_name}: {node_pose}")
+        # log.info(f"[PoseUpdate] {node_class} {node_name}: {node_pose}")
 
 def recurse(d, parent_pose, log):
     """
     Recursively update children using stored relative poses.
     Modifies children in-place with computed absolute poses.
     """
+    if not isinstance(d, dict):
+        return
+
     for k, v in d.items():
         if not isinstance(v, dict):
             continue
 
-        # Compute or retrieve relative pose
-        if "rel_pose" in v:
+        # --- Case 1: this node has a relative pose → compute absolute ---
+        if "rel_pose" in v and isinstance(v["rel_pose"], dict):
             rel_pose = v["rel_pose"]
-        elif all(c in v for c in ("x", "y", "theta")):
-            # Compute rel_pose from stored absolute values
-            rel_pose = {
-                "x": float(v["x"]) - float(parent_pose["x"]),
-                "y": float(v["y"]) - float(parent_pose["y"]),
-                "theta": float(v["theta"]) - float(parent_pose["theta"])
-            }
-            v["rel_pose"] = rel_pose
-            log.debug(f"[PoseInit] {k} computed rel_pose: {rel_pose}")
+            abs_pose = apply_transformation(parent_pose, rel_pose)
+            v["x"], v["y"], v["theta"] = abs_pose["x"], abs_pose["y"], abs_pose["theta"]
+
+            # log.info(f"[PoseUpdate] {v.get('name', k)}: {abs_pose}")
+
+            # This abs_pose becomes the new parent for its children
+            next_pose = abs_pose
         else:
-            rel_pose = {"x": 0.0, "y": 0.0, "theta": 0.0}
-            v["rel_pose"] = rel_pose
+            # No rel_pose means this is an intermediate type dict → don’t modify
+            next_pose = parent_pose
 
-        # Compute and update absolute pose
-        abs_pose = apply_transformation(parent_pose, rel_pose)
-        v["x"] = float(abs_pose["x"])
-        v["y"] = float(abs_pose["y"])
-        v["theta"] = float(abs_pose["theta"])
-        log.debug(f"[PoseUpdate] {k}: {abs_pose}")
-
-        # Recurse into nested children
-        for subsec in ("actuators", "sensors", "composites"):
-            if subsec in v and isinstance(v[subsec], dict):
-                recurse(v[subsec], abs_pose, log)
+        # --- Case 2: Recurse into any dict-valued subkeys ---
+        for subk, subv in v.items():
+            if isinstance(subv, dict):
+                recurse(subv, next_pose, log)
 
 def get_shape_world_points(pose, shape):
     """Return list of world-space (x, y) points for the given pose+shape dict."""

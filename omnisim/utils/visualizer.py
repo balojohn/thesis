@@ -490,33 +490,49 @@ class EnvVisualizer:
                 self.zoom /= self.zoom_step
     
     def _draw_all_entities(self):
-        """Traverse all node entities and draw them if a matching pose is found."""
-        def find_pose_by_name(d, name):
+        """Traverse all node entities recursively and draw them if a matching pose is found."""
+        def find_pose_by_name(d, name, depth=0):
             if not isinstance(d, dict):
                 return None
-            if name in d and isinstance(d[name], dict) and all(k in d[name] for k in ("x", "y", "theta")):
-                return d[name]
+            # --- Case 1: key directly matches ---
+            if name in d and isinstance(d[name], dict):
+                pose = d[name]
+                if all(k in pose for k in ("x", "y", "theta")):
+                    return pose
+                if "rel_pose" in pose and all(k in pose["rel_pose"] for k in ("x", "y", "theta")):
+                    return pose["rel_pose"]
+            # --- Case 2: this dict itself has a matching name ---
+            if "name" in d and d["name"].lower() == name.lower():
+                if all(k in d for k in ("x", "y", "theta")):
+                    return d
+                if "rel_pose" in d and all(k in d["rel_pose"] for k in ("x", "y", "theta")):
+                    return d["rel_pose"]
+            # --- Case 3: recurse deeper ---
             for v in d.values():
                 if isinstance(v, dict):
-                    res = find_pose_by_name(v, name)
+                    res = find_pose_by_name(v, name, depth + 1)
                     if res:
                         return res
             return None
 
-        def recurse(node_branch):
-            if not isinstance(node_branch, dict):
+        def recurse(branch):
+            """Depth-first traversal of all node branches (no class filtering)."""
+            if not isinstance(branch, dict):
                 return
-            for key, node in node_branch.items():
+            for key, node in branch.items():
                 if not isinstance(node, dict):
                     continue
                 if "class" in node:
                     pose = find_pose_by_name(self.node.poses, key)
                     if pose:
+                        # Debug print so you can verify it draws the deep ones
+                        # print(f"[DRAW] {key} ({node.get('class')}) -> {pose}")
                         self.draw_entity(pose["x"], pose["y"], pose["theta"], node, key)
+                # Always recurse deeper
                 recurse(node)
 
-        for category in ["sensors", "actuators", "actors", "composites", "obstacles"]:
-            recurse(self.node.nodes.get(category, {}))
+        # start from the full nodes dict (not just top categories)
+        recurse(self.node.nodes)
     
     # -----------------------------------------------------
     # ---------------- MAIN LOOP --------------------------

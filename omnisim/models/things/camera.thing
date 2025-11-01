@@ -3,7 +3,7 @@ Reader cam_1
     type: Reader
     subtype: Camera
     shape: Square(4)
-    pubFreq: 10
+    pubFreq: 1
     resHeight: 360
     resWidth: 480
     fov: 200

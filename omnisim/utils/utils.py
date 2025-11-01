@@ -6,6 +6,15 @@ MODEL_REPO_PATH = join(THIS_DIR, 'models')
 GENFILES_REPO_PATH = join(THIS_DIR, 'generated_files')
 TEMPLATES_PATH = join(THIS_DIR, 'templates')
 
+from commlib.msg import RPCMessage
+
+class SensorReadMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        sensor_id: str = ""
+
+    class Response(RPCMessage.Response):
+        result: dict = {}
+
 def apply_dispersion(x: float, type_name: str, **params) -> float:
     if type_name == "Constant":
         return x + params.get("value", 0.0)

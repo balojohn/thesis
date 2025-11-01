@@ -30,7 +30,7 @@ DataType {{ dt_name }}
     {% elif val is number %}
     {{ attr }}: float
     {% else %}
-    {{ attr }}: string
+    {{ attr }}: str
     {% endif %}
     {% endfor %}
 {% endif %}
