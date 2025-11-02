@@ -9,6 +9,16 @@ Model:
     )#
 ;
 
+Actor:
+    EnvActor        |
+    SoundSource     |
+    Color           |
+    Text            |
+    Human           |
+    CompositeActor  |
+    CustomActor       
+;
+
 CompositeActor:
     'CActor' name=ID
 	(
@@ -18,28 +28,49 @@ CompositeActor:
         ('automated:' automated=BOOL)?
         ('targets:'
              '-' targets+=TargetPose['-'])?
-        ('actors' ':'
+        ('actors:'
              '-' actors+=PosedActor['-'])?
-        ('composites' ':'
+        ('composites:'
              '-' composites+=PosedCActor['-'])?
 	)#
     'end'
 ;
 
+TargetPose:
+    point=Point | angle=Angle
+;
+
 PosedActor:
-    (ref=[Actor:FQN]) ('('name=ID')')? (transformation=Transformation)?
+    (ref=[Actor:FQN]) ('('name=ID')')? (transformation=DTransformation)?
 ;
 
 PosedCActor:
-    (ref=[CompositeActor:FQN]) ('('name=ID')')? (transformation=Transformation)?
+    (ref=[CompositeActor:FQN]) ('('name=ID')')? (transformation=DTransformation)?
 ;
 
-Actor:
-    EnvActor    |
-    SoundSource |
-    Color       |
-    Text        |
-    Human        
+PosedCustomActor:
+    (ref=[CustomActor:FQN]) ('('name=ID')')? (transformation=DTransformation)?
+;
+
+CustomActor:
+    'CustomActor' name=ID
+        (
+            ('class:' class=ID)?
+            ('type:' type=ID)?
+            ('subtype:' subtype=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('range:' range=FLOAT)?
+            ('value:' value=FLOAT)?
+            ('noise:' noise=Noise)?
+            ('dispersion:' dispersion=DispersionType)?
+            ('automated:' automated=BOOL)?
+            ('affects:'
+                 '-' affects+=ID['-'])?
+            ('affectedBy:'
+                 '-' affectedBy+=ID['-'])?
+        )#
+    'end'
 ;
 
 EnvActor:

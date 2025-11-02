@@ -77,7 +77,7 @@ def node_to_comms_m2m(thing) -> str:
             dtypes_mm = get_datatype_mm()
             dtype_model = dtypes_mm.model_from_file(dtype_path)
             # each .dtype file has at least one DataType
-            dtype = dtype_model.types[0]
+            dtype = dtype_model
             print(f"[*] Using dtype model: {dtype_path}")
         else:
             print(f"[!] No dtype file found for {thing.subtype}, skipping extra properties")

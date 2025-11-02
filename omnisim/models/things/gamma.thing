@@ -1,0 +1,12 @@
+CustomThing gam_1
+    class: Sensor
+    type: Radiation
+    subtype: Gamma
+    shape: Circle(5)
+    pubFreq: 2.0
+    range: 300.0
+    noise: Gaussian(mean: 0.0, std: 0.1)
+    affectedBy:
+        - fire
+        - led
+end

@@ -1,5 +1,5 @@
 import math, random
-from omnisim.utils.utils import apply_noise
+from omnisim.utils.utils import apply_noise, apply_dispersion
 from omnisim.utils.geometry import (
     calc_distance,
     check_lines_intersection,
@@ -100,25 +100,37 @@ def handle_affection_ranged(nodes, poses, log, sensor: dict, node: dict, type):
         return None
 
     # Distance between sensor and target
-    dist = calc_distance(
-        [pose_start['x'], pose_start['y']],
-        [pose_end['x'], pose_end['y']]
-    )
-    sensor_range = sensor.get("properties", {}).get("range", 0)
+    dist = calc_distance([pose_start['x'], pose_start['y']], [pose_end['x'], pose_end['y']])
+    rng = node.get("properties", {}).get("range", 0.0)
+    if rng <= 0 or dist > rng:
+        return None
     
-    if dist < sensor_range:  # within affection range
-        result = {
-            'class': node_class,
-            'type': node_type,
-            'subtype': node_subtype,
-            'name': node_name,
-            'distance': dist,
-            'range': sensor_range,
-        }
-        # Merge node properties at top-level
-        result.update(node.get('properties', {}))
-        return result
-    return None
+    disp = node.get("properties", {}).get("dispersion", None)
+    base_val = node.get("properties", {}).get("value", 0.0) # e.g. target temperature
+    weight = 1.0
+    if isinstance(disp, dict):
+        dtype = disp.get("type")
+        params = disp.get("params", {})
+        weight = apply_dispersion(1.0 - dist / rng, dtype, **params)
+    else:
+        weight = max(0.0, 1.0 - dist / rng)
+
+    field_val = base_val * weight # attenuated value at sensor based on distance
+
+    return {
+        'class': node_class,
+        'type': node_type,
+        'subtype': node_subtype,
+        'name': node_name,
+        'distance': dist,
+        'range': rng,
+        'value': field_val,
+        'raw_value': base_val,
+        'weight': weight,
+    }
+    # # Merge node properties at top-level
+    # result.update(node.get('properties', {}))
+    # return result
 
 def handle_affection_arced(nodes, poses, log, sensor, node, type,
                            sensor_pose=None, target_pose=None):
@@ -222,47 +234,30 @@ def handle_temperature_sensor(nodes, poses, log, sensor_id, env_properties=None)
         sensor = find_node_by_id(nodes, sensor_id)
         props = sensor.get("properties", {})
         env_temp = (env_properties or {}).get("temperature", 25.0)
-        influences = []
         noise = props.get("noise", 0.0)  # sensor-specific noise amplitude
-
+        influences = []
+        
         thermostats = find_nodes_by_metadata(nodes, cls="actuator", type="envdevice", subtype="thermostat")
         fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
-
-        # --- Thermostat influences ---
-        for target in thermostats:
+        generic_entities = find_nodes_by_metadata(nodes)
+        
+        for target in thermostats + fires + generic_entities:
+            if target in generic_entities and \
+            "temperature" not in (target.get("properties", {}).get("affects") or []):
+                continue
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "temperature")
             if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                target_val = r.get("target_value", env_temp)
-                influences.append(weight * target_val + (1 - weight) * env_temp)
+                influences.append(r["value"])
 
-        # --- Fire influences (increase temp strongly) ---
-        for target in fires:
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "temperature")
-            if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                val = r.get("value", env_temp)
-                influences.append(weight * val + (1 - weight) * env_temp)
-
-        # --- Compute final reading ---
+        sensed = env_temp
         if influences:
-            sensed_temp = sum(influences) / len(influences)
-        else:
-            sensed_temp = env_temp
+            sensed = env_temp + sum(influences) / len(influences)
 
-        # Apply noise
-        sensed_temp = apply_noise(sensed_temp, noise)
-
-        return {"temperature": round(sensed_temp, 2)}
+        return {"temperature": round(apply_noise(sensed, noise), 2)}
 
     except Exception as e:
         log.error(f"handle_temperature_sensor: {e}")
         raise
-
 
 # Affected by humidifiers and waters
 def handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties=None):
@@ -283,43 +278,30 @@ def handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties=None):
         sensor = find_node_by_id(nodes, sensor_id)
         props = sensor.get("properties", {})
         env_hum = (env_properties or {}).get("humidity", 40.0)
+        noise = props.get("noise", 0.0)
         influences = []
-        noise = props.get("noise", 0.0)  # sensor-specific noise amplitude
 
         humidifiers = find_nodes_by_metadata(nodes, cls="actuator", type="envdevice", subtype="humidifier")
         waters = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="water")
-
-        # Humidifier influences
-        for target in humidifiers:
+        generic_entities = find_nodes_by_metadata(nodes)
+        
+        for target in humidifiers + waters + generic_entities:
+            if target in generic_entities and \
+            "humidity" not in (target.get("properties", {}).get("affects") or []):
+                continue
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "humidity")
-            if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                target_val = r.get("target_value", env_hum)
-                influences.append(weight * target_val + (1 - weight) * env_hum)
+            if not r:
+                continue
+            # Normalize to [0,100]
+            scale = 100
+            val = max(0.0, min(1.0, r["value"])) * scale
+            influences.append(val)
 
-        # Water influences
-        for target in waters:
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "temperature")
-            if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                val = r.get("value", env_hum)
-                influences.append(weight * val + (1 - weight) * env_hum)
-
-        # Compute final reading
+        sensed = env_hum
         if influences:
-            sensed_hum = sum(influences) / len(influences)
-        else:
-            sensed_hum = env_hum
+            sensed = env_hum + sum(influences) / len(influences)
 
-        # Apply noise
-        sensed_hum = apply_noise(sensed_hum, noise)
-
-        return {"humidity": round(sensed_hum, 2)}
-    
+        return {"humidity": round(apply_noise(sensed, noise), 2)}
     except Exception as e:
         log.error(f"handle_humidity_sensor: {e}")
         raise
@@ -342,34 +324,31 @@ def handle_gas_sensor(nodes, poses, log, sensor_id, env_properties=None):
 
         humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
         fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
+        generic_entities = find_nodes_by_metadata(nodes)
 
-        for target in humans + fires:
+        for target in humans + fires + generic_entities:
+            if target in generic_entities and \
+            "gas" not in (target.get("properties", {}).get("affects") or []):
+                continue
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "gas")
-            log.info(f"[GasCheck] {sensor_id} -> {target['name']}, result={r}")
             if not r:
                 continue
-
-            dist = r["distance"]
-            rng = r["range"]
-            weight = max(0.0, 1.0 - dist / rng)
-
             if target["subtype"] == "fire":
-                # --- Smoke intensity derived from heat value ---
-                fire_val = target.get("properties", {}).get("value", 0.0)
-                smoke_factor = 0.3   # 30 % of fire intensity becomes smoke
-                target_val = fire_val * smoke_factor
+                # convert emitted value to smoke intensity
+                val = r["value"] * 0.3
             elif target["subtype"] == "human":
-                # Human CO₂ emission (can come from r["value"] or fixed)
-                target_val = r.get("value", env_gas + 5.0)
+                val = r["value"] or (env_gas + 5.0)
             else:
-                target_val = env_gas
+                val = env_gas
+            # Normalize to [0,100]
+            scale = 100
+            val = max(0.0, min(1.0, val)) * scale
+            influences.append(val)
 
-            influences.append(weight * target_val + (1 - weight) * env_gas)
-
-        sensed_gas = sum(influences) / len(influences) if influences else env_gas
-        sensed_gas = apply_noise(sensed_gas, noise)
-        return {"gas": round(sensed_gas, 2)}
-
+        sensed = env_gas
+        if influences:
+            sensed = env_gas + sum(influences) / len(influences)
+        return {"gas": round(apply_noise(sensed, noise), 2)}
     except Exception as e:
         log.error(f"handle_gas_sensor: {e}")
         raise
@@ -386,64 +365,32 @@ def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None):
         sensor = find_node_by_id(nodes, sensor_id)
         props = sensor.get("properties", {})
         env_sound = (env_properties or {}).get("sound", 20.0)
-        influences = []
         noise = props.get("noise", 0.0)
-        mic_range = props.get("range", sensor.get("range", 0))  # new
+        influences = []
+        # mic_range = props.get("range", sensor.get("range", 0))  # new
 
         speakers = find_nodes_by_metadata(nodes, cls="actuator", subtype="speaker")
         humans = find_nodes_by_metadata(nodes, cls="actor", type="human")
         soundsources = find_nodes_by_metadata(nodes, cls="actor", type="soundsource")
+        generic_entities = find_nodes_by_metadata(nodes)
 
-        log.info(f"[Microphone] Evaluating {sensor_id} at env_sound={env_sound}")
-        for target in speakers + humans + soundsources:
-            tname = target.get("name", "unknown")
-            props_t = target.get("properties", {})
-            src_sound = props_t.get("sound", target.get("sound", env_sound))
-            src_range = props_t.get("range", target.get("range", 0))
-            if src_sound == 0:
+        for target in speakers + humans + soundsources + generic_entities:
+            if target in generic_entities and \
+            "microphone" not in (target.get("properties", {}).get("affects") or []):
                 continue
-
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "sound")
             if not r:
-                log.debug(f"    [skip] {tname}: out of range or not visible")
                 continue
+            influences.append(r["value"])
 
-            dist = r["distance"]
-
-            # --- FIX: use the *larger* of source/sensor ranges ---
-            rng = max(src_range, mic_range, r.get("range", 0))
-            if rng <= 0:
-                log.debug(f"    [skip] {tname}: invalid range {rng}")
-                continue
-
-            weight = max(0.0, 1.0 - dist / rng)
-            sensed_val = weight * src_sound + (1 - weight) * env_sound
-
-            if weight > 0.0:
-                influences.append(sensed_val)
-                log.info(f"    [src] {tname}: sound={src_sound}, dist={dist:.1f}, "
-                         f"range={rng}, weight={weight:.3f}, contrib={sensed_val:.2f}")
-            else:
-                log.debug(f"    [skip] {tname}: out of range ({dist:.1f}>{rng})")
-
-        # --- Combine all contributions ---
+        sensed = env_sound
         if influences:
-            sensed_sound = max(env_sound, sum(influences) / len(influences))
-            log.info(f"    [mix] Averaged {len(influences)} influences -> {sensed_sound:.2f}")
-        else:
-            sensed_sound = env_sound
-            log.info(f"    [mix] No influences -> baseline {sensed_sound:.2f}")
+            sensed = env_sound + sum(influences) / len(influences)
 
-        # --- Add noise ---
-        sensed_sound = apply_noise(sensed_sound, noise)
-        log.info(f"    [final] After noise ({noise}) -> {sensed_sound:.2f}")
-
-        return {"sound": round(sensed_sound, 2)}
-
+        return {"sound": round(apply_noise(sensed, noise), 2)}
     except Exception as e:
         log.error(f"handle_microphone_sensor: {e}")
         raise
-
 
 def compute_luminosity(nodes, poses, log, sensor_id, env_properties=None, print_debug=False):
     """
@@ -539,77 +486,30 @@ def handle_light_sensor(nodes, poses, log, sensor_id, env_properties=None):
     Returns: {"light": float}
     """
     try:
-        log.info(f"[LightSensor] Evaluating {sensor_id}")
-
         sensor = find_node_by_id(nodes, sensor_id)
         if not sensor:
-            log.warning(f"[LightSensor] Sensor {sensor_id} not found in node tree!")
             return {"light": (env_properties or {}).get("luminosity", 60.0)}
 
         props = sensor.get("properties", {})
         env_light = (env_properties or {}).get("luminosity", 60.0)
-        influences = []
         noise = props.get("noise", 0.0)
+        influences = []
 
-        log.info(f"[LightSensor] Baseline env_luminosity={env_light}, noise={noise}")
-
-        # --- Collect all light sources: fires + LEDs ---
         fires = find_nodes_by_metadata(nodes, cls="actor", type="envactor", subtype="fire")
         leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
-        sources = fires + leds
-        log.info(f"[LightSensor] Found {len(sources)} light source(s): {[s.get('name') for s in sources]}")
-
-        # --- Evaluate each fire influence ---
-        for target in sources:
-            fname = target.get("name", "unknown")
+        generic_entities = find_nodes_by_metadata(nodes)
+        for target in fires + leds + generic_entities:
+            if target in generic_entities and \
+            "light" not in (target.get("properties", {}).get("affects") or []):
+                continue
             r = handle_affection_ranged(nodes, poses, log, sensor, target, "light")
             if not r:
-                log.info(f"    [skip] {fname}: out of range or pose not found")
                 continue
+            influences.append(r["value"])
 
-            dist = r["distance"]
-            rng = r["range"]
-            weight = max(0.0, 1.0 - dist / rng)
-
-            if target["subtype"] == "fire":
-                # --- Smoke intensity derived from heat value ---
-                fire_val = target.get("properties", {}).get("value", 0.0)
-                luminosity_factor = 0.3   # 30 % of fire intensity becomes luminosity
-                target_val = fire_val * luminosity_factor
-            elif target["subtype"] == "led":
-                color_hex = target.get("properties", {}).get("color", "#FFFFFF")
-                # Convert hex → RGB [0..1]
-                r = int(color_hex[1:3], 16) / 255.0
-                g = int(color_hex[3:5], 16) / 255.0
-                b = int(color_hex[5:7], 16) / 255.0
-                # Compute luminance (perceived brightness)
-                luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-                # Scale to 0–100 range
-                target_val = luminance * 100.0
-            else:
-                target_val = env_light
-            
-            influences.append(weight * target_val)
-            log.info(
-                f"    [fire] {fname}: value={fire_val}, dist={dist:.1f}, "
-                f"range={rng}, weight={weight:.3f}, contrib={target_val:.2f}"
-            )
-
-        # --- Combine influences ---
-        if influences:
-            # Absolute addition (without clamping to 0-100)
-            sensed_light = env_light + sum(influences)
-            log.info(f"[LightSensor] Combined {len(influences)} influence(s) -> {sensed_light:.2f}")
-        else:
-            sensed_light = env_light
-            log.info(f"[LightSensor] No fires in range -> using baseline {sensed_light:.2f}")
-
-        # sensed_light = max(0.0, min(100.0, sensed_light))
-        # --- Apply noise ---
-        # sensed_light = apply_noise(sensed_light, noise)
-        log.info(f"[LightSensor] Final (after noise) -> {sensed_light:.2f}")
-
-        return {"light": round(sensed_light, 2)}
+        sensed = env_light + sum(influences) if influences else env_light
+        sensed = apply_noise(sensed, noise)
+        return {"light": round(sensed, 2)}
 
     except Exception as e:
         log.error(f"handle_light_sensor: {e}")
@@ -630,8 +530,6 @@ def handle_distance_sensor(nodes, poses, log, sensor_id, env_properties=None):
         
         props = sensor.get("properties", {})
         noise = props.get("noise", 0.0)
-
-        # --- Find sensor pose recursively ---
         sensor_pose = find_pose_by_metadata(
             poses,
             sensor.get("class", ""),
@@ -643,16 +541,16 @@ def handle_distance_sensor(nodes, poses, log, sensor_id, env_properties=None):
             log.warning(f"[Sonar] Pose for {sensor_id} not found in pose tree.")
             return {"distance": 0.0}
 
-        # --- Collect potential targets ---
-        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
-        obstacles = find_nodes_by_metadata(nodes, cls="obstacle")
-        actors = find_nodes_by_metadata(nodes, cls="actor")  # optional (fires, humans, etc.)
-        potential_targets = robots + obstacles + actors
+        targets = (
+            find_nodes_by_metadata(nodes, cls="composite", type="robot")
+            + find_nodes_by_metadata(nodes, cls="obstacle")
+            + find_nodes_by_metadata(nodes, cls="actor")
+        )
 
-        min_dist = None
-        nearest_obj = None
+        nearest = None
+        min_dist = float("inf")
 
-        for target in potential_targets:
+        for target in targets:
             if target.get("name") == sensor.get("name"):
                 continue
 
@@ -673,32 +571,23 @@ def handle_distance_sensor(nodes, poses, log, sensor_id, env_properties=None):
                 sensor, target, target.get("subtype"),
                 sensor_pose=sensor_pose, target_pose=target_pose
             )
-
-            if r:
-                d = r["distance"]
-                if min_dist is None or d < min_dist:
-                    min_dist = d
-                    nearest_obj = r
-
-        # --- Fallback: nothing detected ---
-        if min_dist is None:
-            sensed_dist = props.get("range", 0)
-            return {
-                "distance": round(apply_noise(sensed_dist, noise), 2),
-                "detected_class": None,
-                "detected_type": None,
-                "detected_subtype": None,
-                "detected_name": None,
-            }
-
-        # --- Return detection result ---
-        sensed_dist = apply_noise(min_dist, noise)
+            if not r:
+                continue
+            d = r["distance"]
+            if d < min_dist:
+                min_dist = d
+                nearest = r
+        if not nearest:
+            sensed = apply_noise(props.get("range", 0), noise)
+            return {"distance": round(sensed, 2)}
+        
+        sensed = apply_noise(min_dist, noise)
         return {
-            "distance": round(sensed_dist, 2),
-            "detected_class": nearest_obj.get("class"),
-            "detected_type": nearest_obj.get("type"),
-            "detected_subtype": nearest_obj.get("subtype"),
-            "detected_name": nearest_obj.get("name"),
+            "distance": round(sensed, 2),
+            "detected_class": nearest["class"],
+            "detected_type": nearest["type"],
+            "detected_subtype": nearest["subtype"],
+            "detected_name": nearest["name"],
         }
 
     except Exception as e:
@@ -860,77 +749,21 @@ def handle_rfid_sensor(nodes, poses, log, sensor_id):
 
 # Affected by robots
 def handle_area_alarm(nodes, poses, log, sensor_id, env_properties=None):
-    """
-    Compute area alarm trigger based on proximity of robots.
-    Influences: robots (composite.type=robot)
-    Returns: {"triggered": bool, "detections": {robot_id: {"distance": float, "range": float}}}
-    """
+    """Trigger when a robot is within range."""
     try:
-        log.info(f"[AreaAlarm] Evaluating {sensor_id}")
-
-        # --- Locate the alarm sensor node ---
         sensor = find_node_by_id(nodes, sensor_id)
         if not sensor:
-            log.warning(f"[AreaAlarm] Sensor {sensor_id} not found in node tree.")
             return {"triggered": False, "detections": {}}
 
-        props = sensor.get("properties", {})
-        sensor_range = props.get("range", 100.0)
-        noise = props.get("noise", 0.0)
-
-        # --- Find the alarm’s pose ---
-        sensor_pose = find_pose_by_metadata(
-            poses,
-            cls=sensor.get("class", "").lower(),
-            type=sensor.get("type", "").lower(),
-            subtype=sensor.get("subtype", "").lower(),
-            name=sensor.get("name", "").lower()
-        )
-        if not sensor_pose:
-            log.warning(f"[AreaAlarm] Pose not found for {sensor_id}")
-            return {"triggered": False, "detections": {}}
-
-        # --- Collect all robots ---
-        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
-        detections = {}
-        triggered = False
-
-        # --- Check each robot ---
-        for target in robots:
-            rid = target.get("name")
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "robot")
-            if not r:
-                continue
-            
-            # if not r or "distance" not in r or r["distance"] is None:
-            #     log.debug(f"[AreaAlarm][DEBUG] Skipping {rid}: no valid distance {r}")
-            #     continue
-            dist = r["distance"]
-            rng = r["range"]
-            weight = max(0.0, 1.0 - dist / rng)
-
-            # Store detection details
-            detections[rid] = {
-                "distance": round(apply_noise(dist, noise), 2),
-                "range": rng,
-                "weight": round(weight, 3)
-            }
-
-            if dist <= rng:
-                triggered = True
-                log.info(f"[AreaAlarm] Triggered by {rid} at {dist:.1f}/{rng:.1f}")
-
-        # --- Result ---
-        result = {
-            "triggered": True if triggered else False,
-            "detections": ", ".join(detections.keys()) if detections else "{}"
-        }
-        log.info(f"[AreaAlarm] Result for {sensor_id}: {result}")
-        return result
+        detections = []
+        for r in find_nodes_by_metadata(nodes, cls="composite", type="robot"):
+            aff = handle_affection_ranged(nodes, poses, log, sensor, r, "robot")
+            if aff and aff["distance"] <= aff["range"]:
+                detections.append(r["name"])
+        return {"triggered": bool(detections), "detections": detections}
 
     except Exception as e:
-        import traceback
-        log.error(f"handle_area_alarm({sensor_id}) crashed: {e}\n{traceback.format_exc()}")
+        log.error(f"handle_area_alarm({sensor_id}) error: {e}")
         return {"triggered": False, "detections": "{}"}
 
 # Affected by robots
@@ -957,23 +790,15 @@ def handle_linear_alarm(nodes, poses, log, sensor_id):
     try:
         log.info(f"[LinearAlarm] Evaluating {sensor_id}")
 
-        # --- Locate the alarm sensor node ---
         sensor = find_node_by_id(nodes, sensor_id)
         if not isinstance(sensor, dict):
-            log.warning(f"[LinearAlarm] Sensor {sensor_id} not found or invalid")
-            return {"triggered": False, "detections": {}}
+            return {"triggered": False, "detections": []}
 
-        shape = sensor.get("shape")
-        if not shape or not isinstance(shape, dict):
-            log.warning(f"[LinearAlarm] Sensor {sensor_id} has no valid shape! shape={shape}")
-            return {"triggered": False, "detections": {}}
+        shape = sensor.get("shape", {})
+        points = shape.get("points", [])
+        if len(points) < 2:
+            return {"triggered": False, "detections": []}
 
-        points = shape.get("points")
-        if not points or len(points) < 2:
-            log.warning(f"[LinearAlarm] Sensor {sensor_id} shape has insufficient points!")
-            return {"triggered": False, "detections": {}}
-
-        # --- Retrieve pose ---
         pose = find_pose_by_metadata(
             poses,
             cls=sensor.get("class", "").lower(),
@@ -983,68 +808,80 @@ def handle_linear_alarm(nodes, poses, log, sensor_id):
         )
         if not pose:
             log.warning(f"[LinearAlarm] Pose not found for {sensor_id}")
-            return {"triggered": False, "detections": {}}
+            return {"triggered": False, "detections": []}
 
-        ent_x, ent_y, ent_theta = pose["x"], pose["y"], pose["theta"]
-        rot = math.radians(ent_theta)
+        # Compute beam endpoints in world space
+        x, y, th = pose["x"], pose["y"], math.radians(pose["theta"])
+        def tf_local_to_world(pt):
+            return [
+                x + pt["x"] * math.cos(th) - pt["y"] * math.sin(th),
+                y + pt["x"] * math.sin(th) + pt["y"] * math.cos(th),
+            ]
 
-        # --- Beam endpoints in world coordinates ---
-        start = [
-            ent_x + (points[0]["x"] * math.cos(rot) - points[0]["y"] * math.sin(rot)),
-            ent_y + (points[0]["x"] * math.sin(rot) + points[0]["y"] * math.cos(rot))
-        ]
-        end = [
-            ent_x + (points[1]["x"] * math.cos(rot) - points[1]["y"] * math.sin(rot)),
-            ent_y + (points[1]["x"] * math.sin(rot) + points[1]["y"] * math.cos(rot))
-        ]
+        start, end = tf_local_to_world(points[0]), tf_local_to_world(points[1])
 
-        # --- Gather robots ---
-        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
         detections = []
+        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
         triggered = False
 
         # log.info(f"[LinearAlarm][DEBUG] Beam start={start}, end={end}")
-        for robot in robots:
-            rname = robot.get("name")
-            robot_pose = find_pose_by_metadata(poses, "composite", "robot", None, rname)
-            if not robot_pose:
+        for rob in robots:
+            rob_pose = find_pose_by_metadata(poses, rob["class"], rob["type"], rob.get("subtype"), rob["name"])
+            if not rob_pose:
                 continue
-
-            shape_r = robot.get("shape", {})
-            if not shape_r:
-                continue
-            # === Compute world-space corners using your visualizer logic ===
-            # (this helper produces the same points visualized on screen)
-            world_pts = get_shape_world_points(robot_pose, shape_r)
-
+            world_pts = get_shape_world_points(rob_pose, rob.get("shape", {}))
             if not world_pts or len(world_pts) < 2:
                 continue
 
-            # log.info(f"[LinearAlarm][DEBUG] Robot {rname} pose={robot_pose}")
-            # log.info(f"[LinearAlarm][DEBUG] Robot {rname} world_pts={world_pts}")
-
-            # --- Build robot edges from its perimeter ---
-            edges = list(zip(world_pts, world_pts[1:] + [world_pts[0]]))
-
-            # --- Check intersection between beam and robot edges ---
-            for edge_start, edge_end in edges:
-                if check_lines_intersection(start, end, edge_start, edge_end):
-                    triggered = True
-                    detections.append(rname)
-                    log.info(f"[LinearAlarm] Robot {rname} intersects beam {sensor_id}")
+            # Test each robot edge for intersection
+            for a, b in zip(world_pts, world_pts[1:] + [world_pts[0]]):
+                if check_lines_intersection(start, end, a, b):
+                    detections.append(rob["name"])
                     break
 
-        result = {
-            "triggered": True if triggered else False,
-            "detections": ", ".join(detections) if detections else "{}"
-        }
-        log.info(f"[LinearAlarm] Result for {sensor_id}: {result}")
-        return result
+        return {"triggered": bool(detections), "detections": detections}
 
     except Exception as e:
         import traceback
         log.error(f"handle_linear_alarm({sensor_id}) crashed: {e}\n{traceback.format_exc()}")
         return {"triggered": False, "detections": {}}
+
+def handle_generic_sensor(nodes, poses, log, sensor_id, env_properties=None):
+    """
+    Generic fallback handler for custom sensors (e.g., gamma, delta).
+    Reads declared 'affections' list and computes combined influence.
+    Returns: {"<subtype>": float}
+    """
+    try:
+        sensor = find_node_by_id(nodes, sensor_id)
+        if not sensor:
+            log.warning(f"[GenericSensor] {sensor_id} not found.")
+            return {}
+
+        props = sensor.get("properties", {})
+        affections = props.get("affectedBy", [])  # e.g. ["fire", "human"]
+        noise = props.get("noise", 0.0)
+        influences = []
+
+        for aff in affections:
+            targets = find_nodes_by_metadata(nodes, subtype=aff.lower())
+            for target in targets:
+                r = handle_affection_ranged(nodes, poses, log, sensor, target, aff)
+                if r:
+                    influences.append(r["value"])
+
+        if not influences:
+            sensed = 0.0
+        else:
+            sensed = sum(influences) / len(influences)
+
+        sensed = apply_noise(sensed, noise)
+        subtype = (sensor.get("subtype") or sensor.get("type") or "custom").lower()
+        return {subtype: round(sensed, 2)}
+
+    except Exception as e:
+        log.error(f"handle_generic_sensor({sensor_id}) error: {e}")
+        return {}
 
 def check_affectability(nodes, poses, log, sensor_id, env_properties, env=None):
     """
@@ -1110,6 +947,8 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, env=None):
                 affected = handle_distance_sensor(nodes, poses, log, sensor_id)
             elif subtype == "light":
                 affected = handle_light_sensor(nodes, poses, log, sensor_id, env_properties)
+            else:
+                affected = handle_generic_sensor(nodes, poses, log, sensor_id, env_properties)
 
         # --- Composite sensors (robot-mounted sensors, pantilt, etc.) ---
         elif node_class == "composite" and node_type == "robot":

@@ -9,7 +9,7 @@ Model:
 ;
 
 
-Thing: Sensor | Actuator | CompositeThing;
+Thing: Sensor | Actuator | CompositeThing | CustomThing;
 
 CompositeThing:
     'CThing' name=ID
@@ -34,7 +34,7 @@ TargetPose:
     point=Point | angle=Angle
 ;
 
-PosedThing: PosedSensor | PosedActuator | PosedCThing;
+PosedThing: PosedSensor | PosedActuator | PosedCThing | PosedCustomThing;
 
 PosedCThing:
     (ref=[CompositeThing:FQN]) ('('name=ID')')? (transformation=DTransformation)?
@@ -46,6 +46,31 @@ PosedSensor:
 
 PosedActuator:
     ref=[Actuator:FQN] ('('name=ID')')? (transformation=DTransformation)?
+;
+
+PosedCustomThing:
+    (ref=[CustomThing:FQN]) ('('name=ID')')? (transformation=DTransformation)?
+;
+
+CustomThing:
+    'CustomThing' name=ID
+        (
+            ('class:' class=ID)?
+            ('type:' type=ID)?
+            ('subtype:' subtype=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('range:' range=FLOAT)?
+            ('target_value:' target_value=FLOAT)?
+            ('noise:' noise=Noise)?
+            ('dispersion:' dispersion=DispersionType)?
+            ('automated:' automated=BOOL)?
+            ('affects:'
+                 '-' affects+=ID['-'])?
+            ('affectedBy:'
+                 '-' affectedBy+=ID['-'])?
+        )#
+    'end'
 ;
 
 Sensor:

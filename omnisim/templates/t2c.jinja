@@ -47,41 +47,64 @@ Communication {{ comm_name }}Comms
     messages
         {% if thing.sensors is defined and thing.sensors|length > 0 %}
             {% for sensor in thing.sensors %}
+                {% set ref = sensor.ref %}
                 {% set subtype_orig = (
-                    sensor.ref.subtype.name
-                    if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
-                    else (sensor.ref.subtype if sensor.ref.subtype is defined else sensor.ref.type)
+                    ref.subtype.name
+                    if ref.subtype is defined and ref.subtype.name is defined
+                    else (ref.subtype if ref.subtype is defined else ref.type)
                 ) %}
-        TopicMsg {{ subtype_orig }}Message
+                {% set dtype_name = (ref.subtype if ref.subtype is defined else ref.type) ~ "Data" %}
+                {% set dtype_obj = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
+        TopicMsg {{ subtype_orig if subtype_orig else ref.type }}Message
             pubFreq: float
             type: str
-            sensor_id: str
+            name: str
+            {% if dtype_obj %}
+                {% for prop in dtype_obj.properties %}
+            {{ prop.name }}: {{ prop.type.name }}
+                {% endfor %}
+            {% endif %}
         end
             {% endfor %}
+
         {% elif thing.composites is defined and thing.composites|length > 0 %}
             {% for comp in thing.composites %}
                 {% if comp.ref.sensors is defined and comp.ref.sensors|length > 0 %}
                     {% for sensor in comp.ref.sensors %}
+                        {% set ref = sensor.ref %}
                         {% set subtype_orig = (
-                            sensor.ref.subtype.name
-                            if sensor.ref.subtype is defined and sensor.ref.subtype.name is defined
-                            else (sensor.ref.subtype if sensor.ref.subtype is defined else sensor.ref.type)
+                            ref.subtype.name
+                            if ref.subtype is defined and ref.subtype.name is defined
+                            else (ref.subtype if ref.subtype is defined else ref.type)
                         ) %}
-        TopicMsg {{ subtype_orig }}Message
+                        {% set dtype_name = (ref.subtype if ref.subtype is defined else ref.type) ~ "Data" %}
+                        {% set dtype_obj = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
+        TopicMsg {{ subtype_orig if subtype_orig else ref.type }}Message
             pubFreq: float
             type: str
-            sensor_id: str
+            name: str
+            {% if dtype_obj %}
+                {% for prop in dtype_obj.properties %}
+            {{ prop.name }}: {{ prop.type.name }}
+                {% endfor %}
+            {% endif %}
         end
                     {% endfor %}
                 {% endif %}
             {% endfor %}
+
         {% elif thing.class == "Sensor" %}
-            {% set subtype_orig = thing.subtype if thing.subtype is defined else "" %}
-            {% set type = thing.type|lower if thing.type is defined else "sensor" %}
-        TopicMsg {{ subtype_orig if subtype_orig else thing.type }}Message
+            {% set dtype_name = (thing.subtype if thing.subtype is defined else thing.type) ~ "Data" %}
+            {% set dtype_obj = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
+        TopicMsg {{ thing.subtype if thing.subtype is defined else thing.type }}Message
             pubFreq: float
             type: str
-            sensor_id: str
+            name: str
+            {% if dtype_obj %}
+                {% for prop in dtype_obj.properties %}
+            {{ prop.name }}: {{ prop.type.name }}
+                {% endfor %}
+            {% endif %}
         end
         {% endif %}
     end

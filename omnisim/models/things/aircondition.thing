@@ -1,0 +1,12 @@
+CustomThing ac_1
+    class: Actuator
+    subtype: AirCondition
+    shape: Rectangle(10, 4)
+    pubFreq: 2.0
+    range: 200
+    target_value: 26
+    dispersion: Logarithmic(base: 2, alpha: 2)
+    affects:
+        - temperature
+        - humidity
+end

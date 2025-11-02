@@ -1,8 +1,8 @@
 {# --- Excluded internal attributes --- #}
 {%- set excluded = [
-    "class", "type", "shape", "pubFreq", "noise",
-    "_tx_position", "_tx_position_end", "_tx_model",
-    "parent", "name", "subtype", "dispersion"
+    "class", "type", "subtype", "name", "shape", "parent",
+    "pubFreq", "noise", "dispersion", "affects", "affectedBy",
+    "automated", "_tx_position", "_tx_position_end", "_tx_model"
 ] -%}
 
 {# --- Determine proper DataType name --- #}

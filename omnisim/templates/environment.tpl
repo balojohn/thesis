@@ -87,13 +87,14 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
                         "Constant","Linear","Quadratic","Exponential","Logarithmic",
                         "Gaussian","Uniform","CustomNoise"
                     ] -%}
-                        {
-                        {%- for k,v in val.__dict__.items()
-                            if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"]
-                            and v is not none -%}
-                            "{{ k }}": {{ v|tojson }},
-                        {%- endfor -%}
-                        }
+                    {
+                    "type": "{{ val.__class__.__name__ }}",
+                    {%- for k,v in val.__dict__.items()
+                        if k not in ["_tx_model","_tx_position","_tx_position_end","parent","ref"]
+                        and v is not none -%}
+                        "{{ k }}": {{ v|tojson }},
+                    {%- endfor -%}
+                    }
                     {%- elif val.__class__.__name__ == "list" and val and
                     val[0].__class__.__name__ in ["TargetPose","Point","Angle","Pose"] -%}
                     [

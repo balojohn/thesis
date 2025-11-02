@@ -612,8 +612,8 @@ class {{ thing_name }}Node(Node):
             # Publish data message
             msg_data = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
-                sensor_id=self.{{ id_field }},
                 type="{{ e.msg.name | replace('Message', 'Data') }}",
+                name=self.{{ id_field }},
                 {% if data_type %}
                 {% for prop in data_type.properties %}
                 {{ prop.name }}=self.{{ prop.name }},
