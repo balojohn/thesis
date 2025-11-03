@@ -12,6 +12,7 @@ class EnvVisualizer:
         self.node = env_node
         self.running = True
         self._last_sensor_values = {}
+        self._label_rects = []
 
         # === Environment info ===
         self.env_width = getattr(env_node, "width", 20.0)

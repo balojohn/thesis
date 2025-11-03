@@ -696,7 +696,9 @@ def handle_camera_sensor(nodes, poses, log, sensor_id, env_properties=None, env=
         if detections and env:
             log.info(f"[Camera RPC Trigger] {sensor_id} sees {list(detections.keys())}")
             try:
-                rpc_topic = f"sensor.reader.camera.{sensor_id}.read"
+                prefix = sensor.get("parent_topic", "")
+                base = f"{prefix}.sensor.reader.camera" if prefix else "sensor.reader.camera"
+                rpc_topic = f"{base}.{sensor_id}.read"
                 rpc_client = getattr(env, "rpc_clients", {}).get(rpc_topic, None)
 
                 if rpc_client:

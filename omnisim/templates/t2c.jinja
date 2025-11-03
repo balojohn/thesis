@@ -108,4 +108,27 @@ Communication {{ comm_name }}Comms
         end
         {% endif %}
     end
+
+    {# === RPC message definitions for active sensors === #}
+    {% set active_rpc_sensors = ["camera", "rfid", "microphone"] %}
+    {% set thing_type = (thing.subtype if thing.subtype is defined else thing.type)|lower %}
+    {% if thing_type in active_rpc_sensors %}
+    RPCMsg {{ thing_type|capitalize }}ReadRPC
+        Request
+            sensor_id: str
+        end
+        Response
+            {% if thing_type == "camera" %}
+            detections: dict
+            messages: dict
+            {% elif thing_type == "rfid" %}
+            tags: dict
+            {% elif thing_type == "microphone" %}
+            sounds: dict
+            {% endif %}
+            error: str
+        end
+    end
+    {% endif %}
+
 end

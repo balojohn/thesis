@@ -37,6 +37,21 @@ from .{{ comp_type }} import {{ posed_cthing.ref.type|default(comp_type|capitali
 {% endif %}
 {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
 from commlib.msg import RPCMessage
+
+class {{ obj.subtype|capitalize }}ReadRPC(RPCMessage):
+    class Request(RPCMessage.Request):
+        sensor_id: str
+
+    class Response(RPCMessage.Response):
+        {% if obj.subtype|lower == "camera" %}
+        detections: dict = {}
+        messages: dict = {}
+        {% elif obj.subtype|lower == "rfid" %}
+        tags: dict = {}
+        {% elif obj.subtype|lower == "microphone" %}
+        sounds: dict = {}
+        {% endif %}
+        error: str = ""
 {% endif %}
 {% macro topic_prefix(obj, parent=None) -%}
     {# parent is a tuple like ("pantilt", "pt_1") #}
@@ -288,12 +303,12 @@ class {{ thing_name }}Node(Node):
         
         # === RPC client setup for active sensor ===
         {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+        # --- RPC client setup for active sensor ---
+        rpc_class = globals().get("{{ obj.subtype|capitalize }}ReadRPC")
         self.rpc_read_client = self.create_rpc_client(
-            rpc_name=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.read"
+            rpc_name=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.read",
+            msg_type=rpc_class
         )
-        # Ensure Redis connection is established before usage
-        # if hasattr(self.rpc_read_client, "_transport") and self.rpc_read_client._transport:
-        #     self.rpc_read_client._transport.connect()
         {% endif %}
 
         {% for posed_sensor in obj.sensors %}
@@ -562,37 +577,30 @@ class {{ thing_name }}Node(Node):
             main_key = subtype or type_
             
             {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
-            # --- Active sensor mode: perform RPC only when new detections appear ---
+            # --- Active sensor mode: perform a single RPC read per loop ---
             try:
-                rpc_req = {"sensor_id": self.{{ id_field }}}
-                resp = self.rpc_read_client.call(rpc_req, timeout=2.0)
-                print(f"[CameraNode] Calling RPC {self.rpc_read_client._rpc_name}")
+                rpc_class = globals().get("{{ obj.subtype|capitalize }}ReadRPC")
+                req = rpc_class.Request(sensor_id=self.{{ id_field }})
+                resp = self.rpc_read_client.call(req, timeout=2.0)
+                print(f"[{{ thing_name }}Node] RPC call -> {self.rpc_read_client._rpc_name}")
             except Exception as e:
                 print(f"[{{ thing_name }}Node] RPC call failed: {e}")
                 resp = {}
-            
-            detections = resp.get("detections", {}) if isinstance(resp, dict) else {}
-            new_detections = set(detections.keys())
-            appeared = new_detections - last_detections
-            disappeared = last_detections - new_detections
-            last_detections = new_detections
 
-            # --- Trigger one-time RPC read for new text detections ---
-            updated_props = resp
-            for name in appeared:
-                info = detections.get(name, {})
-                if info.get("class") == "actor" and info.get("type") == "text":
-                    print(f"[{{ thing_name }}Node] New text detected: {name}, requesting content...")
-                    try:
-                        read_req = {"sensor_id": name}
-                        read_resp = self.rpc_read_client.call(read_req, timeout=2.0)
-                        message = read_resp.get("message") if isinstance(read_resp, dict) else None
-                        print(f"[{{ thing_name }}Node] Text '{name}' content: {message}")
-                        # Optionally store message in local state
-                        updated_props.setdefault("messages", {})[name] = message
-                    except Exception as e:
-                        print(f"[{{ thing_name }}Node] RPC read for text '{name}' failed: {e}")
+            if hasattr(resp, "detections"):
+                detections = resp.detections
+            elif hasattr(resp, "tags"):
+                detections = resp.tags
+            elif hasattr(resp, "sounds"):
+                detections = resp.sounds
+            else:
+                detections = {}
 
+            if detections:
+                for name, data in detections.items():
+                    print(f"[{{ thing_name }}Node] sees {name}: {data}")
+
+            updated_props = resp.__dict__ if hasattr(resp, "__dict__") else resp
             {% else %}
             # --- Passive sensor mode: local affection handler ---
             updated_props = self.simulate()
@@ -613,7 +621,7 @@ class {{ thing_name }}Node(Node):
             msg_data = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
                 type="{{ e.msg.name | replace('Message', 'Data') }}",
-                name=self.{{ id_field }},
+                {{ id_field }}=self.{{ id_field }},
                 {% if data_type %}
                 {% for prop in data_type.properties %}
                 {{ prop.name }}=self.{{ prop.name }},

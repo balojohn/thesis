@@ -16,6 +16,8 @@ Communication:
         'messages'
             msgs*=Message
         'end'
+
+        (rpcs*=RPCMsg)*
     )#
     'end'
 ;
@@ -40,4 +42,20 @@ Subscriber:
         ('namespace:' namespace=STRING)?
     )#
     'end'
+;
+
+// --- RPC extension ---
+RPCMsg:
+    'RPCMsg' name=ID
+    'Request'
+        request_fields*=Field
+    'end'
+    'Response'
+        response_fields*=Field
+    'end'
+'end'
+;
+
+Field:
+    name=ID ':' type=ID
 ;

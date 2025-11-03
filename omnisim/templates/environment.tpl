@@ -229,6 +229,8 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             "type": "{{ chtype }}",
             "subtype": "{{ chsub }}",
             "name": "{{ chid }}",
+            "parent_topic": "{{ topic_prefix(parent_ref, None) | trim }}",
+            "full_topic_prefix": "{{ topic_prefix(child.ref, [(parent_ref.type|lower, parent_id)]) | trim }}",
             {{ render_properties(child.ref) }}
         }
         {{ poses_path }}["{{ category }}"]["{{ chtype }}"]["{{ chsub }}"]["{{ chid }}"] = {
@@ -239,6 +241,8 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
             "class": "{{ category.rstrip('s') }}",
             "type": "{{ chtype }}",
             "name": "{{ chid }}",
+            "parent_topic": "{{ topic_prefix(parent_ref, None) | trim }}",
+            "full_topic_prefix": "{{ topic_prefix(child.ref, [(parent_ref.type|lower, parent_id)]) | trim }}",
             {{ render_properties(child.ref) }}
         }
         {{ poses_path }}["{{ category }}"]["{{ chtype }}"]["{{ chid }}"] = {
@@ -443,6 +447,8 @@ class {{ environment.name }}Node(Node):
             "type": "{{ type }}",
             "name": "{{ node_name }}",
             "pubFreq": {{ p.ref.pubFreq }},
+            "parent_topic": "",
+            "full_topic_prefix": "{{ topic_prefix(p.ref, None) | trim }}",
             {{ render_properties(p.ref) }},
             "initial_pose": {
                 "x": {{ p.pose.x }},
@@ -500,6 +506,8 @@ class {{ environment.name }}Node(Node):
             "subtype": "{{ subtype }}",
             "name": "{{ node_name }}",
             "pubFreq": {{ p.ref.pubFreq }},
+            "parent_topic": "",
+            "full_topic_prefix": "{{ topic_prefix(p.ref, None) | trim }}",
             {{ render_properties(p.ref) }}
         }
 
@@ -818,7 +826,7 @@ class {{ environment.name }}Node(Node):
         self.print_tf_tree()
 
         # Start commlib internal loop
-        self._thread = threading.Thread(target=self.run)
+        self._thread = threading.Thread(target=self.run, daemon=True)
         self._thread.start()
         time.sleep(0.5)
 
@@ -870,7 +878,27 @@ class {{ environment.name }}Node(Node):
         # import json
         # print("[DEBUG] Dumping node keys before RPC registration:")
         # print(json.dumps(self.nodes, indent=2)[:20000])  # limit to avoid spam
-        def _register_rpc_recursively(tree, path="root"):
+        # --- Ensure commlib transport is active before RPC creation ---
+        if not hasattr(self, "_rpc_thread_started"):
+            threading.Thread(target=super().run, daemon=True).start()
+            self._rpc_thread_started = True
+            time.sleep(0.5)
+        
+        print("[DEBUG] Checking Redis connection before RPC registration...")
+        try:
+            r = redis.Redis(host="localhost", port=6379, db=0)
+            print("    [PING]", "PONG" if r.ping() else "NO PONG")
+        except Exception as e:
+            print(f"    [PING ERROR] {e}")
+
+        print("[DEBUG] Verifying Node transport status before registering RPCs...")
+        try:
+            print("    _transport:", getattr(self, "_transport", None))
+            print("    is_connected:", getattr(getattr(self, "_transport", None), "connected", None))
+        except Exception as e:
+            print(f"    [TRANSPORT CHECK ERROR] {e}")
+
+        def _register_rpc_recursively(tree, path=""):
             if not isinstance(tree, dict):
                 return
 
@@ -883,7 +911,7 @@ class {{ environment.name }}Node(Node):
 
                 if node_sub in rpc_sensors or node_type in rpc_sensors:
                     # Convert the recursive path to a commlib-style RPC name
-                    clean_path = path.replace("root/", "").replace("/", ".")
+                    clean_path = path.replace("/", ".").strip(".")
                     # Convert plural to singular to match node topic conventions
                     clean_path = (
                         clean_path
@@ -902,11 +930,31 @@ class {{ environment.name }}Node(Node):
                     print("=" * 60)
                     print(f"[RPC_REGISTER] class={tree['class']} type={node_type} subtype={node_sub}")
                     print(f"[RPC_REGISTER] name={name}")
-                    print(f"[RPC_REGISTER] FULL PATH: {full_path}")
+                    print(f"[RPC_REGISTER] FULL PATH: {clean_path}")
                     print(f"[RPC_REGISTER] REGISTERING RPC: {rpc_name}")
                     print("=" * 60)
                     try:
-                        rpc_srv = self.create_rpc(rpc_name=rpc_name, on_request=self._on_rpc_read)
+                        # --- Select correct RPC message type for this sensor ---
+                        if node_sub == "camera":
+                            msg_type = CameraReadRPC
+                        elif node_sub == "rfid":
+                            msg_type = RfidReadRPC
+                        elif node_sub == "microphone":
+                            msg_type = MicrophoneReadRPC
+                        else:
+                            msg_type = None
+
+                        if msg_type is not None:
+                            rpc_srv = self.create_rpc(
+                                rpc_name=rpc_name,
+                                msg_type=msg_type,
+                                on_request=self._on_rpc_read
+                            )
+                            setattr(self, f"rpc_{name}_read", rpc_srv)
+                            self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
+                        else:
+                            self.log.warning(f"[RPC] Unknown subtype '{node_sub}' for {name}. Skipping RPC registration.")
+
                         setattr(self, f"rpc_{name}_read", rpc_srv)
                         self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
                     except Exception as e:
@@ -939,18 +987,37 @@ class {{ environment.name }}Node(Node):
     def _on_rpc_read(self, msg):
         """
         Shared RPC handler for active sensors (camera, rfid, microphone).
-        Simply delegates to the environment's affection system.
+        Dispatches correct typed Response according to msg type.
         """
         self.log.info(f"[RPCRead] Request received: {msg}")
-        sensor_id = msg.get("sensor_id")
+        sensor_id = getattr(msg, "sensor_id", None)
         if not sensor_id:
-            return {"error": "Missing 'sensor_id'"}
+            err = {"error": "Missing 'sensor_id'"}
+            try:
+                clsname = msg.__class__.__qualname__.split('.')[0]
+                if clsname == "CameraReadRPC":
+                    return CameraReadRPC.Response(**err)
+                elif clsname == "RfidReadRPC":
+                    return RfidReadRPC.Response(**err)
+                elif clsname == "MicrophoneReadRPC":
+                    return MicrophoneReadRPC.Response(**err)
+            except Exception:
+                return err
+
         try:
             result = self.check_affectability(sensor_id, self.env_properties, self)
-            # Normalize result
-            if isinstance(result, dict):
+            if not isinstance(result, dict):
+                result = {"result": result}
+
+            clsname = msg.__class__.__qualname__.split('.')[0]
+            if clsname == "CameraReadRPC":
+                return CameraReadRPC.Response(**result)
+            elif clsname == "RfidReadRPC":
+                return RfidReadRPC.Response(**result)
+            elif clsname == "MicrophoneReadRPC":
+                return MicrophoneReadRPC.Response(**result)
+            else:
                 return result
-            return {"result": result}
         except Exception as e:
             self.log.error(f"[RPCRead] {sensor_id}: {e}")
             return {"error": str(e)}
