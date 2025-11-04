@@ -72,6 +72,7 @@ class EnvVisualizer:
         self.pan_speed = 20.0
         self.dragging = False
         self.drag_start = None
+        self.panel_scroll_x = 0  # horizontal scroll offset for right panel
 
     # -----------------------------------------------------
     # ---------------- DRAW HELPERS -----------------------
@@ -136,22 +137,20 @@ class EnvVisualizer:
         env_props = getattr(self.node, "env_properties", {})
 
         # --- Layout ---
-        panel_x = self.width  # start of the right panel
+        panel_x = self.width + self.panel_scroll_x
         panel_y = 40
         panel_width = self.panel_width
         row_h = 28
+        if not hasattr(self, "panel_scroll_x"):
+            self.panel_scroll_x = 0
 
         # --- Background ---
-        pygame.draw.rect(
-            self.screen, (28, 30, 38),
-            (panel_x, panel_y, panel_width, self.height - panel_y - 16),
-            border_radius=8,
-        )
-        pygame.draw.rect(
-            self.screen, (75, 80, 95),
-            (panel_x, panel_y, panel_width, self.height - panel_y - 16),
-            2, border_radius=8,
-        )
+        pygame.draw.rect(self.screen, (28, 30, 38),
+                        (panel_x, panel_y, panel_width, self.height - panel_y - 16),
+                        border_radius=8)
+        pygame.draw.rect(self.screen, (75, 80, 95),
+                        (panel_x, panel_y, panel_width, self.height - panel_y - 16),
+                        2, border_radius=8)
 
         # --- Title ---
         title = self.bigfont.render("Affection results", True, (210, 220, 255))
@@ -161,9 +160,9 @@ class EnvVisualizer:
         # --- Environment section ---
         self.screen.blit(self.font.render("Environment", True, (160, 200, 255)), (panel_x + 14, y))
         y += 6
-        pygame.draw.line(self.screen, (70, 70, 80), (panel_x + 12, y), (panel_x + panel_width - 12, y))
+        pygame.draw.line(self.screen, (70, 70, 80),
+                        (panel_x + 12, y), (panel_x + panel_width - 12, y))
         y += 12
-
         for prop, val in env_props.items():
             label = prop.replace("_", " ").title()
             val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
@@ -171,26 +170,7 @@ class EnvVisualizer:
             self.screen.blit(self.font.render(val_str, True, (160, 255, 160)), (panel_x + 210, y))
             y += row_h
 
-        # --- Separator ---
-        y += 8
-        pygame.draw.line(self.screen, (95, 95, 110), (panel_x + 10, y), (panel_x + panel_width - 10, y))
-        y += 18
-
-        # --- Sensor section header ---
-        self.screen.blit(self.font.render("Sensors", True, (160, 200, 255)), (panel_x + 14, y))
-        y += 6
-        pygame.draw.line(self.screen, (70, 70, 80), (panel_x + 12, y), (panel_x + panel_width - 12, y))
-        y += 14
-
-        headers = ["Name", "Property", "Value", "Detection"]
-        col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
-        for i, h in enumerate(headers):
-            self.screen.blit(self.font.render(h, True, (150, 160, 190)), (col_x[i], y))
-        y += 22
-        pygame.draw.line(self.screen, (70, 70, 80), (panel_x + 10, y), (panel_x + panel_width - 10, y))
-        y += 12
-
-        # --- Recursive sensor collector ---
+        # --- Recursive sensor collector (must be defined before use) ---
         def collect_sensors(node_section):
             sensors = {}
             if not isinstance(node_section, dict):
@@ -204,7 +184,95 @@ class EnvVisualizer:
                     sensors.update(collect_sensors(node))
             return sensors
 
-        all_sensors = collect_sensors(self.node.nodes)
+        # --- Separator ---
+        y += 8
+        pygame.draw.line(self.screen, (95, 95, 110),
+                        (panel_x + 10, y), (panel_x + panel_width - 10, y))
+        y += 18
+
+        # === CAMERA SECTION ===
+        cameras = {
+            name: node
+            for name, node in collect_sensors(self.node.nodes).items()
+            if (node.get("subtype") or node.get("type", "")).lower() == "camera"
+        }
+        if cameras:
+            self.screen.blit(self.font.render("Cameras", True, (160, 200, 255)), (panel_x + 14, y))
+            y += 6
+            pygame.draw.line(self.screen, (70, 70, 80),
+                            (panel_x + 12, y), (panel_x + panel_width - 12, y))
+            y += 14
+
+            cam_headers = ["Name", "Entity", "Detected", "Value"]
+            cam_col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
+            for i, h in enumerate(cam_headers):
+                self.screen.blit(self.font.render(h, True, (150, 160, 190)), (cam_col_x[i], y))
+            y += 22
+            pygame.draw.line(self.screen, (70, 70, 80),
+                            (panel_x + 10, y), (panel_x + panel_width - 10, y))
+            y += 12
+
+            for sname, sent in sorted(cameras.items()):
+                stype = sent.get("subtype") or sent.get("type") or "Unknown"
+                val = sensor_values.get(sname)
+                if not val or not isinstance(val, dict):
+                    val = self._last_sensor_values.get(sname, val)
+                    # print("[VIS DEBUG] cam_1 val:", val)
+                else:
+                    self._last_sensor_values[sname] = val
+
+                detected_name, message = "-", "-"
+                if isinstance(val, dict):
+                    detections = val.get("detections", {})
+                    if isinstance(detections, dict) and detections:
+                        first_key = next(iter(detections))
+                        detected_name = first_key
+                        msg = detections[first_key]
+                        if isinstance(msg, dict):
+                            message = next((msg.get(k) for k in ("content", "color", "value", "distance") if msg.get(k) is not None), "-")
+                        else:
+                            message = str(msg)
+
+                self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (cam_col_x[0], y + 2))
+                self.screen.blit(self.font.render(stype.title(), True, (200, 200, 200)), (cam_col_x[1], y))
+                self.screen.blit(self.font.render(detected_name, True, (180, 220, 255)), (cam_col_x[2], y))
+                if not isinstance(message, (str, bytes, int, float)):
+                    message = "-"
+                self.screen.blit(self.font.render(str(message), True, (180, 255, 180)), (cam_col_x[3], y))
+                y += row_h
+                if y > self.height - 40:
+                    break
+
+            # Spacer
+            y += 16
+            pygame.draw.line(self.screen, (95, 95, 110),
+                            (panel_x + 10, y), (panel_x + panel_width - 10, y))
+            y += 18
+
+        # === OTHER SENSORS SECTION ===
+        self.screen.blit(self.font.render("Sensors", True, (160, 200, 255)), (panel_x + 14, y))
+        y += 6
+        pygame.draw.line(self.screen, (70, 70, 80),
+                        (panel_x + 12, y), (panel_x + panel_width - 12, y))
+        y += 14
+
+        headers = ["Name", "Entity", "Value", "Detection"]
+        col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
+        for i, h in enumerate(headers):
+            self.screen.blit(self.font.render(h, True, (150, 160, 190)), (col_x[i], y))
+        y += 22
+        pygame.draw.line(self.screen, (70, 70, 80),
+                        (panel_x + 10, y), (panel_x + panel_width - 10, y))
+        y += 12
+
+        # Filter out cameras from the main list
+        all_sensors = {
+            k: v for k, v in collect_sensors(self.node.nodes).items()
+            if (v.get("subtype") or v.get("type", "")).lower() != "camera"
+        }
+
+        # ... keep your existing generic sensor row drawing loop ...
+
 
         # --- Draw rows ---
         for sname, sent in sorted(all_sensors.items()):
@@ -226,13 +294,27 @@ class EnvVisualizer:
                     det_str = f"{target} ({dist:.1f})"
                     val_str = f"{dist:.1f}"
                 elif stype.lower() == "camera":
-                    # --- Camera-specific: show summary ---
-                    detected = [k for k, v in val.items() if isinstance(v, dict)]
-                    if detected:
-                        val_str = f"{len(detected)} target(s)"
-                        det_str = ", ".join(detected[:2])
-                        if len(detected) > 2:
-                            det_str += ", …"
+                    # --- Camera-specific: show detailed detections with message text ---
+                    messages = val.get("messages") if isinstance(val, dict) else None
+                    detections = val.get("detections") if isinstance(val, dict) else None
+
+                    # Backward-compatibility: some handlers return flat dict of targets
+                    if not detections and isinstance(val, dict):
+                        detections = {k: v for k, v in val.items() if isinstance(v, dict)}
+
+                    if detections:
+                        display_items = []
+                        for tname, tinfo in list(detections.items())[:3]:
+                            msg = ""
+                            if isinstance(tinfo, dict):
+                                msg = tinfo.get("message") or tinfo.get("content") or ""
+                            if msg:
+                                display_items.append(f"{tname}: \"{msg}\"")
+                            else:
+                                display_items.append(tname)
+                        det_str = ", ".join(display_items)
+                        if len(detections) > 3:
+                            det_str += ", ..."
                     else:
                         val_str = "-"
                         det_str = ""
@@ -543,19 +625,32 @@ class EnvVisualizer:
         """Main pygame render loop (draws all entities)."""
         try:
             while self.running:
-                for event in pygame.event.get():
+                events = pygame.event.get()  # get once
+
+                for event in events:
                     if event.type == pygame.QUIT:
                         self.stop()
                         return
+                    # Horizontal scroll with Shift + wheel
+                    if event.type == pygame.MOUSEWHEEL and (pygame.key.get_mods() & pygame.KMOD_SHIFT):
+                        self.panel_scroll_x += event.y * 40
 
                 self.handle_input()
+
+                # A/D key horizontal scroll
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_a]:
+                    self.panel_scroll_x += 15
+                elif keys[pygame.K_d]:
+                    self.panel_scroll_x -= 15
+
+                # Clamp scroll range (optional)
+                self.panel_scroll_x = max(-300, min(300, self.panel_scroll_x))
+
                 self.draw_background()
-                self._label_rects = []   # reset label collision memory
+                self._label_rects = []
 
-                # --- Draw all entities ---
                 self._draw_all_entities()
-
-                # --- Draw sensor data table ---
                 self.draw_sensor_table()
 
                 pygame.display.flip()
@@ -564,6 +659,7 @@ class EnvVisualizer:
         except KeyboardInterrupt:
             print("[Visualizer] Interrupted by user.")
             self.stop()
+
     # -----------------------------------------------------
     # ----------------- LIFECYCLE -------------------------
     # -----------------------------------------------------

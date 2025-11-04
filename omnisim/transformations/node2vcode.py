@@ -64,14 +64,23 @@ def build_node(obj, comms, dtypes) -> str:
     print(f"\n[build_node] Linking parents for: {getattr(obj, 'name', obj.type)}")
     get_parents(obj)
 
-    # Skip data model requirement for composites (like Robot)
     if getattr(obj, "__class__", None).__name__ == "CompositeThing":
         data_model = None
     else:
-        data_model_name = f"{getattr(obj, 'subtype', getattr(obj, 'type', obj.__class__.__name__))}Data"
-        data_model = next((t for t in dtypes.types if t.name.lower() == data_model_name.lower()), None)
+        name_part = (
+            getattr(obj, "subtype", None)
+            if getattr(obj, "subtype", None)
+            else getattr(obj, "type", None)
+            or obj.__class__.__name__
+        )
+        data_model_name = f"{name_part}Data"
+        data_model = next(
+            (t for t in dtypes.types if t.name.lower() == data_model_name.lower()),
+            None
+        )
         if data_model is None:
             raise ValueError(f"Data model '{data_model_name}' not found in dtypes.")
+
     context = {
         'obj': obj,
         'comms': comms,

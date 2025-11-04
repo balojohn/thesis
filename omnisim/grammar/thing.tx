@@ -34,6 +34,11 @@ TargetPose:
     point=Point | angle=Angle
 ;
 
+TargetValue:
+    'value:' value=FLOAT (',' 'duration:' duration=FLOAT)?
+;
+
+
 PosedThing: PosedSensor | PosedActuator | PosedCThing | PosedCustomThing;
 
 PosedCThing:
@@ -60,11 +65,13 @@ CustomThing:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
             ('range:' range=FLOAT)?
             ('target_value:' target_value=FLOAT)?
             ('noise:' noise=Noise)?
             ('dispersion:' dispersion=DispersionType)?
-            ('automated:' automated=BOOL)?
             ('affects:'
                  '-' affects+=ID['-'])?
             ('affectedBy:'
@@ -247,8 +254,11 @@ EnvDevice:
             ('type:' type=[EnvDeviceType])?
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
-            ('dispersion:' dispersion=DispersionType)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
+            ('dispersion:' dispersion=DispersionType)?
             ('target_value:' target_value=FLOAT)?
             ('range:' range=FLOAT)?
         )#
@@ -267,6 +277,9 @@ Relay:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
             ('state:' state=STRING)?
             ('allowed_states:' allowed_states=INT)?
         )#
@@ -283,6 +296,9 @@ Button:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
             ('state:' state=INT)?
             ('size:' size=INT)?
         )#
@@ -299,7 +315,11 @@ Led:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
             ('color' ':' color=STRING)?
+            ('size:' size=INT)?
         )#
     'end'
 ;
@@ -311,6 +331,9 @@ Speaker:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
             ('sound:' sound=FLOAT)?
             ('range:' range=FLOAT)?
         )#

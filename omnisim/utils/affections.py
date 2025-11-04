@@ -693,21 +693,21 @@ def handle_camera_sensor(nodes, poses, log, sensor_id, env_properties=None, env=
                     log.info(f"[Camera] Dropped {k} due to low light")
 
         # --- After building all detections, trigger RPC if available ---
-        if detections and env:
-            log.info(f"[Camera RPC Trigger] {sensor_id} sees {list(detections.keys())}")
-            try:
-                prefix = sensor.get("parent_topic", "")
-                base = f"{prefix}.sensor.reader.camera" if prefix else "sensor.reader.camera"
-                rpc_topic = f"{base}.{sensor_id}.read"
-                rpc_client = getattr(env, "rpc_clients", {}).get(rpc_topic, None)
+        # if detections and env:
+        #     log.info(f"[Camera RPC Trigger] {sensor_id} sees {list(detections.keys())}")
+        #     try:
+        #         prefix = sensor.get("parent_topic", "")
+        #         base = f"{prefix}.sensor.reader.camera" if prefix else "sensor.reader.camera"
+        #         rpc_topic = f"{base}.{sensor_id}.read"
+        #         rpc_client = getattr(env, "rpc_clients", {}).get(rpc_topic, None)
 
-                if rpc_client:
-                    response = rpc_client.call({"detections": detections})
-                    log.info(f"[Camera RPC] {sensor_id} -> {response}")
-                else:
-                    log.debug(f"[Camera RPC] No RPC client found for {rpc_topic}")
-            except Exception as e:
-                log.error(f"[Camera RPC] Error calling {sensor_id}: {e}")
+        #         if rpc_client:
+        #             response = rpc_client.call({"detections": detections})
+        #             log.info(f"[Camera RPC] {sensor_id} -> {response}")
+        #         else:
+        #             log.debug(f"[Camera RPC] No RPC client found for {rpc_topic}")
+        #     except Exception as e:
+        #         log.error(f"[Camera RPC] Error calling {sensor_id}: {e}")
         return detections
 
     except Exception as e:
@@ -916,7 +916,8 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, env=None):
     node_subtype = (sensor.get("subtype") or "").lower() or None
     node_name = (sensor.get("name") or "").lower()
 
-    if node_subtype in {"camera", "rfid", "microphone"} or node_type in {"camera", "rfid", "microphone"}:
+    # Only skip when environment explicitly disables sensor-side computation
+    if env is None and (node_subtype in {"camera", "rfid", "microphone"} or node_type in {"camera", "rfid", "microphone"}):
         log.info(f"[Affectability] Skipping RPC sensor {sensor_id} ({node_type}/{node_subtype})")
         return None
 

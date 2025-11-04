@@ -30,6 +30,54 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
 from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node, PoseMessage
     {% endif %}
 {% endfor %}
+# --- RPC message classes for active sensors (camera, rfid, microphone) ---
+{% set rpc_sensors = ["camera", "rfid", "microphone"] %}
+{%- macro search_rpc_sensors(obj) -%}
+    {%- if obj.sensors is defined -%}
+        {%- for s in obj.sensors -%}
+            {%- set stype = s.ref.type|lower if s.ref.type else s.ref.__class__.__name__|lower -%}
+            {%- set ssub = s.ref.subtype|lower if s.ref.subtype is defined and s.ref.subtype else None -%}
+            {%- if ssub in rpc_sensors or stype in rpc_sensors -%}
+from omnisim.generated_files.things.{{ ssub if ssub else stype }} import {{ (camelcase(ssub if ssub else stype)|capitalize) }}ReadRPC
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+    {%- if obj.composites is defined -%}
+        {%- for c in obj.composites -%}
+{{ search_rpc_sensors(c.ref) }}
+        {%- endfor -%}
+    {%- endif -%}
+{%- endmacro -%}
+{%- for p in (environment.things or []) + (environment.composites or []) -%}
+{{ search_rpc_sensors(p.ref) }}
+{%- endfor %}
+{# --- Detect which RPC sensors are actually used (list-based to work with Jinja2) --- #}
+{% set active_rpc_types = [] %}
+{%- macro collect_rpc_sensors(obj) -%}
+    {%- if obj.sensors is defined -%}
+        {%- for s in obj.sensors -%}
+            {%- set stype = s.ref.type|lower if s.ref.type else s.ref.__class__.__name__|lower -%}
+            {%- set ssub = s.ref.subtype|lower if s.ref.subtype is defined and s.ref.subtype else None -%}
+            {%- if ssub in ["camera", "rfid", "microphone"] and ssub not in active_rpc_types -%}
+                {%- set _ = active_rpc_types.append(ssub) -%}
+            {%- elif stype in ["camera", "rfid", "microphone"] and stype not in active_rpc_types -%}
+                {%- set _ = active_rpc_types.append(stype) -%}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+    {%- if obj.composites is defined -%}
+        {%- for c in obj.composites -%}
+{{ collect_rpc_sensors(c.ref) }}
+        {%- endfor -%}
+    {%- endif -%}
+{%- endmacro -%}
+{%- for p in (environment.things or []) + (environment.composites or []) -%}
+{{ collect_rpc_sensors(p.ref) }}
+{%- endfor %}
+{%- for p in (environment.things or []) + (environment.composites or []) -%}
+{{ collect_rpc_sensors(p.ref) }}
+{%- endfor %}
+
 {% macro topic_prefix(obj, parents=None) -%}
     {# Normalize parents input: ensure it's a list of (ptype, pid) tuples #}
     {% if parents is none %}
@@ -76,7 +124,7 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
                 {% set excluded = [
                     "class","type","subtype","shape","pubFreq","name","dataModel",
                     "_tx_position","_tx_model","_tx_position_end","parent",
-                    "actuators","sensors","composites"
+                    "actuators","sensors","composites","targets"
                 ] %}
                 {% for attr, val in obj.__dict__.items()
                 if attr not in excluded and val is not none %}
@@ -817,18 +865,88 @@ class {{ environment.name }}Node(Node):
             return
         print(f"[{{ environment.name }}Node] Starting environment...")
         self.running = True
-        # === Debug: print environment hierarchy ===
-        # import json
-        # print("\n=== ENV STRUCTURE: NODES ===")
-        # print(json.dumps(self.nodes, indent=2))
-        # print("\n=== ENV STRUCTURE: POSES ===")
-        # print(json.dumps(self.poses, indent=2))
         self.print_tf_tree()
-
-        # Start commlib internal loop
+        
+        # === Start the commlib run loop in a daemon thread ===
         self._thread = threading.Thread(target=self.run, daemon=True)
         self._thread.start()
-        time.sleep(0.5)
+        
+        # === RPC services for active sensors (camera, rfid, microphone) ===
+        rpc_sensors = {"camera", "rfid", "microphone"}
+        # print(f"[DEBUG] Starting RPC registration in {self.env_name}...")
+
+        def _register_rpc_recursively(tree, path=""):
+            if not isinstance(tree, dict):
+                return
+
+            # ---- Case: this dict itself represents a node ----
+            if "class" in tree:
+                node_type = str(tree.get("type", "")).lower()
+                node_sub = str(tree.get("subtype", "")).lower()
+                name = tree.get("name", "")
+                full_path = f"{path}/{name}"
+
+                if node_sub in rpc_sensors or node_type in rpc_sensors:
+                    # Convert the recursive path to a commlib-style RPC name
+                    clean_path = path.replace("/", ".").strip(".")
+                    # Convert plural to singular to match node topic conventions
+                    clean_path = (
+                        clean_path
+                        .replace("composites.", "composite.")
+                        .replace("sensors.", "sensor.")
+                        .replace("actuators.", "actuator.")
+                        .replace("actors.", "actor.")
+                        .replace("obstacles.", "obstacle.")
+                    )
+                    # Avoid duplicating the final node name if it's already in the path
+                    if clean_path.endswith(f".{name}"):
+                        rpc_name = f"{clean_path}.read"
+                    else:
+                        rpc_name = f"{clean_path}.{name}.read"
+
+                    # print("=" * 60)
+                    # print(f"[RPC_REGISTER] class={tree['class']} type={node_type} subtype={node_sub}")
+                    # print(f"[RPC_REGISTER] name={name}")
+                    # print(f"[RPC_REGISTER] FULL PATH: {clean_path}")
+                    # print(f"[RPC_REGISTER] REGISTERING RPC: {rpc_name}")
+                    # print("=" * 60)
+                    try:
+                        # --- Select correct RPC message type for this sensor ---
+                        {% if "camera" in active_rpc_types %}
+                        msg_type = CameraReadRPC
+                        {% endif %}
+                        {% if "rfid" in active_rpc_types %}
+                        msg_type = RfidReadRPC"
+                        {% endif %}
+                        {% if "microphone" in active_rpc_types %}
+                        msg_type = MicrophoneReadRPC
+                        {% endif %}
+                        if msg_type is not None:
+                            rpc_srv = self.create_rpc(
+                                msg_type=msg_type,
+                                rpc_name=rpc_name,
+                                on_request=self._on_rpc_read
+                            )
+                            setattr(self, f"rpc_{name}_read", rpc_srv)
+                            self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
+                        else:
+                            self.log.warning(f"[RPC] Unknown subtype '{node_sub}' for {name}. Skipping RPC registration.")
+
+                        setattr(self, f"rpc_{name}_read", rpc_srv)
+                        self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
+                    except Exception as e:
+                        self.log.error(f"[RPC] Failed for {name} ({rpc_name}): {e}")
+
+            # ---- Always recurse into sub-dicts ----
+            for key, child in tree.items():
+                if isinstance(child, dict):
+                    _register_rpc_recursively(child, path=f"{path}/{key}")
+
+        _register_rpc_recursively(self.nodes)
+        # print("[DEBUG] Active RPC attributes in HomeNode:")
+        # for k, v in self.__dict__.items():
+        #     if k.startswith("rpc_") and "_read" in k:
+        #         print(f"   - {k}: {v}")
 
         # Start top-level child nodes (sensors, actuators, composites)
         self.children = {}
@@ -871,106 +989,6 @@ class {{ environment.name }}Node(Node):
             print(f"[{{ environment.name }}Node] ERROR launching '{{ name }}': {e}")
         
         {% endfor %}
-
-        # === RPC services for active sensors (camera, rfid, microphone) ===
-        rpc_sensors = {"camera", "rfid", "microphone"}
-        print(f"[DEBUG] Starting RPC registration in {self.env_name}...")
-        # import json
-        # print("[DEBUG] Dumping node keys before RPC registration:")
-        # print(json.dumps(self.nodes, indent=2)[:20000])  # limit to avoid spam
-        # --- Ensure commlib transport is active before RPC creation ---
-        if not hasattr(self, "_rpc_thread_started"):
-            threading.Thread(target=super().run, daemon=True).start()
-            self._rpc_thread_started = True
-            time.sleep(0.5)
-        
-        print("[DEBUG] Checking Redis connection before RPC registration...")
-        try:
-            r = redis.Redis(host="localhost", port=6379, db=0)
-            print("    [PING]", "PONG" if r.ping() else "NO PONG")
-        except Exception as e:
-            print(f"    [PING ERROR] {e}")
-
-        print("[DEBUG] Verifying Node transport status before registering RPCs...")
-        try:
-            print("    _transport:", getattr(self, "_transport", None))
-            print("    is_connected:", getattr(getattr(self, "_transport", None), "connected", None))
-        except Exception as e:
-            print(f"    [TRANSPORT CHECK ERROR] {e}")
-
-        def _register_rpc_recursively(tree, path=""):
-            if not isinstance(tree, dict):
-                return
-
-            # ---- Case: this dict itself represents a node ----
-            if "class" in tree:
-                node_type = str(tree.get("type", "")).lower()
-                node_sub = str(tree.get("subtype", "")).lower()
-                name = tree.get("name", "")
-                full_path = f"{path}/{name}"
-
-                if node_sub in rpc_sensors or node_type in rpc_sensors:
-                    # Convert the recursive path to a commlib-style RPC name
-                    clean_path = path.replace("/", ".").strip(".")
-                    # Convert plural to singular to match node topic conventions
-                    clean_path = (
-                        clean_path
-                        .replace("composites.", "composite.")
-                        .replace("sensors.", "sensor.")
-                        .replace("actuators.", "actuator.")
-                        .replace("actors.", "actor.")
-                        .replace("obstacles.", "obstacle.")
-                    )
-                    # Avoid duplicating the final node name if it's already in the path
-                    if clean_path.endswith(f".{name}"):
-                        rpc_name = f"{clean_path}.read"
-                    else:
-                        rpc_name = f"{clean_path}.{name}.read"
-
-                    print("=" * 60)
-                    print(f"[RPC_REGISTER] class={tree['class']} type={node_type} subtype={node_sub}")
-                    print(f"[RPC_REGISTER] name={name}")
-                    print(f"[RPC_REGISTER] FULL PATH: {clean_path}")
-                    print(f"[RPC_REGISTER] REGISTERING RPC: {rpc_name}")
-                    print("=" * 60)
-                    try:
-                        # --- Select correct RPC message type for this sensor ---
-                        if node_sub == "camera":
-                            msg_type = CameraReadRPC
-                        elif node_sub == "rfid":
-                            msg_type = RfidReadRPC
-                        elif node_sub == "microphone":
-                            msg_type = MicrophoneReadRPC
-                        else:
-                            msg_type = None
-
-                        if msg_type is not None:
-                            rpc_srv = self.create_rpc(
-                                rpc_name=rpc_name,
-                                msg_type=msg_type,
-                                on_request=self._on_rpc_read
-                            )
-                            setattr(self, f"rpc_{name}_read", rpc_srv)
-                            self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
-                        else:
-                            self.log.warning(f"[RPC] Unknown subtype '{node_sub}' for {name}. Skipping RPC registration.")
-
-                        setattr(self, f"rpc_{name}_read", rpc_srv)
-                        self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
-                    except Exception as e:
-                        self.log.error(f"[RPC] Failed for {name} ({rpc_name}): {e}")
-
-            # ---- Always recurse into sub-dicts ----
-            for key, child in tree.items():
-                if isinstance(child, dict):
-                    _register_rpc_recursively(child, path=f"{path}/{key}")
-
-        _register_rpc_recursively(self.nodes)
-        print("[DEBUG] Active RPC attributes in HomeNode:")
-        for k, v in self.__dict__.items():
-            if k.startswith("rpc_") and "_read" in k:
-                print(f"   - {k}: {v}")
-
         
         # Start affection updater thread
         self._aff_thread = threading.Thread(target=self.update_affections, daemon=True)
@@ -992,32 +1010,53 @@ class {{ environment.name }}Node(Node):
         self.log.info(f"[RPCRead] Request received: {msg}")
         sensor_id = getattr(msg, "sensor_id", None)
         if not sensor_id:
-            err = {"error": "Missing 'sensor_id'"}
-            try:
-                clsname = msg.__class__.__qualname__.split('.')[0]
-                if clsname == "CameraReadRPC":
-                    return CameraReadRPC.Response(**err)
-                elif clsname == "RfidReadRPC":
-                    return RfidReadRPC.Response(**err)
-                elif clsname == "MicrophoneReadRPC":
-                    return MicrophoneReadRPC.Response(**err)
-            except Exception:
-                return err
+            return {"error": "Missing 'sensor_id'"}
 
         try:
+            # --- Ask environment which targets are visible ---
             result = self.check_affectability(sensor_id, self.env_properties, self)
             if not isinstance(result, dict):
-                result = {"result": result}
+                result = {"detections": {}}
 
-            clsname = msg.__class__.__qualname__.split('.')[0]
-            if clsname == "CameraReadRPC":
-                return CameraReadRPC.Response(**result)
-            elif clsname == "RfidReadRPC":
-                return RfidReadRPC.Response(**result)
-            elif clsname == "MicrophoneReadRPC":
-                return MicrophoneReadRPC.Response(**result)
-            else:
-                return result
+            detections = result.get("detections", {})
+            if not detections:
+                # Clear stored entry for inactive detection
+                detections = self.sensor_values.get(sensor_id, {}).get("detections", {})
+                self.log.debug(f"[RPCRead] No detections for {sensor_id}")
+                {% if "camera" in active_rpc_types %}
+                if isinstance(msg, CameraReadRPC.Request):
+                    return CameraReadRPC.Response(detections={})
+                {% endif %}
+                {% if "rfid" in active_rpc_types %}
+                if isinstance(msg, RfidReadRPC.Request):
+                    return RfidReadRPC.Response(detections={})
+                {% endif %}
+                {% if "microphone" in active_rpc_types %}
+                if isinstance(msg, MicrophoneReadRPC.Request):
+                    return MicrophoneReadRPC.Response(detections={})
+                {% endif %}
+                return {"detections": {}}
+
+            # --- Store detections ---
+            self.sensor_values[sensor_id] = {"detections": detections}
+            self.log.info(f"[DEBUG] sensor_values now: {list(self.sensor_values.keys())}")
+            self.log.info(f"[RPCRead] Stored RPC data for {sensor_id}: {list(detections.keys()) or 'no detections'}")
+
+            # --- Return correct typed Response depending on active RPC type ---
+            {% if "camera" in active_rpc_types %}
+            if isinstance(msg, CameraReadRPC.Request):
+                return CameraReadRPC.Response(detections=detections)
+            {% endif %}
+            {% if "rfid" in active_rpc_types %}
+            if isinstance(msg, RfidReadRPC.Request):
+                return RfidReadRPC.Response(detections=detections)
+            {% endif %}
+            {% if "microphone" in active_rpc_types %}
+            if isinstance(msg, MicrophoneReadRPC.Request):
+                return MicrophoneReadRPC.Response(detections=detections)
+            {% endif %}
+            return {"detections": detections}
+
         except Exception as e:
             self.log.error(f"[RPCRead] {sensor_id}: {e}")
             return {"error": str(e)}

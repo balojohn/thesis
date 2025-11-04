@@ -45,7 +45,6 @@ class {{ obj.subtype|capitalize }}ReadRPC(RPCMessage):
     class Response(RPCMessage.Response):
         {% if obj.subtype|lower == "camera" %}
         detections: dict = {}
-        messages: dict = {}
         {% elif obj.subtype|lower == "rfid" %}
         tags: dict = {}
         {% elif obj.subtype|lower == "microphone" %}
@@ -121,8 +120,8 @@ class {{ obj.subtype|capitalize }}ReadRPC(RPCMessage):
 {% set data_type = (dtype.types | selectattr("name", "equalto", dtype_name) | first) %}
 {% set thing_name = (
     obj.subtype
-    if obj.subtype is defined
-    else (obj.type if obj.type is defined else obj.__class__.__name__)
+    if obj.subtype is defined and obj.subtype
+    else (obj.type if obj.type is defined and obj.type else obj.__class__.__name__)
 ) %}
 {# Define id_field depending on class #}
 {% if obj.class == "Sensor" %}
@@ -212,6 +211,7 @@ class {{ thing_name }}Node(Node):
         {% endif %}
         # Default props
         {% for prop in data_type.properties %}
+        {% if prop.name != "targets" %}
         {% set val = prop_values.get(prop.name) %}
         {% if prop.type.name == "str" %}
         self.{{ prop.name }} = {{ '"' ~ (val | string | replace('"', '\\"')) ~ '"' if val is not none else '""' }}
@@ -224,6 +224,7 @@ class {{ thing_name }}Node(Node):
             "dtheta": {{ val.dtheta if val }}}
         {% else %}
         self.{{ prop.name }} = {{ val if val is not none }}
+        {% endif %}
         {% endif %}
         {% endfor %}
 
@@ -246,6 +247,26 @@ class {{ thing_name }}Node(Node):
         self.parent_theta = parent_pose["theta"]
         self.rel_theta = rel_pose["theta"]
         self.local_theta = 0.0  # independent rotation (servo)
+        {% if obj.class|lower == "actuator" %}
+        # === Actuator automation mode ===
+        self.automated = {{ 'True' if obj.automated else 'False' }}
+        self.targets = [
+            {% for t in obj.targets or [] %}
+            {"value": {{ t.value }}, "duration": {{ t.duration if t.duration is defined else 1.0 }}},
+            {% endfor %}
+        ]
+        self.current_target_idx = 0
+        self.has_target = False
+        self._target_start = None
+        self.current_value = None
+
+        if not self.automated:
+            self.cmd_sub = self.create_subscriber(
+                topic=f"{self.full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.cmd",
+                msg_type=PoseMessage,
+                on_message=lambda msg: self._on_actuator_command(msg)
+            )
+        {% endif %}
         {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
         # === Motion control mode ===
         self.automated = {{ 'True' if obj.automated else 'False' }}
@@ -301,13 +322,12 @@ class {{ thing_name }}Node(Node):
         {% endif %}
         {% endif %}
         
-        # === RPC client setup for active sensor ===
         {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
         # --- RPC client setup for active sensor ---
         rpc_class = globals().get("{{ obj.subtype|capitalize }}ReadRPC")
         self.rpc_read_client = self.create_rpc_client(
-            rpc_name=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.read",
-            msg_type=rpc_class
+            msg_type=rpc_class,
+            rpc_name=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.read"
         )
         {% endif %}
 
@@ -478,7 +498,29 @@ class {{ thing_name }}Node(Node):
     def simulate(self):
         return getattr(self, "_sim_data", {})
     {% endif %}
+    {% if obj.class|lower == "actuator" %}
+    def _on_actuator_command(self, msg):
+        """Manual actuator control when automated=False."""
+        self.current_value = getattr(msg, "value", None)
+        print(f"[{self.__class__.__name__}] manual set value -> {self.current_value}")
 
+    def _run_actuator_targets(self, dt):
+        """Cycle through target values over time."""
+        if not self.targets:
+            return
+        if not self.has_target:
+            self.target = self.targets[self.current_target_idx]
+            self._target_start = time.monotonic()
+            self.has_target = True
+
+        elapsed = time.monotonic() - (self._target_start or time.monotonic())
+        dur = self.target.get("duration", 1.0)
+        self.current_value = self.target.get("value")
+
+        if elapsed >= dur:
+            self.current_target_idx = (self.current_target_idx + 1) % len(self.targets)
+            self.has_target = False
+    {% endif %}
     def start(self):
         """Start this node and all its children (if composite)."""
         if self.running:
@@ -513,6 +555,13 @@ class {{ thing_name }}Node(Node):
         last_detections = set()  # to prevent duplicate RPC calls
 
         while self.running:
+            {% if obj.class|lower == "actuator" %}
+            if self.automated:
+                now = time.monotonic()
+                dt = now - getattr(self, "_last_t", now)
+                self._last_t = now
+                self._run_actuator_targets(dt)
+            {% endif %}
             {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
             now = time.monotonic()
             dt = now - self._last_t
@@ -577,30 +626,40 @@ class {{ thing_name }}Node(Node):
             main_key = subtype or type_
             
             {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
-            # --- Active sensor mode: perform a single RPC read per loop ---
-            try:
-                rpc_class = globals().get("{{ obj.subtype|capitalize }}ReadRPC")
-                req = rpc_class.Request(sensor_id=self.{{ id_field }})
-                resp = self.rpc_read_client.call(req, timeout=2.0)
-                print(f"[{{ thing_name }}Node] RPC call -> {self.rpc_read_client._rpc_name}")
-            except Exception as e:
-                print(f"[{{ thing_name }}Node] RPC call failed: {e}")
-                resp = {}
+            # --- Active sensor mode: trigger RPC only when a detection enters FOV ---
+            current_seen = set()
+            updated_props = {}
 
-            if hasattr(resp, "detections"):
-                detections = resp.detections
-            elif hasattr(resp, "tags"):
-                detections = resp.tags
-            elif hasattr(resp, "sounds"):
-                detections = resp.sounds
-            else:
-                detections = {}
+            # Check what the affection handler currently sees
+            if self.affection_handler:
+                try:
+                    result = self.affection_handler(self.{{ id_field }}, {}, self)
+                    if isinstance(result, dict) and "detections" in result:
+                        current_seen = set(result["detections"].keys())
+                except Exception as e:
+                    print(f"[{{ thing_name }}Node] affection_handler failed: {e}")
 
-            if detections:
-                for name, data in detections.items():
-                    print(f"[{{ thing_name }}Node] sees {name}: {data}")
+            # Trigger RPC only for new detections
+            print(f"[DEBUG] current_seen={current_seen} last_detections={last_detections}")
+            new_targets = current_seen - last_detections
+            if new_targets:
+                try:
+                    rpc_class = globals().get("{{ obj.subtype|capitalize }}ReadRPC")
+                    req = rpc_class.Request(sensor_id=self.{{ id_field }})
+                    resp = self.rpc_read_client.call(req, timeout=2.0)
+                    print(f"[{{ thing_name }}Node] RPC call -> {self.rpc_read_client._rpc_name}")
+                    if hasattr(resp, "detections"):
+                        for name, data in resp.detections.items():
+                            print(f"[{{ thing_name }}Node] sees {name}: {data}")
+                        updated_props = {"detections": resp.detections}
+                    else:
+                        updated_props = resp.__dict__ if hasattr(resp, "__dict__") else resp
+                except Exception as e:
+                    print(f"[{{ thing_name }}Node] RPC call failed: {e}")
+                    updated_props = {}
 
-            updated_props = resp.__dict__ if hasattr(resp, "__dict__") else resp
+            # Update last seen set
+            last_detections = current_seen
             {% else %}
             # --- Passive sensor mode: local affection handler ---
             updated_props = self.simulate()

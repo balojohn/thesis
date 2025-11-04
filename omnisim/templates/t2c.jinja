@@ -41,6 +41,8 @@ Communication {{ comm_name }}Comms
             topic: 'sensor.{{ type }}{{ "." ~ subtype_orig|lower if subtype_orig else "" }}'
             msg: {{ subtype_orig if subtype_orig else thing.type }}Message
         end
+        {% elif thing.class in ["Actuator", "CustomThing"] %}
+            {# Skip actuator/customthing comm generation #}
         {% endif %}
     end
 
@@ -106,6 +108,8 @@ Communication {{ comm_name }}Comms
                 {% endfor %}
             {% endif %}
         end
+        {% elif thing.class in ["Actuator", "CustomThing"] %}
+            {# Skip actuator/customthing comm generation #}
         {% endif %}
     end
 
