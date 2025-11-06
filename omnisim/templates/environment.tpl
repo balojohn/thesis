@@ -33,13 +33,18 @@ from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{
 # --- RPC message classes for active sensors (camera, rfid, microphone) ---
 {% set rpc_sensors = ["camera", "rfid", "microphone"] %}
 {%- macro search_rpc_sensors(obj) -%}
+    {%- set stype = obj.type|lower if obj.type else obj.__class__.__name__|lower -%}
+    {%- set ssub = obj.subtype|lower if obj.subtype is defined and obj.subtype else None -%}
+    {%- if ssub in rpc_sensors or stype in rpc_sensors -%}
+from omnisim.generated_files.things.{{ ssub if ssub else stype }} import {{ (camelcase(ssub if ssub else stype)|capitalize) }}ReadRPC
+    {% endif -%}
     {%- if obj.sensors is defined -%}
         {%- for s in obj.sensors -%}
             {%- set stype = s.ref.type|lower if s.ref.type else s.ref.__class__.__name__|lower -%}
             {%- set ssub = s.ref.subtype|lower if s.ref.subtype is defined and s.ref.subtype else None -%}
             {%- if ssub in rpc_sensors or stype in rpc_sensors -%}
 from omnisim.generated_files.things.{{ ssub if ssub else stype }} import {{ (camelcase(ssub if ssub else stype)|capitalize) }}ReadRPC
-            {%- endif -%}
+            {% endif -%}
         {%- endfor -%}
     {%- endif -%}
     {%- if obj.composites is defined -%}
@@ -77,7 +82,6 @@ from omnisim.generated_files.things.{{ ssub if ssub else stype }} import {{ (cam
 {%- for p in (environment.things or []) + (environment.composites or []) -%}
 {{ collect_rpc_sensors(p.ref) }}
 {%- endfor %}
-
 {% macro topic_prefix(obj, parents=None) -%}
     {# Normalize parents input: ensure it's a list of (ptype, pid) tuples #}
     {% if parents is none %}
@@ -836,7 +840,7 @@ class {{ environment.name }}Node(Node):
                     aff_handler = getattr(node, "affection_handler", None)
                     if callable(aff_handler):
                         try:
-                            result = aff_handler(node_id, self.env_properties)
+                            result = aff_handler(node_id, self.env_properties, self)
                             node._sim_data = result
                             self.log.info(f"[Affection] {node_id} -> {node._sim_data}")
                             # Store for visualizer
@@ -886,41 +890,44 @@ class {{ environment.name }}Node(Node):
                 name = tree.get("name", "")
                 full_path = f"{path}/{name}"
 
-                if node_sub in rpc_sensors or node_type in rpc_sensors:
-                    # Convert the recursive path to a commlib-style RPC name
-                    clean_path = path.replace("/", ".").strip(".")
-                    # Convert plural to singular to match node topic conventions
-                    clean_path = (
-                        clean_path
-                        .replace("composites.", "composite.")
-                        .replace("sensors.", "sensor.")
-                        .replace("actuators.", "actuator.")
-                        .replace("actors.", "actor.")
-                        .replace("obstacles.", "obstacle.")
-                    )
-                    # Avoid duplicating the final node name if it's already in the path
-                    if clean_path.endswith(f".{name}"):
-                        rpc_name = f"{clean_path}.read"
+                # Canonical key: prefer subtype, fallback to type
+                rpc_key = node_sub or node_type
+
+                if rpc_key in rpc_sensors:
+                    # --- Derive RPC name directly from node’s declared full_topic_prefix ---
+                    rpc_name = tree.get("full_topic_prefix", "").strip(".")
+                    if rpc_name:
+                        rpc_name = f"{rpc_name}.{name}.read"
                     else:
+                        # fallback: reconstruct from traversal path
+                        clean_path = path.replace("/", ".").strip(".")
+                        clean_path = (
+                            clean_path
+                            .replace("composites.", "composite.")
+                            .replace("sensors.", "sensor.")
+                            .replace("actuators.", "actuator.")
+                            .replace("actors.", "actor.")
+                            .replace("obstacles.", "obstacle.")
+                        )
                         rpc_name = f"{clean_path}.{name}.read"
 
-                    # print("=" * 60)
-                    # print(f"[RPC_REGISTER] class={tree['class']} type={node_type} subtype={node_sub}")
-                    # print(f"[RPC_REGISTER] name={name}")
-                    # print(f"[RPC_REGISTER] FULL PATH: {clean_path}")
-                    # print(f"[RPC_REGISTER] REGISTERING RPC: {rpc_name}")
-                    # print("=" * 60)
                     try:
-                        # --- Select correct RPC message type for this sensor ---
-                        {% if "camera" in active_rpc_types %}
-                        msg_type = CameraReadRPC
+                        # --- Select correct RPC message type dynamically ---
+                        {% if "camera" in rpc_sensors %}
+                        if rpc_key == "camera":
+                            msg_type = CameraReadRPC
                         {% endif %}
-                        {% if "rfid" in active_rpc_types %}
-                        msg_type = RfidReadRPC"
+                        {% if "rfid" in rpc_sensors %}
+                        elif rpc_key == "rfid":
+                            msg_type = RfidReadRPC
                         {% endif %}
-                        {% if "microphone" in active_rpc_types %}
-                        msg_type = MicrophoneReadRPC
+                        {% if "microphone" in rpc_sensors %}
+                        elif rpc_key == "microphone":
+                            msg_type = MicrophoneReadRPC
                         {% endif %}
+                        else:
+                            msg_type = None
+
                         if msg_type is not None:
                             rpc_srv = self.create_rpc(
                                 msg_type=msg_type,
@@ -928,12 +935,9 @@ class {{ environment.name }}Node(Node):
                                 on_request=self._on_rpc_read
                             )
                             setattr(self, f"rpc_{name}_read", rpc_srv)
-                            self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
+                            self.log.info(f"[RPC] Registered {rpc_key} RPC for {name} at '{rpc_name}'")
                         else:
-                            self.log.warning(f"[RPC] Unknown subtype '{node_sub}' for {name}. Skipping RPC registration.")
-
-                        setattr(self, f"rpc_{name}_read", rpc_srv)
-                        self.log.info(f"[RPC] Registered RPC for {name} at '{rpc_name}'")
+                            self.log.warning(f"[RPC] Unknown RPC key '{rpc_key}' for {name}. Skipping RPC registration.")
                     except Exception as e:
                         self.log.error(f"[RPC] Failed for {name} ({rpc_name}): {e}")
 

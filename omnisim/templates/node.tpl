@@ -17,7 +17,7 @@ from omnisim.utils.geometry import (
 {# --- Import generated child nodes (for composites only) --- #}
 {% if obj.__class__.__name__ == "CompositeThing" %}
     {% for posed_sensor in obj.sensors %}
-from .{{ posed_sensor.ref.subtype|lower if posed_sensor.ref.subtype is defined else posed_sensor.ref.type|lower }} import {{ posed_sensor.ref.subtype|capitalize if posed_sensor.ref.subtype is defined else posed_sensor.ref.type|capitalize }}Node
+from .{{ posed_sensor.ref.subtype|lower if posed_sensor.ref.subtype is defined else posed_sensor.ref.type|lower }} import {{ posed_sensor.ref.subtype if posed_sensor.ref.subtype is defined else posed_sensor.ref.type }}Node
     {% endfor %}
     {% for posed_actuator in obj.actuators %}
 from .{{ posed_actuator.ref.subtype|lower if posed_actuator.ref.subtype is defined else posed_actuator.ref.type|lower }} import {{ posed_actuator.ref.subtype|capitalize if posed_actuator.ref.subtype is defined else posed_actuator.ref.type|capitalize }}Node
@@ -35,19 +35,20 @@ from .{{ comp_type }} import {{ posed_cthing.ref.type|default(comp_type|capitali
         {% endif %}
     {% endfor %}
 {% endif %}
-{% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+{% set stype = (obj.subtype or obj.type)|lower %}
+{% if stype in ["camera", "rfid", "microphone"] %}
 from commlib.msg import RPCMessage
 
-class {{ obj.subtype|capitalize }}ReadRPC(RPCMessage):
+class {{ stype|capitalize }}ReadRPC(RPCMessage):
     class Request(RPCMessage.Request):
         sensor_id: str
 
     class Response(RPCMessage.Response):
-        {% if obj.subtype|lower == "camera" %}
+        {% if stype == "camera" %}
         detections: dict = {}
-        {% elif obj.subtype|lower == "rfid" %}
+        {% elif stype == "rfid" %}
         tags: dict = {}
-        {% elif obj.subtype|lower == "microphone" %}
+        {% elif stype == "microphone" %}
         sounds: dict = {}
         {% endif %}
         error: str = ""
@@ -98,7 +99,6 @@ class {{ obj.subtype|capitalize }}ReadRPC(RPCMessage):
 {% set cls = obj.class|lower %}
 {% set type_part = obj.type|lower if obj.type is defined else obj.__class__.__name__|lower %}
 {% set subtype = obj.subtype|lower if obj.subtype is defined else None %}
-
 {% if cls == "sensor" %}
     {% set topic_base = "sensor." ~ type_part %}
     {% if subtype and subtype != type_part %}
@@ -155,6 +155,16 @@ class {{ obj.subtype|capitalize }}ReadRPC(RPCMessage):
   {% endfor %}
 {% endfor %}
 
+{% if obj.__class__.__name__ != "CompositeThing" %}
+{# --- generate message classes for this node --- #}
+{% for e in publishers %}
+class {{ e.msg.name }}(PubSubMessage):
+  {% for prop in e.msg.properties | unique(attribute='name') %}
+    {{ prop.name }}: {{ "float" if prop.type.name == "float" else "int" if prop.type.name == "int" else "bool" if prop.type.name == "bool" else "str" }}
+  {% endfor %}
+{% endfor %}
+{% endif %}
+
 # Path to your redis-server executable
 REDIS_PATH = r"C:\redis\redis-server.exe"
 def redis_start():
@@ -168,16 +178,6 @@ def redis_start():
     except Exception as e:
         print(f"[ERROR] Could not start Redis: {e}")
         sys.exit(1)
-
-{% if obj.__class__.__name__ != "CompositeThing" %}
-{# --- generate message classes for this node --- #}
-{% for e in publishers %}
-class {{ e.msg.name }}(PubSubMessage):
-  {% for prop in e.msg.properties | unique(attribute='name') %}
-    {{ prop.name }}: {{ "float" if prop.type.name == "float" else "int" if prop.type.name == "int" else "bool" if prop.type.name == "bool" else "str" }}
-  {% endfor %}
-{% endfor %}
-{% endif %}
 
 class {{ thing_name }}Node(Node):
     def __init__(self, {{ id_field }}: str = "", parent_topic: str = "", *args, **kwargs):
@@ -310,8 +310,7 @@ class {{ thing_name }}Node(Node):
             msg_type=PoseMessage
         )
         
-        {% if cls == "sensor" %}
-        {% if obj.subtype|lower not in ["camera", "rfid", "microphone"] %}
+        {% if cls == "sensor" and stype not in ["camera", "rfid", "microphone"] %}
         # --- Passive sensor: publish data messages ---
         {% for e in publishers %}
         self.data_publisher_{{ e.msg.name|lower|replace('message', '') }} = self.create_publisher(
@@ -319,12 +318,11 @@ class {{ thing_name }}Node(Node):
             msg_type={{ e.msg.name }}
         )
         {% endfor %}
+
         {% endif %}
-        {% endif %}
-        
-        {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+        {% if stype in ["camera", "rfid", "microphone"] %}
         # --- RPC client setup for active sensor ---
-        rpc_class = globals().get("{{ obj.subtype|capitalize }}ReadRPC")
+        rpc_class = globals().get("{{ stype|capitalize }}ReadRPC")
         self.rpc_read_client = self.create_rpc_client(
             msg_type=rpc_class,
             rpc_name=f"{full_topic_prefix}.{{ '{self.' ~ id_field ~ '}' }}.read"
@@ -332,7 +330,7 @@ class {{ thing_name }}Node(Node):
         {% endif %}
 
         {% for posed_sensor in obj.sensors %}
-            {% set node_type = posed_sensor.ref.subtype|capitalize if posed_sensor.ref.subtype is defined else posed_sensor.ref.type|capitalize %}
+            {% set node_type = posed_sensor.ref.subtype if posed_sensor.ref.subtype is defined else posed_sensor.ref.type %}
             {% set node_name = posed_sensor.ref.name.lower() %}
         # --- Sensor child: {{ node_type }} ---
         self.children["{{ node_name }}"] = {{ node_type }}Node(
@@ -352,7 +350,7 @@ class {{ thing_name }}Node(Node):
         )
         {% endfor %}
         {% for posed_actuator in obj.actuators %}
-            {% set node_type = posed_actuator.ref.subtype|capitalize if posed_actuator.ref.subtype is defined else posed_actuator.ref.type|capitalize %}
+            {% set node_type = posed_actuator.ref.subtype if posed_actuator.ref.subtype is defined else posed_actuator.ref.type %}
             {% set node_name = posed_actuator.ref.name.lower() %}
         # --- Actuator child: {{ node_type }} ---
         self.children["{{ node_name }}"] = {{ node_type }}Node(
@@ -497,8 +495,7 @@ class {{ thing_name }}Node(Node):
     {% if cls == "sensor" %}
     def simulate(self):
         return getattr(self, "_sim_data", {})
-    {% endif %}
-    {% if obj.class|lower == "actuator" %}
+    {% elif cls == "actuator" %}
     def _on_actuator_command(self, msg):
         """Manual actuator control when automated=False."""
         self.current_value = getattr(msg, "value", None)
@@ -521,11 +518,12 @@ class {{ thing_name }}Node(Node):
             self.current_target_idx = (self.current_target_idx + 1) % len(self.targets)
             self.has_target = False
     {% endif %}
+    
     def start(self):
         """Start this node and all its children (if composite)."""
         if self.running:
             return
-        {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
+        {% if stype in ["camera", "rfid", "microphone"] %}
         print(f"[{self.__class__.__name__}] Starting active RPC main loop...")
         {% else %}
         print(f"[{self.__class__.__name__}] Starting main loop at {self.pub_freq} Hz...")
@@ -555,14 +553,13 @@ class {{ thing_name }}Node(Node):
         last_detections = set()  # to prevent duplicate RPC calls
 
         while self.running:
-            {% if obj.class|lower == "actuator" %}
+            {% if cls == "actuator" %}
             if self.automated:
                 now = time.monotonic()
                 dt = now - getattr(self, "_last_t", now)
                 self._last_t = now
                 self._run_actuator_targets(dt)
-            {% endif %}
-            {% if obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
+            {% elif obj.__class__.__name__ == "CompositeThing" or obj.__class__.__name__ == "Human" %}
             now = time.monotonic()
             dt = now - self._last_t
             self._last_t = now
@@ -600,33 +597,23 @@ class {{ thing_name }}Node(Node):
                         return v
 
                 # Case B: {"affections": {...}}
-                if "affections" in updated_props:
-                    affs = updated_props["affections"]
-                    if isinstance(affs, dict):
-                        # --- Sonar or rangefinder ---
-                        if sensor_type in ("sonar", "ir"):
-                            for v in affs.values():
-                                if isinstance(v, (int, float)):
-                                    return v
-                                if isinstance(v, dict) and "distance" in v:
-                                    return v["distance"]
-                        # --- Camera ---
-                        # if sensor_type == "camera":
-                        #     # Prefer detection count if provided via RPC
-                        #     if "detections" in updated_props:
-                        #         dets = updated_props["detections"]
-                        #         if isinstance(dets, dict):
-                        #             return len(dets)
+                if isinstance(updated_props.get("affections"), dict):
+                    for v in updated_props["affections"].values():
+                        if isinstance(v, (int, float)):
+                            return v
+                        if isinstance(v, dict):
+                            dist = v.get("distance")
+                            if isinstance(dist, (int, float)):
+                                return dist
                 return None
 
             # Get simulation/affection results
-            # Determine main key
             subtype = getattr(self, "subtype", "").lower()
             type_ = getattr(self, "type", "").lower()
             main_key = subtype or type_
             
-            {% if obj.subtype|lower in ["camera", "rfid", "microphone"] %}
-            # --- Active sensor mode: trigger RPC only when a detection enters FOV ---
+            {% if stype in ["camera", "rfid", "microphone"] %}
+             # --- Active sensor mode: trigger RPC only when a detection enters FOV ---
             current_seen = set()
             updated_props = {}
 
@@ -644,7 +631,7 @@ class {{ thing_name }}Node(Node):
             new_targets = current_seen - last_detections
             if new_targets:
                 try:
-                    rpc_class = globals().get("{{ obj.subtype|capitalize }}ReadRPC")
+                    rpc_class = globals().get("{{ stype|capitalize }}ReadRPC")
                     req = rpc_class.Request(sensor_id=self.{{ id_field }})
                     resp = self.rpc_read_client.call(req, timeout=2.0)
                     print(f"[{{ thing_name }}Node] RPC call -> {self.rpc_read_client._rpc_name}")
@@ -673,7 +660,7 @@ class {{ thing_name }}Node(Node):
             setattr(self, main_key, extracted_value)
             self._sim_data = {main_key: extracted_value}
             {% endif %}
-            {% if obj.subtype|lower not in ["camera", "rfid", "microphone"] %}
+            {% if stype not in ["camera", "rfid", "microphone"] %}
             {% if obj.__class__.__name__ != "CompositeThing" %}
             {% for e in publishers %}
             # Publish data message

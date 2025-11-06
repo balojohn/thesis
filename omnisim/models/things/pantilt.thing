@@ -16,4 +16,5 @@ CThing pt_1
     sensors:
         - so_1 @ Transform(4, 4, 0)
         - cam_1 @ Transform(-4, 4, 180)
+        - rfid_1 @ Transform(-10, 5, 90)
 end

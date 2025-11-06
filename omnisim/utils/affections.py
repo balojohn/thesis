@@ -355,42 +355,77 @@ def handle_gas_sensor(nodes, poses, log, sensor_id, env_properties=None):
 
 # Affected by humans with sound, sound sources, speakers (when playing smth),
 # robots (when moving)
-def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None):
+def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None, env=None):
     """
-    Compute perceived sound level at a microphone.
-    Influences: humans (speaking), sound sources, speakers.
-    Returns: {"sound": float}
+    Detects sound-emitting entities (humans, speakers, sound sources, robots).
+    Returns a dict of detections {target_name: {...}} with distance and signal strength.
     """
     try:
         sensor = find_node_by_id(nodes, sensor_id)
+        if not sensor:
+            log.warning(f"[Microphone] Sensor {sensor_id} not found in node tree.")
+            return {}
+
         props = sensor.get("properties", {})
-        env_sound = (env_properties or {}).get("sound", 20.0)
+        detections = {}
         noise = props.get("noise", 0.0)
-        influences = []
-        # mic_range = props.get("range", sensor.get("range", 0))  # new
 
+        # --- Get sensor pose ---
+        pose = find_pose_by_metadata(
+            poses,
+            cls=sensor.get("class", "").lower(),
+            type=sensor.get("type", "").lower(),
+            subtype=sensor.get("subtype", "").lower(),
+            name=sensor.get("name", "").lower()
+        )
+        if not pose:
+            log.warning(f"[Microphone] Pose not found for {sensor_id}")
+            return {}
+
+        # --- Candidate targets ---
+        humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
         speakers = find_nodes_by_metadata(nodes, cls="actuator", subtype="speaker")
-        humans = find_nodes_by_metadata(nodes, cls="actor", type="human")
-        soundsources = find_nodes_by_metadata(nodes, cls="actor", type="soundsource")
-        generic_entities = find_nodes_by_metadata(nodes)
+        soundsources = find_nodes_by_metadata(nodes, cls="actor", subtype="soundsource")
+        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
+        visible_targets = humans + speakers + soundsources + robots
 
-        for target in speakers + humans + soundsources + generic_entities:
-            if target in generic_entities and \
-            "microphone" not in (target.get("properties", {}).get("affects") or []):
-                continue
-            r = handle_affection_ranged(nodes, poses, log, sensor, target, "sound")
+        for target in visible_targets:
+            # Microphone is omnidirectional, use range-based check
+            r = handle_affection_ranged(nodes, poses, log, sensor, target, target.get("subtype"))
             if not r:
                 continue
-            influences.append(r["value"])
 
-        sensed = env_sound
-        if influences:
-            sensed = env_sound + sum(influences) / len(influences)
+            name = target["name"]
+            det = {
+                "class": r["class"],
+                "type": r["type"],
+                "subtype": r["subtype"],
+                "distance": dist,
+                "range": rng,
+                "signal_strength": signal,
+                "audible": True,
+            }
+            dist = round(apply_noise(r["distance"], noise), 2)
+            rng = r["range"]
+            weight = max(0.0, 1.0 - dist / rng)
+            signal = round(weight * 100.0, 2)
 
-        return {"sound": round(apply_noise(sensed, noise), 2)}
+            
+
+            detections[name] = det
+            log.info(f"[Microphone] {sensor_id} detected {name} -> {det}")
+
+        # --- Drop very weak signals ---
+        # for k in list(detections.keys()):
+        #     if detections[k]["signal_strength"] < 5.0:
+        #         detections.pop(k, None)
+        #         log.debug(f"[Microphone] Dropped {k} (weak signal)")
+
+        return detections
+
     except Exception as e:
         log.error(f"handle_microphone_sensor: {e}")
-        raise
+        return {}
 
 def compute_luminosity(nodes, poses, log, sensor_id, env_properties=None, print_debug=False):
     """
@@ -596,158 +631,189 @@ def handle_distance_sensor(nodes, poses, log, sensor_id, env_properties=None):
         raise
 
 # Affected by barcode, color, human, qr, text
-def handle_camera_sensor(nodes, poses, log, sensor_id, env_properties=None, env=None):
+def handle_reader_sensor(nodes, poses, log, sensor_id, env_properties=None, env=None):
     """
-    Processes sensor data from a camera and handles different types of actors 
-    (human, qr, barcode, color, text) and optionally robots.
-    Args:
-        name (str): The name of the place or sensor.
-        with_robots (bool, optional): If True, includes robots in the processing. 
-        Defaults to False.
+    Generic handler for active reader-type sensors (camera, RFID, barcode, QR, etc.).
+    Decides dynamically what entities are visible or readable.
     Returns:
-        dict: A dictionary containing the detected actors and their respective processed data.
-    Raises:
-        Exception: If an error occurs during processing.
-    The function performs the following steps:
-    1. Retrieves the absolute place data for the given name.
-    2. Computes the luminosity of the place.
-    3. Processes different types of actors (human, qr, barcode, color, text) and stores the 
-        results.
-    4. Optionally processes robots if `with_robots` is True.
-    5. Filters the results based on the luminosity, simulating detection failure in low light 
-        conditions.
-    6. Logs and raises an exception if any error occurs during processing.
+        dict of detections {target_name: {...}}.
     """
     try:
         sensor = find_node_by_id(nodes, sensor_id)
         if not sensor:
-            log.warning(f"[Camera] Sensor {sensor_id} not found in node tree.")
+            log.warning(f"[Reader] Sensor {sensor_id} not found in node tree.")
             return {}
-        props = sensor.get("properties", {})
-        detections = {}
-        noise = props.get("noise", 0.0)
 
+        props = sensor.get("properties", {})
+        noise = props.get("noise", 0.0)
+        subtype = sensor.get("subtype", "").lower()
+        detections = {}
+
+        # --- Get pose ---
         pose = find_pose_by_metadata(
             poses,
             cls=sensor.get("class", "").lower(),
             type=sensor.get("type", "").lower(),
-            subtype=sensor.get("subtype", "").lower(),
-            name=sensor.get("name", "").lower()
+            subtype=subtype,
+            name=sensor.get("name", "").lower(),
         )
         if not pose:
-            log.warning(f"[Camera] Pose not found for {sensor_id}")
+            log.warning(f"[Reader] Pose not found for {sensor_id}")
             return {}
 
-        luminosity = compute_luminosity(nodes, poses, log, sensor_id, env_properties)
-        log.info(f"[Camera] {sensor_id}: local luminosity = {round(luminosity, 2)}")
+        # --- Determine detection domain ---
+        if subtype == "camera":
+            # Visible light-based
+            luminosity = compute_luminosity(nodes, poses, log, sensor_id, env_properties)
+            log.info(f"[Reader:Camera] {sensor_id}: local luminosity = {round(luminosity, 2)}")
 
-        # --- Candidate targets ---
-        humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
-        qrs = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="qrcode")
-        barcodes = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="barcode")
-        texts = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="plaintext")
-        colors = find_nodes_by_metadata(nodes, cls="actor", subtype="color")
-        leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
-        robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
-        visible_targets = humans + qrs + barcodes + texts + colors + leds + robots
+            humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
+            qrs = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="qrcode")
+            barcodes = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="barcode")
+            texts = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="plaintext")
+            colors = find_nodes_by_metadata(nodes, cls="actor", subtype="color")
+            leds = find_nodes_by_metadata(nodes, cls="actuator", type="singleled", subtype="led")
+            robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
 
+            visible_targets = humans + qrs + barcodes + texts + colors + leds + robots
+
+        elif subtype == "rfid":
+            # RFID field-based
+            tags = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="rfidtag")
+            visible_targets = tags
+
+        else:
+            log.warning(f"[Reader] Unsupported reader subtype '{subtype}'")
+            return {}
+
+        # --- Process detections ---
         for target in visible_targets:
             handler = handle_affection_arced if target["class"] != "actuator" else handle_affection_ranged
             r = handler(nodes, poses, log, sensor, target, target.get("subtype"))
             if not r:
                 continue
 
+            dist = round(apply_noise(r["distance"], noise), 2)
+            rng = r["range"]
             name = target["name"]
+
             det = {
                 "class": r["class"],
                 "type": r["type"],
                 "subtype": r["subtype"],
-                "distance": round(apply_noise(r["distance"], noise), 2),
+                "distance": dist,
+                "range": rng,
                 "angle": round(math.degrees(r.get("angle", 0.0)), 2) if "angle" in r else None,
                 "fov": r.get("fov", None),
                 "visible": True,
             }
 
-            # --- Extract readable content ---
-            tclass = target.get("class", "").lower()
-            ttype = target.get("type", "").lower()
-            tsub = target.get("subtype", "").lower()
-            props_t = target.get("properties", {})
+            # --- Camera content extraction ---
+            if subtype == "camera":
+                tclass = target.get("class", "").lower()
+                ttype = target.get("type", "").lower()
+                tsub = target.get("subtype", "").lower()
+                props_t = target.get("properties", {})
 
-            if tclass == "actor" and ttype == "text":
-                det["content"] = props_t.get("message", "(unreadable)")
-            elif tclass == "actor" and tsub == "color":
-                det["color"] = props_t.get("value", "#FFFFFF")
-            elif tclass == "actor" and tsub == "qrcode":
-                det["content"] = props_t.get("encoded", "(empty)")
+                if tclass == "actor" and ttype == "text":
+                    det["content"] = props_t.get("message", "(unreadable)")
+                elif tclass == "actor" and tsub == "color":
+                    det["color"] = props_t.get("value", "#FFFFFF")
+                elif tclass == "actor" and tsub == "qrcode":
+                    det["content"] = props_t.get("encoded", "(empty)")
+
+            # --- RFID content extraction ---
+            elif subtype == "rfid":
+                tclass = target.get("class", "").lower()
+                tsub = target.get("subtype", "").lower()
+                if tclass == "actor" and tsub == "rfidtag":
+                    det["message"] = target.get("properties", {}).get("message", "(empty)")
 
             detections[name] = det
-            log.info(f"[Camera] {sensor_id} detected {name} -> {det}")
+            log.info(f"[Reader] {sensor_id} detected {name} -> {det}")
 
-        # --- Low light filtering ---
-        if luminosity < 30 and detections:
+        # --- Low light filtering (camera only) ---
+        if subtype == "camera" and luminosity < 30 and detections:
             fail_prob = (30 - luminosity) / 30.0
             for k in list(detections.keys()):
                 if random.random() < fail_prob:
                     detections.pop(k, None)
-                    log.info(f"[Camera] Dropped {k} due to low light")
+                    log.info(f"[Reader:Camera] Dropped {k} due to low light")
 
-        # --- After building all detections, trigger RPC if available ---
-        # if detections and env:
-        #     log.info(f"[Camera RPC Trigger] {sensor_id} sees {list(detections.keys())}")
-        #     try:
-        #         prefix = sensor.get("parent_topic", "")
-        #         base = f"{prefix}.sensor.reader.camera" if prefix else "sensor.reader.camera"
-        #         rpc_topic = f"{base}.{sensor_id}.read"
-        #         rpc_client = getattr(env, "rpc_clients", {}).get(rpc_topic, None)
-
-        #         if rpc_client:
-        #             response = rpc_client.call({"detections": detections})
-        #             log.info(f"[Camera RPC] {sensor_id} -> {response}")
-        #         else:
-        #             log.debug(f"[Camera RPC] No RPC client found for {rpc_topic}")
-        #     except Exception as e:
-        #         log.error(f"[Camera RPC] Error calling {sensor_id}: {e}")
         return detections
 
     except Exception as e:
-        log.error(f"handle_camera_sensor: {e}")
+        log.error(f"handle_reader_sensor({sensor_id}) error: {e}")
         return {}
+
     
 # Affected by rfid_tags
-def handle_rfid_sensor(nodes, poses, log, sensor_id):
-    """
-    Detect RFID tags within range/FOV of the RFID reader.
-    Returns:
-        dict of detections: {tag_name: {distance, signal_strength, ...}}
-    """
-    try:
-        sensor = nodes[sensor_id]
-        detections = {}
+# def handle_rfid_sensor(nodes, poses, log, sensor_id, env_properties=None, env=None):
+#     """
+#     Detect RFID tags within range/FOV of the RFID reader.
+#     Returns:
+#         dict of detections: {tag_name: {...}} with distance, range, signal strength.
+#     """
+#     try:
+#         sensor = find_node_by_id(nodes, sensor_id)
+#         if not sensor:
+#             log.warning(f"[RFID] Sensor {sensor_id} not found in node tree.")
+#             return {}
 
-        tags = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="rfidtag")
+#         props = sensor.get("properties", {})
+#         noise = props.get("noise", 0.0)
+#         detections = {}
 
-        for target in tags:
-            r = handle_affection_arced(nodes, poses, log, sensor, target, "rfid_tag")
-            if r:
-                dist = r["distance"]
-                rng = r["range"]
-                weight = max(0.0, 1.0 - dist / rng)
-                signal = round(weight * 100.0, 2)  # signal strength percentage
-                detections[target["name"]] = {
-                    "distance": dist,
-                    "signal_strength": signal,
-                    "range": rng,
-                    "class": r["class"],
-                    "type": r["type"],
-                    "subtype": r["subtype"],
-                }
+#         # --- Get sensor pose ---
+#         pose = find_pose_by_metadata(
+#             poses,
+#             cls=sensor.get("class", "").lower(),
+#             type=sensor.get("type", "").lower(),
+#             subtype=sensor.get("subtype", "").lower(),
+#             name=sensor.get("name", "").lower()
+#         )
+#         if not pose:
+#             log.warning(f"[RFID] Pose not found for {sensor_id}")
+#             return {}
 
-        return detections
+#         # --- Candidate tags ---
+#         tags = find_nodes_by_metadata(nodes, cls="actor", type="text", subtype="rfidtag")
+#         for target in tags:
+#             r = handle_affection_arced(nodes, poses, log, sensor, target, "rfid_tag")
+#             if not r:
+#                 continue
 
-    except Exception as e:
-        log.error(f"handle_rfid_sensor: {e}")
-        raise
+#             dist = round(apply_noise(r["distance"], noise), 2)
+#             rng = r["range"]
+#             weight = max(0.0, 1.0 - dist / rng)
+#             signal = round(weight * 100.0, 2)
+
+#             det = {
+#                 "class": r["class"],
+#                 "type": r["type"],
+#                 "subtype": r["subtype"],
+#                 "distance": dist,
+#                 "range": rng,
+#                 "signal_strength": signal,
+#                 "angle": round(math.degrees(r.get("angle", 0.0)), 2) if "angle" in r else None,
+#                 "fov": r.get("fov", None),
+#                 "visible": True,
+#             }
+
+#             detections[target["name"]] = det
+#             log.info(f"[RFID] {sensor_id} detected {target['name']} -> {det}")
+
+#         # --- Drop weak signals ---
+#         # for k in list(detections.keys()):
+#         #     if detections[k]["signal_strength"] < 5.0:
+#         #         detections.pop(k, None)
+#         #         log.debug(f"[RFID] Dropped {k} (weak signal)")
+
+#         return detections
+
+#     except Exception as e:
+#         log.error(f"handle_rfid_sensor({sensor_id}) error: {e}")
+#         return {}
 
 # Affected by robots
 def handle_area_alarm(nodes, poses, log, sensor_id, env_properties=None):
@@ -936,12 +1002,11 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, env=None):
             elif subtype == "gas":
                 affected = handle_gas_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "microphone":
-                affected = handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties)
-            elif subtype == "camera":
-                detections = handle_camera_sensor(nodes, poses, log, sensor_id, env_properties, env=env)
+                detections = handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties, env=env)
                 return {"detections": detections, "env_properties": env_properties}
-            elif subtype == "rfid":
-                affected = handle_rfid_sensor(nodes, poses, log, sensor_id)
+            elif subtype in ("camera", "rfid"):
+                detections = handle_reader_sensor(nodes, poses, log, sensor_id, env_properties, env=env)
+                return {"detections": detections, "env_properties": env_properties}
             elif subtype == "areaalarm":
                 affected = handle_area_alarm(nodes, poses, log, sensor_id)
             elif subtype == "linearalarm":
@@ -959,11 +1024,9 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, env=None):
 
             if subtype == "microphone":
                 affected = handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties)
-            elif subtype == "camera":
-                detections = handle_camera_sensor(nodes, poses, log, sensor_id, env_properties, env=env)
+            elif subtype in ("camera", "rfid"):
+                detections = handle_reader_sensor(nodes, poses, log, sensor_id, env_properties, env=env)
                 return {"detections": detections, "env_properties": env_properties}
-            elif subtype == "rfid":
-                affected = handle_rfid_sensor(nodes, poses, log, sensor_id)
             elif subtype in ("sonar", "ir"):
                 affected = handle_distance_sensor(nodes, poses, log, sensor_id)
             elif subtype == "temperature":
@@ -972,8 +1035,6 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, env=None):
                 affected = handle_humidity_sensor(nodes, poses, log, sensor_id, env_properties)
             elif subtype == "gas":
                 affected = handle_gas_sensor(nodes, poses, log, sensor_id, env_properties)
-
-        # --- Optional: pure actuator or actor cases could go here in future ---
 
     except Exception as e:
         log.error(f"[Affectability] Error handling {sensor_id}: {e}")

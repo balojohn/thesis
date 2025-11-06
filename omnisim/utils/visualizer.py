@@ -190,55 +190,81 @@ class EnvVisualizer:
                         (panel_x + 10, y), (panel_x + panel_width - 10, y))
         y += 18
 
-        # === CAMERA SECTION ===
-        cameras = {
+        # === RPC SENSORS SECTION ===
+        rpc_sensors = {"camera", "rfid", "microphone"}
+        rpc_nodes = {
             name: node
             for name, node in collect_sensors(self.node.nodes).items()
-            if (node.get("subtype") or node.get("type", "")).lower() == "camera"
+            if (node.get("subtype") or node.get("type", "")).lower() in rpc_sensors
         }
-        if cameras:
-            self.screen.blit(self.font.render("Cameras", True, (160, 200, 255)), (panel_x + 14, y))
+        if rpc_nodes:
+            self.screen.blit(self.font.render("RPC Sensors", True, (160, 200, 255)), (panel_x + 14, y))
             y += 6
             pygame.draw.line(self.screen, (70, 70, 80),
                             (panel_x + 12, y), (panel_x + panel_width - 12, y))
             y += 14
 
-            cam_headers = ["Name", "Entity", "Detected", "Value"]
-            cam_col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
-            for i, h in enumerate(cam_headers):
-                self.screen.blit(self.font.render(h, True, (150, 160, 190)), (cam_col_x[i], y))
+            rpc_headers = ["Name", "Type", "Detected", "Value"]
+            rpc_col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
+            for i, h in enumerate(rpc_headers):
+                self.screen.blit(self.font.render(h, True, (150, 160, 190)), (rpc_col_x[i], y))
             y += 22
             pygame.draw.line(self.screen, (70, 70, 80),
                             (panel_x + 10, y), (panel_x + panel_width - 10, y))
             y += 12
 
-            for sname, sent in sorted(cameras.items()):
-                stype = sent.get("subtype") or sent.get("type") or "Unknown"
+            for sname, sent in sorted(rpc_nodes.items()):
+                stype = (sent.get("subtype") or sent.get("type") or "Unknown").lower()
                 val = sensor_values.get(sname)
                 if not val or not isinstance(val, dict):
                     val = self._last_sensor_values.get(sname, val)
-                    # print("[VIS DEBUG] cam_1 val:", val)
                 else:
                     self._last_sensor_values[sname] = val
 
-                detected_name, message = "-", "-"
-                if isinstance(val, dict):
-                    detections = val.get("detections", {})
-                    if isinstance(detections, dict) and detections:
-                        first_key = next(iter(detections))
-                        detected_name = first_key
-                        msg = detections[first_key]
-                        if isinstance(msg, dict):
-                            message = next((msg.get(k) for k in ("content", "color", "value", "distance") if msg.get(k) is not None), "-")
-                        else:
-                            message = str(msg)
+                detected_name = "-"
+                message = "-"
 
-                self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (cam_col_x[0], y + 2))
-                self.screen.blit(self.font.render(stype.title(), True, (200, 200, 200)), (cam_col_x[1], y))
-                self.screen.blit(self.font.render(detected_name, True, (180, 220, 255)), (cam_col_x[2], y))
-                if not isinstance(message, (str, bytes, int, float)):
-                    message = "-"
-                self.screen.blit(self.font.render(str(message), True, (180, 255, 180)), (cam_col_x[3], y))
+                if isinstance(val, dict):
+                    # Check if val is a nested detection dict (new format)
+                    detections = val.get("detections", {})
+                    
+                    if detections:
+                        # Format: {"detections": {"target": {...}}}
+                        first_target = next(iter(detections))
+                        detected_name = first_target
+                        det_info = detections[first_target]
+
+                        if isinstance(det_info, dict):
+                            if "content" in det_info:
+                                message = det_info["content"]
+                            elif "message" in det_info:
+                                message = det_info["message"]
+                            elif "color" in det_info:
+                                message = det_info["color"]
+                            elif "distance" in det_info:
+                                message = f"{det_info['distance']:.1f}"
+                        else:
+                            message = str(det_info)
+                    else:
+                        # Check if val itself is a flat detection dict (old format)
+                        # e.g. {'class': 'actor', 'type': 'text', 'distance': 100.4, ...}
+                        if "subtype" in val or "type" in val:
+                            # This looks like a detection result
+                            if "class" in val:
+                                detected_name = val.get("detected_name", "target")
+                            
+                            if "message" in val:
+                                message = val["message"]
+                            elif "content" in val:
+                                message = val["content"]
+                            elif "distance" in val:
+                                message = f"{val['distance']:.1f}"
+
+                # --- render properly into columns ---
+                self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (rpc_col_x[0], y + 2))
+                self.screen.blit(self.font.render(stype.title(), True, (200, 200, 200)), (rpc_col_x[1], y))
+                self.screen.blit(self.font.render(detected_name, True, (180, 220, 255)), (rpc_col_x[2], y))
+                self.screen.blit(self.font.render(str(message), True, (180, 255, 180)), (rpc_col_x[3], y))
                 y += row_h
                 if y > self.height - 40:
                     break
@@ -265,14 +291,12 @@ class EnvVisualizer:
                         (panel_x + 10, y), (panel_x + panel_width - 10, y))
         y += 12
 
-        # Filter out cameras from the main list
+        # Filter out all RPC sensors (camera, rfid, microphone) from the generic list
+        rpc_sensors = {"camera", "rfid", "microphone"}
         all_sensors = {
             k: v for k, v in collect_sensors(self.node.nodes).items()
-            if (v.get("subtype") or v.get("type", "")).lower() != "camera"
+            if (v.get("subtype") or v.get("type", "")).lower() not in rpc_sensors
         }
-
-        # ... keep your existing generic sensor row drawing loop ...
-
 
         # --- Draw rows ---
         for sname, sent in sorted(all_sensors.items()):
@@ -295,7 +319,7 @@ class EnvVisualizer:
                     val_str = f"{dist:.1f}"
                 elif stype.lower() == "camera":
                     # --- Camera-specific: show detailed detections with message text ---
-                    messages = val.get("messages") if isinstance(val, dict) else None
+                    # messages = val.get("messages") if isinstance(val, dict) else None
                     detections = val.get("detections") if isinstance(val, dict) else None
 
                     # Backward-compatibility: some handlers return flat dict of targets
