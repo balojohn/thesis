@@ -17,23 +17,20 @@ from omnisim.utils.geometry import (
 {# --- Import generated child nodes (for composites only) --- #}
 {% if obj.__class__.__name__ == "CompositeThing" %}
     {% for posed_sensor in obj.sensors %}
-from .{{ posed_sensor.ref.subtype|lower if posed_sensor.ref.subtype is defined else posed_sensor.ref.type|lower }} import {{ posed_sensor.ref.subtype if posed_sensor.ref.subtype is defined else posed_sensor.ref.type }}Node
-    {% endfor %}
+    {% set file_name = posed_sensor.ref.name|lower %}
+    {% set class_type = posed_sensor.ref.subtype if posed_sensor.ref.subtype else posed_sensor.ref.type %}
+from .{{ file_name }} import {{ class_type }}Node
+{% endfor %}
     {% for posed_actuator in obj.actuators %}
-from .{{ posed_actuator.ref.subtype|lower if posed_actuator.ref.subtype is defined else posed_actuator.ref.type|lower }} import {{ posed_actuator.ref.subtype|capitalize if posed_actuator.ref.subtype is defined else posed_actuator.ref.type|capitalize }}Node
-    {% endfor %}
+    {% set file_name = posed_actuator.ref.name|lower %}
+    {% set class_type = posed_actuator.ref.subtype if posed_actuator.ref.subtype else posed_actuator.ref.type %}
+from .{{ file_name }} import {{ class_type }}Node
+{% endfor %}
     {% for posed_cthing in obj.composites %}
-        {% if posed_cthing.ref.type is defined and posed_cthing.ref.type %}
-            {% set comp_type = posed_cthing.ref.type|lower %}
-        {% elif posed_cthing.ref.subtype is defined and posed_cthing.ref.subtype %}
-            {% set comp_type = posed_cthing.ref.subtype|lower %}
-        {% else %}
-            {% set comp_type = posed_cthing.ref.__class__.__name__|lower %}
-        {% endif %}
-        {% if comp_type != obj.type|lower %}
-from .{{ comp_type }} import {{ posed_cthing.ref.type|default(comp_type|capitalize, true) }}Node
-        {% endif %}
-    {% endfor %}
+    {% set file_name = posed_cthing.ref.name|lower %}
+    {% set class_type = posed_cthing.ref.subtype if posed_cthing.ref.subtype else posed_cthing.ref.type %}
+from .{{ file_name }} import {{ class_type }}Node
+{% endfor %}
 {% endif %}
 {% set stype = (obj.subtype or obj.type)|lower %}
 {% if stype in ["camera", "rfid", "microphone"] %}

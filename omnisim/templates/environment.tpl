@@ -15,36 +15,51 @@ from omnisim.utils.affections import check_affectability
 {%- endif -%}
 {%- endmacro %}
 # Generated node classes
-{% set placements = (environment.things or []) + (environment.composites or []) %}
 {% for p in placements %}
     {% set ref = p.ref %}
-    {% set cls = ref.class|lower %}
-    {% set type_orig = ref.type if ref.type else ref.__class__.__name__ %}
-    {% set type = type_orig|lower %}
-    {% set subtype_orig = ref.subtype if ref.subtype is defined and ref.subtype else None %}
-    {% set subtype = subtype_orig|lower if subtype_orig else None %}
-    {% set node_classname = camelcase(subtype_orig) if subtype_orig else camelcase(type_orig) %}
-    {% if cls == "sensor" %}
-from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node, {{ node_classname }}Message, PoseMessage
+    {% set instance_name = ref.name|lower %}
+    {# Determine class name #}
+    {% if ref.subtype %}
+        {% set class_name = camelcase(ref.subtype) %}
     {% else %}
-from omnisim.generated_files.things.{{ subtype if subtype else type }} import {{ node_classname }}Node, PoseMessage
+        {% set class_name = camelcase(ref.type if ref.type else ref.__class__.__name__) %}
+    {% endif %}
+    {# Determine correct folder: things vs actors #}
+    {% set folder =
+        "actors" if ref.class|lower == "actor"
+        else "things"
+    %}
+    {# Import rules #}
+    {% if ref.class|lower == "sensor" %}
+from omnisim.generated_files.{{ folder }}.{{ instance_name }} import {{ class_name }}Node, {{ class_name }}Message, PoseMessage
+    {% else %}
+from omnisim.generated_files.{{ folder }}.{{ instance_name }} import {{ class_name }}Node, PoseMessage
     {% endif %}
 {% endfor %}
 # --- RPC message classes for active sensors (camera, rfid, microphone) ---
 {% set rpc_sensors = ["camera", "rfid", "microphone"] %}
 {%- macro search_rpc_sensors(obj) -%}
+    {# Determine type/subtype #}
     {%- set stype = obj.type|lower if obj.type else obj.__class__.__name__|lower -%}
-    {%- set ssub = obj.subtype|lower if obj.subtype is defined and obj.subtype else None -%}
+    {%- set ssub  = obj.subtype|lower if obj.subtype is defined and obj.subtype else None -%}
+    {# If this sensor is an RPC sensor #}
     {%- if ssub in rpc_sensors or stype in rpc_sensors -%}
-from omnisim.generated_files.things.{{ ssub if ssub else stype }} import {{ (camelcase(ssub if ssub else stype)|capitalize) }}ReadRPC
+        {# Use instance filename, not type filename #}
+        {%- set instance_name = obj.name|lower -%}
+        {# RPC class name is CamelCase(ReadRPC) based on subtype or type #}
+        {%- set base = ssub if ssub else stype -%}
+        {%- set RpcClass = camelcase(base)|capitalize ~ "ReadRPC" -%}
+        {# Determine folder: things vs actors #}
+        {%- set folder =
+            "actors" if obj.class|lower == "actor"
+            else "things"
+        -%}
+from omnisim.generated_files.{{ folder }}.{{ instance_name }} import {{ RpcClass }}
     {% endif -%}
+    {# Recursively scan children of composites #}
     {%- if obj.sensors is defined -%}
         {%- for s in obj.sensors -%}
-            {%- set stype = s.ref.type|lower if s.ref.type else s.ref.__class__.__name__|lower -%}
-            {%- set ssub = s.ref.subtype|lower if s.ref.subtype is defined and s.ref.subtype else None -%}
-            {%- if ssub in rpc_sensors or stype in rpc_sensors -%}
-from omnisim.generated_files.things.{{ ssub if ssub else stype }} import {{ (camelcase(ssub if ssub else stype)|capitalize) }}ReadRPC
-            {% endif -%}
+{{ search_rpc_sensors(s.ref) }}
         {%- endfor -%}
     {%- endif -%}
     {%- if obj.composites is defined -%}
@@ -53,6 +68,7 @@ from omnisim.generated_files.things.{{ ssub if ssub else stype }} import {{ (cam
         {%- endfor -%}
     {%- endif -%}
 {%- endmacro -%}
+{# Run search for all top-level entities #}
 {%- for p in (environment.things or []) + (environment.composites or []) -%}
 {{ search_rpc_sensors(p.ref) }}
 {%- endfor %}

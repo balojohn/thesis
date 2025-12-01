@@ -189,62 +189,51 @@ def t2vc(ctx, model_file):
             outdir = envs_output_dir
 
         else:
-            # --- Handle Thing / Actor (atomic or composite) ---
-            obj_class = getattr(obj, "class", "").lower()
+            obj_name = getattr(obj, "name", None)
             obj_type = getattr(obj, "type", "").lower()
             obj_subtype = getattr(obj, "subtype", "").lower()
-            obj_name = obj_subtype or obj_type or obj.__class__.__name__.lower()
 
+            if not obj_name:
+                obj_name = obj_subtype or obj_type or obj.__class__.__name__.lower()
+
+            filename = f"{obj_name.lower()}.py"
+
+            # Load comms only for things
             communication_mm = get_communication_mm()
             dtypes_mm = get_datatype_mm()
 
-            comms_model_file = None
+            dtypes = None
             comms = None
 
-            # --- Communication model resolution ---
-            comms_dir = os.path.join(GENFILES_REPO_PATH, "communications")
-
-            # Try subtype first (Camera → camera.comm)
-            candidate_paths = [
-                os.path.join(comms_dir, f"{obj_subtype}.comm"),
-                os.path.join(comms_dir, f"{obj_type}.comm"),
-            ]
-
-            for path in candidate_paths:
-                if path and os.path.exists(path):
-                    comms_model_file = path
+            # dtype resolution
+            dtype_dir = os.path.join(GENFILES_REPO_PATH, "datatypes")
+            for key in [obj_subtype, obj_type]:
+                if not key:
+                    continue
+                candidate = os.path.join(dtype_dir, f"{key}.dtype")
+                if os.path.exists(candidate):
+                    dtypes = dtypes_mm.model_from_file(candidate)
                     break
 
-            if comms_model_file:
-                comms = communication_mm.model_from_file(comms_model_file)
-                print(f'[*] Loaded Communications model from file: {comms_model_file}')
-            else:
-                print("[!] No communications file found (this may be fine for actuators or composites).")
-
-            # --- DataType resolution ---
-            dtypes_model_file = None
-            dtype_dir = os.path.join(GENFILES_REPO_PATH, "datatypes")
-            for name in [obj_subtype, obj_type]:
-                if name:
-                    candidate = os.path.join(dtype_dir, f"{name}.dtype")
-                    if os.path.exists(candidate):
-                        dtypes_model_file = candidate
-                        break
-
-            if dtypes_model_file:
-                dtypes = dtypes_mm.model_from_file(dtypes_model_file)
-                print(f'[*] Loaded Data model from file: {dtypes_model_file}')
-            else:
+            if dtypes is None:
                 raise FileNotFoundError(f"No matching .dtype file for {obj_name}")
 
-            # --- Code generation ---
-            if obj_class == "sensor" or obj.__class__.__name__.lower() in ["compositething", "robot"]:
-                gen_code = model_to_vcode(obj, comms, dtypes)
-            else:
-                gen_code = model_to_vcode(obj, comms=None, dtypes=dtypes)
+            # comms resolution ONLY for things
+            if model_kind == "thing":
+                comms_dir = os.path.join(GENFILES_REPO_PATH, "communications")
+                for key in [obj_subtype, obj_type]:
+                    candidate = os.path.join(comms_dir, f"{key}.comm")
+                    if os.path.exists(candidate):
+                        comms = communication_mm.model_from_file(candidate)
+                        break
 
-            filename = f"{obj_name}.py"
-            outdir = actors_output_dir if model_kind == "actor" else things_output_dir
+            # generate
+            if model_kind == "actor":
+                gen_code = model_to_vcode(obj, comms=None, dtypes=dtypes)     # FIX 2
+                outdir = actors_output_dir                                    # FIX 3
+            else:
+                gen_code = model_to_vcode(obj, comms, dtypes)
+                outdir = things_output_dir
 
         # --- Write generated file ---
         filepath = os.path.join(outdir, filename)
