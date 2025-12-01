@@ -710,6 +710,9 @@ class {{ environment.name }}Node(Node):
             "shape": self.nodes["obstacles"]["{{ name }}"]["shape"]
         }
         {% endfor %}
+        import json
+        print(json.dumps(self.nodes, indent=2, default=str))
+        print(json.dumps(self.poses, indent=2, default=str))
 
     # Wrappers for affection and pose utils
     def check_affectability(self, sensor_id: str, env_properties, env=None):
@@ -832,7 +835,7 @@ class {{ environment.name }}Node(Node):
                 if node_class == "sensor" and (
                     node_type in active_rpc_sensors or node_subtype in active_rpc_sensors
                 ):
-                    self.log.info(f"[Affection] Skipping RPC-based sensor {node_id} ({node_type}/{node_subtype})")
+                    # self.log.info(f"[Affection] Skipping RPC-based sensor {node_id} ({node_type}/{node_subtype})")
                     continue
 
                 # --- Only evaluate passive sensors automatically ---
@@ -842,7 +845,7 @@ class {{ environment.name }}Node(Node):
                         try:
                             result = aff_handler(node_id, self.env_properties, self)
                             node._sim_data = result
-                            self.log.info(f"[Affection] {node_id} -> {node._sim_data}")
+                            # self.log.info(f"[Affection] {node_id} -> {node._sim_data}")
                             # Store for visualizer
                             if isinstance(result, dict):
                                 if "affections" in result:
@@ -1043,7 +1046,7 @@ class {{ environment.name }}Node(Node):
 
             # --- Store detections ---
             self.sensor_values[sensor_id] = {"detections": detections}
-            self.log.info(f"[DEBUG] sensor_values now: {list(self.sensor_values.keys())}")
+            # self.log.info(f"[DEBUG] sensor_values now: {list(self.sensor_values.keys())}")
             self.log.info(f"[RPCRead] Stored RPC data for {sensor_id}: {list(detections.keys()) or 'no detections'}")
 
             # --- Return correct typed Response depending on active RPC type ---

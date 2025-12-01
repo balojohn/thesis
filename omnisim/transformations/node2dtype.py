@@ -39,7 +39,8 @@ def log_node_info(model):
         print(f'[*] Installed actuators:')
         for posed_actuator in model.actuators:
             actuator = posed_actuator.ref
-            print(f'    - {actuator.subtype}: ({actuator.__class__.__name__})')
+            subtype = getattr(actuator, 'subtype', getattr(actuator, 'type', actuator.__class__.__name__))
+            print(f'    - {subtype}: ({actuator.__class__.__name__})')
             components.append((actuator, getattr(posed_actuator, 'name', actuator.name)))
 
     # Nested Composites

@@ -177,7 +177,7 @@ def handle_affection_arced(nodes, poses, log, sensor, node, type,
         fov_deg = props.get("fov", sensor.get("fov", 0))
         fov_rad = math.radians(fov_deg)
 
-        log.info(f"[Affection:Arced] {sensor_name} -> {node_name} | dist={dist:.2f}, range={sensor_range}, FOV={fov_deg}")
+        # log.info(f"[Affection:Arced] {sensor_name} -> {node_name} | dist={dist:.2f}, range={sensor_range}, FOV={fov_deg}")
 
         if dist > sensor_range:
             return None
@@ -384,18 +384,22 @@ def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None, 
 
         # --- Candidate targets ---
         humans = find_nodes_by_metadata(nodes, cls="actor", subtype="human")
-        speakers = find_nodes_by_metadata(nodes, cls="actuator", subtype="speaker")
+        speakers = find_nodes_by_metadata(nodes, cls="actuator", type="speaker")
         soundsources = find_nodes_by_metadata(nodes, cls="actor", subtype="soundsource")
         robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
         visible_targets = humans + speakers + soundsources + robots
 
         for target in visible_targets:
-            # Microphone is omnidirectional, use range-based check
             r = handle_affection_ranged(nodes, poses, log, sensor, target, target.get("subtype"))
             if not r:
                 continue
 
-            name = target["name"]
+            # compute first
+            dist = round(apply_noise(r["distance"], noise), 2)
+            rng = r["range"]
+            weight = max(0.0, 1.0 - dist / rng)
+            signal = round(weight * 100.0, 2)
+
             det = {
                 "class": r["class"],
                 "type": r["type"],
@@ -405,15 +409,9 @@ def handle_microphone_sensor(nodes, poses, log, sensor_id, env_properties=None, 
                 "signal_strength": signal,
                 "audible": True,
             }
-            dist = round(apply_noise(r["distance"], noise), 2)
-            rng = r["range"]
-            weight = max(0.0, 1.0 - dist / rng)
-            signal = round(weight * 100.0, 2)
 
-            
-
-            detections[name] = det
-            log.info(f"[Microphone] {sensor_id} detected {name} -> {det}")
+            detections[target["name"]] = det
+            log.info(f"[Microphone] {sensor_id} detected {target['name']} -> {det}")
 
         # --- Drop very weak signals ---
         # for k in list(detections.keys()):
@@ -984,10 +982,10 @@ def check_affectability(nodes, poses, log, sensor_id, env_properties, env=None):
 
     # Only skip when environment explicitly disables sensor-side computation
     if env is None and (node_subtype in {"camera", "rfid", "microphone"} or node_type in {"camera", "rfid", "microphone"}):
-        log.info(f"[Affectability] Skipping RPC sensor {sensor_id} ({node_type}/{node_subtype})")
+        # log.info(f"[Affectability] Skipping RPC sensor {sensor_id} ({node_type}/{node_subtype})")
         return None
 
-    log.info(f"[Affectability] Evaluating {node_class}:{node_type}:{node_subtype or ''} -> {node_name}")
+    # log.info(f"[Affectability] Evaluating {node_class}:{node_type}:{node_subtype or ''} -> {node_name}")
 
     affected = {}
     try:

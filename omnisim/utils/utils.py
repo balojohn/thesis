@@ -1,8 +1,6 @@
 from os.path import dirname, join
 import time, math, random
 
-from commlib.msg import RPCMessage
-
 THIS_DIR = dirname((dirname(__file__)))
 MODEL_REPO_PATH = join(THIS_DIR, 'models')
 GENFILES_REPO_PATH = join(THIS_DIR, 'generated_files')

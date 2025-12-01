@@ -159,7 +159,7 @@ class {{ stype|capitalize }}ReadRPC(RPCMessage):
 {# --- generate message classes for this node --- #}
 {% for e in publishers %}
 class {{ e.msg.name }}(PubSubMessage):
-  {% for prop in e.msg.properties | unique(attribute='name') %}
+  {% for prop in e.msg.properties %}
     {{ prop.name }}: {{ "float" if prop.type.name == "float" else "int" if prop.type.name == "int" else "bool" if prop.type.name == "bool" else "str" }}
   {% endfor %}
 {% endfor %}
@@ -627,7 +627,7 @@ class {{ thing_name }}Node(Node):
                     print(f"[{{ thing_name }}Node] affection_handler failed: {e}")
 
             # Trigger RPC only for new detections
-            print(f"[DEBUG] current_seen={current_seen} last_detections={last_detections}")
+            # print(f"[DEBUG] current_seen={current_seen} last_detections={last_detections}")
             new_targets = current_seen - last_detections
             if new_targets:
                 try:
@@ -667,7 +667,7 @@ class {{ thing_name }}Node(Node):
             msg_data = {{ e.msg.name }}(
                 pubFreq=self.pub_freq,
                 type="{{ e.msg.name | replace('Message', 'Data') }}",
-                {{ id_field }}=self.{{ id_field }},
+                name=self.{{ id_field }},
                 {% if data_type %}
                 {% for prop in data_type.properties %}
                 {{ prop.name }}=self.{{ prop.name }},

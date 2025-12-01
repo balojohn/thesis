@@ -12,6 +12,7 @@ class EnvVisualizer:
         self.node = env_node
         self.running = True
         self._last_sensor_values = {}
+        self._last_alarm_values = {}
         self._label_rects = []
 
         # === Environment info ===
@@ -301,91 +302,81 @@ class EnvVisualizer:
         # --- Draw rows ---
         for sname, sent in sorted(all_sensors.items()):
             stype = sent.get("subtype") or sent.get("type") or "Unknown"
-            val = sensor_values.get(sname)
-            # --- Cache previous values to prevent flicker (esp. camera) ---
-            if val in (None, {}, []):
-                # reuse last non-empty value if available
-                val = self._last_sensor_values.get(sname, val)
-            else:
-                # store this new value
-                self._last_sensor_values[sname] = val
-            det_str = ""
-            # Format value and detection cleanly
-            if isinstance(val, dict):
-                if "distance" in val and "detected_name" in val:
-                    target = val.get("detected_name", "None")
-                    dist = val.get("distance", 0)
-                    det_str = f"{target} ({dist:.1f})"
-                    val_str = f"{dist:.1f}"
-                elif stype.lower() == "camera":
-                    # --- Camera-specific: show detailed detections with message text ---
-                    # messages = val.get("messages") if isinstance(val, dict) else None
-                    detections = val.get("detections") if isinstance(val, dict) else None
-
-                    # Backward-compatibility: some handlers return flat dict of targets
-                    if not detections and isinstance(val, dict):
-                        detections = {k: v for k, v in val.items() if isinstance(v, dict)}
-
-                    if detections:
-                        display_items = []
-                        for tname, tinfo in list(detections.items())[:3]:
-                            msg = ""
-                            if isinstance(tinfo, dict):
-                                msg = tinfo.get("message") or tinfo.get("content") or ""
-                            if msg:
-                                display_items.append(f"{tname}: \"{msg}\"")
-                            else:
-                                display_items.append(tname)
-                        det_str = ", ".join(display_items)
-                        if len(detections) > 3:
-                            det_str += ", ..."
-                    else:
-                        val_str = "-"
-                        det_str = ""
-                elif stype.lower() in ("areaalarm", "linearalarm", "alarm"):
-                    # --- Alarms: show triggered state and detections ---
-                    trig = val.get("triggered")
-                    dets = val.get("detections", {})
-
-                    # --- Triggered state ---
-                    if isinstance(trig, (bool, int, float)):
-                        val_str = "Triggered" if float(trig) > 0 else "Idle"
-                    else:
-                        val_str = "-"
-
-                    # --- Detection formatting (camera-style) ---
-                    detected = []
-                    if isinstance(dets, dict):
-                        detected = list(dets.keys())
-                    elif isinstance(dets, (list, tuple, set)):
-                        detected = [str(d) for d in dets if d]
-                    # Support nested structures like {"r_1": {"x":...}}
-                    elif dets:
-                        try:
-                            detected = [str(dets)]
-                        except Exception:
-                            detected = []
-
-                    if detected:
-                        det_str = ", ".join(detected[:2])
-                        if len(detected) > 2:
-                            det_str += ", …"
-                    else:
-                        det_str = ""
+            stype_l = stype.lower()
+            raw_val = sensor_values.get(sname)
+            val = raw_val
+            
+            if stype_l in ("areaalarm", "linearalarm", "alarm"):
+                if isinstance(raw_val, dict):
+                    val = raw_val
+                    self._last_alarm_values[sname] = raw_val
                 else:
-                    # Default dict formatting
-                    if len(val) == 1:
-                        k, v = next(iter(val.items()))
-                        val_str = f"{v:.2f}" if isinstance(v, (int, float)) else str(v)
-                    else:
-                        val_str = ", ".join(
-                            f"{k}:{v:.1f}" if isinstance(v, (int, float)) else f"{k}:{v}"
-                            for k, v in val.items()
-                        )
+                    val = self._last_alarm_values.get(sname, {"triggered": False, "detections": []})
+            det_str = ""
+            # 1. ALARMS
+            if stype_l in ("areaalarm", "linearalarm", "alarm"):
+                trig = val.get("triggered") if isinstance(val, dict) else 0
+                dets = val.get("detections", {}) if isinstance(val, dict) else {}
+                val_str = "Triggered" if float(trig) > 0 else "Idle"
+
+                if isinstance(dets, dict):
+                    detected = list(dets.keys())
+                else:
+                    detected = []
+                det_str = ", ".join(detected[:2])
+                if len(detected) > 2:
+                    det_str += ", ..."
+                
+            # 2. RANGE SENSORS (SONAR, LIDAR, IR, etc)
+            elif isinstance(val, dict) and "distance" in val:
+                d = val.get("distance", None)
+                tgt = val.get("detected_name") or val.get("detected_class") or ""
+                # value = only the number
+                val_str = f"{d:.1f}" if isinstance(d, (int, float)) else "-"
+                # detection = entity name only
+                det_str = str(tgt) if tgt else ""
+
+            # 3. CAMERA
+            elif stype_l == "camera":
+                dets = val.get("detections", {}) if isinstance(val, dict) else {}
+                if not dets and isinstance(val, dict):
+                    dets = {k: v for k, v in val.items() if isinstance(v, dict)}
+                if dets:
+                    display_items = []
+                    for tname, tinfo in list(dets.items())[:3]:
+                        msg = ""
+                        if isinstance(tinfo, dict):
+                            msg = tinfo.get("message") or tinfo.get("content") or ""
+                        display_items.append(f"{tname}: \"{msg}\"" if msg else tname)
+                    det_str = ", ".join(display_items)
+                    if len(dets) > 3:
+                        det_str += ", ..."
+                    val_str = "-"
+                else:
+                    val_str = "-"
+                    det_str = ""
+
+            # 4. OTHER DICT SENSORS
+            elif isinstance(val, dict):
+                if len(val) == 1:
+                    k, v = next(iter(val.items()))
+                    val_str = f"{v:.2f}" if isinstance(v, (int, float)) else str(v)
+                else:
+                    val_str = ", ".join(
+                        f"{k}:{v:.1f}" if isinstance(v, (int, float)) else f"{k}:{v}"
+                        for k, v in val.items()
+                    )
+                det_str = ""
+
+            # 5. NUMERIC
             elif isinstance(val, (int, float)):
                 val_str = f"{val:.2f}"
+                det_str = ""
+
+            # 6. STRING/NONE
             else:
                 val_str = str(val) if val else "-"
+                det_str = ""
 
             color = (180, 255, 180) if isinstance(val, (int, float, dict)) else (200, 200, 200)
             self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (col_x[0], y + 2))
@@ -615,7 +606,7 @@ class EnvVisualizer:
                 if "rel_pose" in d and all(k in d["rel_pose"] for k in ("x", "y", "theta")):
                     return d["rel_pose"]
             # --- Case 3: recurse deeper ---
-            for v in d.values():
+            for k, v in d.items():
                 if isinstance(v, dict):
                     res = find_pose_by_name(v, name, depth + 1)
                     if res:
@@ -630,7 +621,13 @@ class EnvVisualizer:
                 if not isinstance(node, dict):
                     continue
                 if "class" in node:
-                    pose = find_pose_by_name(self.node.poses, key)
+                    # Try poses first (standard)
+                    pose = find_pose_by_name(self.node.poses, key) if hasattr(self.node, 'poses') else None
+                    
+                    # If not found in poses, try extracting from node itself
+                    if not pose and all(k in node for k in ("x", "y", "theta")):
+                        pose = {"x": node["x"], "y": node["y"], "theta": node["theta"]}
+                    
                     if pose:
                         # Debug print so you can verify it draws the deep ones
                         # print(f"[DRAW] {key} ({node.get('class')}) -> {pose}")

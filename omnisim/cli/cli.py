@@ -136,46 +136,6 @@ def t2d(_, model_file):
         print(f'[X] Transformation failed: {e}')
         raise
 
-@cli.command("t2e")
-@click.argument("model_file")
-@click.pass_context
-def t2e(_, model_file):
-    try:
-        print(f'[*] Executing Thing-to-Entity M2M...')
-        model_filename = os.path.basename(model_file)
-        # Check if it's an actor or thing file
-        if model_filename.endswith('.actor'):
-            print(f'[*] Detected Actor model: {model_filename}')
-            preload_dtype_models()
-            actor_mm = get_actor_mm()
-            amodel = actor_mm.model_from_file(model_file)
-            actor = amodel.actor  # Top-level is 'actor' in actor grammar
-            entity_model = actor_to_entity_m2m(actor)
-            filename = f'{actor.name.lower()}.ent'
-        elif model_filename.endswith('.thing'):
-            print(f'[*] Detected Thing model: {model_filename}')
-            preload_dtype_models()
-            thing_mm = get_thing_mm()
-            tmodel = thing_mm.model_from_file(model_file)
-            thing = tmodel.thing
-            entity_model = thing_to_entity_m2m(thing)
-            filename = f'{thing.name.lower()}.ent'
-        else:
-            print(f'[X] Unsupported model file type: {model_filename}')
-            raise ValueError()
-
-        filepath = os.path.join(t2e_output_dir, filename)
-        with open(filepath, 'w') as fp:
-            fp.write(entity_model)
-        print(f'[*] Generated output Entity model: {filepath}')
-        print(f'[*] Validating Generated Entity Model...')
-        model = build_model(filepath)
-        if model:
-            print(f'[*] Model validation succeded!\n')
-    except Exception as e:
-        print(f'[X] Transformation failed: {e}')
-        raise
-
 @cli.command("t2vc")
 @click.argument("model_file")
 @click.pass_context
