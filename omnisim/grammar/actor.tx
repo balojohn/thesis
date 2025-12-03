@@ -26,6 +26,7 @@ CompositeActor:
         ('pubFreq:' pubFreq=FLOAT)?
         ('shape:' shape=Shape)?
         ('automated:' automated=BOOL)?
+        ('collidable:' collidable=BOOL)?
         ('targets:'
              '-' targets+=TargetPose['-'])?
         ('actors:'
@@ -60,6 +61,7 @@ CustomActor:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('range:' range=FLOAT)?
             ('value:' value=FLOAT)?
             ('noise:' noise=Noise)?
@@ -81,6 +83,7 @@ EnvActor:
             ('subtype:' subtype=[EnvActorType])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('dispersion:' dispersion=DispersionType)?
             ('value:' value=FLOAT)?
             ('range:' range=FLOAT)?
@@ -97,6 +100,7 @@ SoundSource:
             ('type:' type=ID)?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('range:' range=FLOAT)?
             ('sound' ':' sound=INT)?
             ('language' ':' language=STRING)?
@@ -113,6 +117,7 @@ Color:
             ('type:' type=ID)
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('r' ':' r=INT)?
             ('g' ':' g=INT)?
             ('b' ':' b=INT)?
@@ -128,6 +133,7 @@ Text:
             ('subtype:' subtype=[TextType])?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('message' ':' message=STRING)?
         )#
     'end'
@@ -147,6 +153,7 @@ Human:
             ('type:' type=ID)?
             ('shape' ':' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('sound' ':' sound=INT)?
             ('range' ':' range=INT)?
             ('motion' ':' motion=STRING)?

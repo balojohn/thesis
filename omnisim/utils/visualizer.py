@@ -12,7 +12,7 @@ class EnvVisualizer:
         self.node = env_node
         self.running = True
         self._last_sensor_values = {}
-        self._last_alarm_values = {}
+        # self._last_alarm_values = {}
         self._label_rects = []
 
         # === Environment info ===
@@ -127,6 +127,14 @@ class EnvVisualizer:
         pan_text = self.font.render(f"Pan: ({self.pan_x:.1f}, {self.pan_y:.1f})", True, (180, 220, 255))
         self.screen.blit(zoom_text, (self.width - 160, 10))
         self.screen.blit(pan_text, (self.width - 200, 28))
+
+    def draw_world_bounds(self):
+        p0 = self.world_to_screen(0, 0)
+        p1 = self.world_to_screen(self.env_width, 0)
+        p2 = self.world_to_screen(self.env_width, self.env_height)
+        p3 = self.world_to_screen(0, self.env_height)
+
+        pygame.draw.lines(self.screen, (255, 255, 255), True, [p0, p1, p2, p3], 2)
 
     # -----------------------------------------------------
     # ---------------- SENSOR TABLE -----------------------
@@ -288,104 +296,131 @@ class EnvVisualizer:
         for i, h in enumerate(headers):
             self.screen.blit(self.font.render(h, True, (150, 160, 190)), (col_x[i], y))
         y += 22
+
         pygame.draw.line(self.screen, (70, 70, 80),
                         (panel_x + 10, y), (panel_x + panel_width - 10, y))
         y += 12
 
-        # Filter out all RPC sensors (camera, rfid, microphone) from the generic list
+        # Remove RPC from general sensors
         rpc_sensors = {"camera", "rfid", "microphone"}
         all_sensors = {
             k: v for k, v in collect_sensors(self.node.nodes).items()
             if (v.get("subtype") or v.get("type", "")).lower() not in rpc_sensors
         }
 
-        # --- Draw rows ---
+        # === Central datatype-driven renderer ===
+        def render_value(v):
+            """Convert any value (dict, list, tuple, scalar) into (value_str, det_str)."""
+            # --- 1. None/empty -> reuse last ---
+            if v in (None, {}, []):
+                return "-", ""
+            
+            # --- 2. Alarms (dict with 'triggered') ---
+            elif isinstance(v, tuple) and len(v) == 2:
+                trig, dets = v
+                return ("Triggered" if trig else "Idle",
+                        ", ".join(dets) if isinstance(dets, dict) else str(dets))
+
+            elif isinstance(v, dict) and "triggered" in v:
+                trig = v.get("triggered", False)
+                dets = v.get("detections", {})
+                return ("Triggered" if trig else "Idle",
+                        ", ".join(dets) if isinstance(dets, dict) else str(dets))
+
+            # --- 3. Distance-based sensors ---
+            elif isinstance(v, dict) and "distance" in v:
+                target = v.get("detected_name", "None")
+                dist = v.get("distance", 0)
+                return f"{dist:.1f}", f"{target} ({dist:.1f})"
+
+            # --- 4. Generic dict ---
+            elif isinstance(v, dict):
+                items = []
+                for k, val in v.items():
+                    if isinstance(val, (float, int)):
+                        items.append(f"{k}:{val:.2f}")
+                    else:
+                        items.append(f"{k}:{val}")
+                return ", ".join(items), ""
+
+            # --- 5. List ---
+            elif isinstance(v, list):
+                return ", ".join(str(x) for x in v), ""
+
+            # --- 6. Tuple (e.g. (trig, detlist) from cache) ---
+            elif isinstance(v, tuple) and len(v) == 2:
+                trig, dets = v
+                val_str = "Triggered" if trig else "Idle"
+                det_str = ", ".join(dets) if isinstance(dets, (list, dict)) else str(dets)
+                return val_str, det_str
+
+            # --- 7. Numbers ---
+            elif isinstance(v, (int, float)):
+                return f"{v:.2f}", ""
+
+            # --- 8. Everything else ---
+            else:
+                return str(v), ""
+
+
+        # === Draw rows ===
         for sname, sent in sorted(all_sensors.items()):
             stype = sent.get("subtype") or sent.get("type") or "Unknown"
-            stype_l = stype.lower()
-            raw_val = sensor_values.get(sname)
-            val = raw_val
-            
-            if stype_l in ("areaalarm", "linearalarm", "alarm"):
-                if isinstance(raw_val, dict):
-                    val = raw_val
-                    self._last_alarm_values[sname] = raw_val
-                else:
-                    val = self._last_alarm_values.get(sname, {"triggered": False, "detections": []})
-            det_str = ""
-            # 1. ALARMS
-            if stype_l in ("areaalarm", "linearalarm", "alarm"):
-                trig = val.get("triggered") if isinstance(val, dict) else 0
-                dets = val.get("detections", {}) if isinstance(val, dict) else {}
-                val_str = "Triggered" if float(trig) > 0 else "Idle"
 
-                if isinstance(dets, dict):
-                    detected = list(dets.keys())
-                else:
-                    detected = []
-                det_str = ", ".join(detected[:2])
-                if len(detected) > 2:
-                    det_str += ", ..."
-                
-            # 2. RANGE SENSORS (SONAR, LIDAR, IR, etc)
-            elif isinstance(val, dict) and "distance" in val:
-                d = val.get("distance", None)
-                tgt = val.get("detected_name") or val.get("detected_class") or ""
-                # value = only the number
-                val_str = f"{d:.1f}" if isinstance(d, (int, float)) else "-"
-                # detection = entity name only
-                det_str = str(tgt) if tgt else ""
+            # --- Fetch value exactly like RPC sensors ---
+            val = sensor_values.get(sname)
 
-            # 3. CAMERA
-            elif stype_l == "camera":
-                dets = val.get("detections", {}) if isinstance(val, dict) else {}
-                if not dets and isinstance(val, dict):
-                    dets = {k: v for k, v in val.items() if isinstance(v, dict)}
-                if dets:
-                    display_items = []
-                    for tname, tinfo in list(dets.items())[:3]:
-                        msg = ""
-                        if isinstance(tinfo, dict):
-                            msg = tinfo.get("message") or tinfo.get("content") or ""
-                        display_items.append(f"{tname}: \"{msg}\"" if msg else tname)
-                    det_str = ", ".join(display_items)
-                    if len(dets) > 3:
-                        det_str += ", ..."
-                    val_str = "-"
-                else:
-                    val_str = "-"
-                    det_str = ""
-
-            # 4. OTHER DICT SENSORS
-            elif isinstance(val, dict):
-                if len(val) == 1:
-                    k, v = next(iter(val.items()))
-                    val_str = f"{v:.2f}" if isinstance(v, (int, float)) else str(v)
-                else:
-                    val_str = ", ".join(
-                        f"{k}:{v:.1f}" if isinstance(v, (int, float)) else f"{k}:{v}"
-                        for k, v in val.items()
-                    )
-                det_str = ""
-
-            # 5. NUMERIC
-            elif isinstance(val, (int, float)):
-                val_str = f"{val:.2f}"
-                det_str = ""
-
-            # 6. STRING/NONE
+            # If value is not a dict -> fall back immediately
+            if isinstance(val, dict):
+                # valid structured value -> update cache
+                self._last_sensor_values[sname] = val
             else:
-                val_str = str(val) if val else "-"
+                # fallback -> only use cache if it contains a dict
+                cached = self._last_sensor_values.get(sname)
+                if isinstance(cached, dict):
+                    val = cached
+                else:
+                    # no valid state -> render nothing
+                    val = {}
+
+            det_str = "-"
+            val_str = "-"
+
+            # ALARM
+            if "triggered" in val:
+                val_str = "Triggered" if val["triggered"] else "Idle"
+                dets = val.get("detections", [])
+                if isinstance(dets, dict):
+                    det_str = ", ".join(dets.keys())
+                elif isinstance(dets, list):
+                    det_str = ", ".join(str(x) for x in dets)
+
+            # DISTANCE SENSOR
+            elif "distance" in val:
+                d = val["distance"]
+                n = val.get("detected_name", "None")
+                val_str = f"{d:.1f}"
+                det_str = f"{n} ({d:.1f})"
+
+            # GENERIC SENSOR
+            else:
+                parts = []
+                for k,v in val.items():
+                    if isinstance(v, (int,float)):
+                        parts.append(f"{k}:{v:.2f}")
+                    else:
+                        parts.append(f"{k}:{v}")
+                val_str = ", ".join(parts)
                 det_str = ""
 
-            color = (180, 255, 180) if isinstance(val, (int, float, dict)) else (200, 200, 200)
+            # Draw
             self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (col_x[0], y + 2))
             self.screen.blit(self.font.render(stype.title(), True, (200, 200, 200)), (col_x[1], y))
-            self.screen.blit(self.font.render(val_str, True, color), (col_x[2], y))
+            self.screen.blit(self.font.render(val_str, True, (180, 255, 180)), (col_x[2], y))
             if det_str:
                 self.screen.blit(self.font.render(det_str, True, (180, 220, 255)), (col_x[3], y))
-            y += row_h
 
+            y += row_h
             if y > self.height - 40:
                 break
     # -----------------------------------------------------
@@ -481,16 +516,19 @@ class EnvVisualizer:
                     sx, sy = self.world_to_screen(wx, wy)
                     screen_pts.append((sx, sy))
 
-                # --- Base color: sensor color ---
-                base_color = self.colors.get("sensor", (0, 200, 255))
-                color = base_color
-                width = 2
-
-                # --- Change color only if triggered ---
+                # --- Determine color based on trigger state ---
+                # Use SAME cached value as sensor table
                 val = self.node.sensor_values.get(label)
-                if isinstance(val, dict) and val.get("triggered", 0) > 0:
+                if not isinstance(val, dict):
+                    val = self._last_sensor_values.get(label, {})
+
+                # Now val is consistent with table
+                if isinstance(val, dict) and val.get("triggered", False):
                     color = (255, 60, 60)
-                    width = 4
+                    width = 3
+                else:
+                    color = self.colors.get("sensor", (0, 200, 255))
+                    width = 3
 
                 # Draw line segment (laser beam)
                 pygame.draw.lines(self.screen, color, False, screen_pts, width)
@@ -669,6 +707,7 @@ class EnvVisualizer:
                 self.panel_scroll_x = max(-300, min(300, self.panel_scroll_x))
 
                 self.draw_background()
+                self.draw_world_bounds()
                 self._label_rects = []
 
                 self._draw_all_entities()
@@ -679,6 +718,11 @@ class EnvVisualizer:
 
         except KeyboardInterrupt:
             print("[Visualizer] Interrupted by user.")
+            self.stop()
+        except Exception as e:
+            print(f"[Visualizer ERROR] {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
             self.stop()
 
     # -----------------------------------------------------

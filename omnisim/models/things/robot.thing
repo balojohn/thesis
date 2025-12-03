@@ -3,6 +3,7 @@ CThing r_1
     pubFreq: 10
     shape: Rectangle(210, 70)
     automated: True
+    collidable: True
     targets:
         - Point(500, 800)
         - Point(800, 800)

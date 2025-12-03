@@ -12,8 +12,11 @@ from omnisim.utils.geometry import (
     VelocityMessage,
     {% endif %}
     make_tf_matrix,
-    apply_transformation
+    apply_transformation,
+    get_shape_world_points,
+    check_lines_intersection,
 )
+from omnisim.utils.collisions import detect_collisions
 {# --- Import generated child nodes (for composites only) --- #}
 {% if obj.__class__.__name__ == "CompositeThing" %}
     {% for posed_sensor in obj.sensors %}
@@ -182,6 +185,7 @@ class {{ thing_name }}Node(Node):
         self._rel_pose = kwargs.pop("rel_pose", None)
         self._initial_pose = kwargs.pop("initial_pose", None)
         self.affection_handler = kwargs.pop("affection_handler", None)
+        self.environment = kwargs.pop("environment", None)
         super().__init__(
             node_name="{{ thing_name.lower() }}",
             connection_params=ConnectionParameters(),
@@ -343,7 +347,8 @@ class {{ thing_name }}Node(Node):
                 'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
                 'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
             },
-            affection_handler=self.affection_handler
+            affection_handler=self.affection_handler,
+            environment=self.environment
         )
         {% endfor %}
         {% for posed_actuator in obj.actuators %}
@@ -363,7 +368,8 @@ class {{ thing_name }}Node(Node):
                 'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
                 'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
             },
-            affection_handler=self.affection_handler
+            affection_handler=self.affection_handler,
+            environment=self.environment
         )
         {% endfor %}
         {% for posed_cthing in obj.composites %}
@@ -384,7 +390,8 @@ class {{ thing_name }}Node(Node):
                 'y': self._initial_pose["y"] if self._initial_pose else self.abs_init_y,
                 'theta': self._initial_pose["theta"] if self._initial_pose else self.abs_init_theta
             },
-            affection_handler=self.affection_handler
+            affection_handler=self.affection_handler,
+            environment=self.environment
         )
             {% endif %}
         {% endfor %}
@@ -562,12 +569,41 @@ class {{ thing_name }}Node(Node):
             self._last_t = now
 
             if self.automated:
+                # store previous pose BEFORE updating
+                self._prev_x = self.x
+                self._prev_y = self.y
+                self._prev_theta = self.theta
                 self._follow_targets(dt)
             else:
                 th_rad = math.radians(self.theta)
                 self.x += self.vel_lin * math.cos(th_rad) * dt
                 self.y += self.vel_lin * math.sin(th_rad) * dt
                 self.theta = (self.theta + self.vel_ang * dt) % 360.0
+            
+            # --- Collision check ---
+            try:
+                collisions = detect_collisions(
+                    self.environment.nodes,
+                    self.environment.poses,
+                    self.environment.width,
+                    self.environment.height
+                )
+                print(f"[{self.__class__.__name__}] Collision check: {len(collisions)} collisions detected")
+                if collisions:
+                    print(f"  Collisions: {collisions}")
+                
+                    for (a, b) in collisions:
+                        print(f"[Collision] {a} hit {b}")
+                        if a == self.{{ id_field }} or b == self.{{ id_field }}:
+                            print(f"[Collision] Reverting movement for {a}")
+                            self.x = self._prev_x
+                            self.y = self._prev_y
+                            self.theta = self._prev_theta
+                            break
+            except Exception as e:
+                print(f"[Collision] Check failed: {e}")
+                import traceback
+                traceback.print_exc()
 
             if hasattr(self, "children"):
                 # Propagate only translation + parent orientation (not child's orientation)

@@ -69,6 +69,7 @@ Grid:
 Obstacle:
     'Obstacle' name=ID
         'shape:' shape=Shape
+        ('collidable:' collidable=BOOL)?
     'end'
 ;
 

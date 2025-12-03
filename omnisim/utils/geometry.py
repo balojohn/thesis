@@ -363,36 +363,47 @@ def recurse(d, parent_pose, log):
                 recurse(subv, next_pose, log)
 
 def get_shape_world_points(pose, shape):
-    """Return list of world-space (x, y) points for the given pose+shape dict."""
+    """Return world-space polygon matching the visualized geometry exactly."""
     if not isinstance(shape, dict):
         return []
 
-    x, y, theta = pose.get("x", 0.0), pose.get("y", 0.0), math.radians(pose.get("theta", 0.0))
+    x, y = pose.get("x", 0.0), pose.get("y", 0.0)
+    th = math.radians(pose.get("theta", 0.0))
+    cos_t, sin_t = math.cos(th), math.sin(th)
+
     stype = shape.get("type", "").lower()
 
-    pts = []
+    # ---- LOCAL GEOMETRY EXACTLY AS VISUALIZER EXPECTS ----
+
     if stype == "rectangle":
-        w, l = shape.get("width", 1.0), shape.get("length", 1.0)
+        w = shape.get("width", 1.0)
+        l = shape.get("length", 1.0)
         hw, hl = w / 2.0, l / 2.0
-        local = [(-hl, -hw), (-hl, hw), (hl, hw), (hl, -hw)]
+        # same orientation as draw_entity()
+        local = [(-hw, -hl), (hw, -hl), (hw, hl), (-hw, hl)]
+
     elif stype == "square":
-        length = shape.get("length", 1.0)
-        h = length / 2.0
-        local = [(-h, -h), (-h, h), (h, h), (h, -h)]
+        s = shape.get("length", 1.0) / 2.0
+        local = [(-s, -s), (s, -s), (s, s), (-s, s)]
+
     elif stype == "circle":
         r = shape.get("radius", 1.0)
-        # approximate as octagon for intersection test
-        local = [
-            (r * math.cos(a), r * math.sin(a))
-            for a in [i * math.pi / 4 for i in range(8)]
-        ]
+        # Approximate with 16 points instead of 8
+        local = [(r * math.cos(a), r * math.sin(a))
+                 for a in [i * 2*math.pi/16 for i in range(16)]]
+
     elif stype == "arbitraryshape":
         local = [(p["x"], p["y"]) for p in shape.get("points", [])]
+
     else:
         return []
 
+    # ---- APPLY WORLD TRANSFORM ONCE ----
+
+    world = []
     for lx, ly in local:
-        wx = x + lx * math.cos(theta) - ly * math.sin(theta)
-        wy = y + lx * math.sin(theta) + ly * math.cos(theta)
-        pts.append((wx, wy))
-    return pts
+        wx = x + (lx * cos_t - ly * sin_t)
+        wy = y + (lx * sin_t + ly * cos_t)
+        world.append((wx, wy))
+
+    return world

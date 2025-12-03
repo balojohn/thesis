@@ -705,6 +705,9 @@ class {{ environment.name }}Node(Node):
         self.nodes["obstacles"]["{{ name }}"] = {
             "class": "obstacle",
             "name": "{{ name }}",
+            "collidable": {{ "True" if ref.collidable == True
+                 else "False" if ref.collidable == False
+                 else "False" }},
             "shape": {
                 "type": "{{ shape.__class__.__name__ if shape else 'Square' }}",
                 {% if shape and shape.__class__.__name__ == "Rectangle" %}
@@ -723,6 +726,9 @@ class {{ environment.name }}Node(Node):
             "x": {{ p.pose.x }},
             "y": {{ p.pose.y }},
             "theta": {{ p.pose.theta }},
+            "collidable": {{ "True" if ref.collidable is defined and ref.collidable == True
+                 else "False" if ref.collidable is defined and ref.collidable == False
+                 else "False" }},
             "shape": self.nodes["obstacles"]["{{ name }}"]["shape"]
         }
         {% endfor %}
@@ -1004,6 +1010,7 @@ class {{ environment.name }}Node(Node):
                 parent_topic="",
                 initial_pose={'x': {{ pose.x }}, 'y': {{ pose.y }}, 'theta': {{ pose.theta }}},
                 affection_handler=getattr(self, "check_affectability", None),
+                environment=self,
                 **kwargs
             )
             node.start()

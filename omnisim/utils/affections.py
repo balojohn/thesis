@@ -888,7 +888,6 @@ def handle_linear_alarm(nodes, poses, log, sensor_id):
 
         detections = []
         robots = find_nodes_by_metadata(nodes, cls="composite", type="robot")
-        triggered = False
 
         # log.info(f"[LinearAlarm][DEBUG] Beam start={start}, end={end}")
         for rob in robots:

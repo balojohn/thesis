@@ -3,6 +3,7 @@ CThing pt_1
     pubFreq: 10
     shape: Rectangle(60, 20)
     automated: False
+    collidable: False
     targets:
         - Angle(0)
         - Angle(45)

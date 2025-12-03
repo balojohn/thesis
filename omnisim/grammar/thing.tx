@@ -18,6 +18,7 @@ CompositeThing:
         ('pubFreq:' pubFreq=FLOAT)?
         ('shape:' shape=Shape)?
         ('automated:' automated=BOOL)?
+        ('collidable:' collidable=BOOL)?
         ('targets:'
              '-' targets+=TargetPose['-'])?
         ('sensors:'
@@ -42,19 +43,23 @@ TargetValue:
 PosedThing: PosedSensor | PosedActuator | PosedCThing | PosedCustomThing;
 
 PosedCThing:
-    (ref=[CompositeThing:FQN]) ('('name=ID')')? (transformation=DTransformation)?
+    (ref=[CompositeThing:FQN]) ('('name=ID')')?
+    (transformation=DTransformation)?
 ;
 
 PosedSensor:
-    (ref=[Sensor:FQN]) ('('name=ID')')? (transformation=DTransformation)?
+    (ref=[Sensor:FQN]) ('('name=ID')')?
+    (transformation=DTransformation)?
 ;
 
 PosedActuator:
-    ref=[Actuator:FQN] ('('name=ID')')? (transformation=DTransformation)?
+    ref=[Actuator:FQN] ('('name=ID')')?
+    (transformation=DTransformation)?
 ;
 
 PosedCustomThing:
-    (ref=[CustomThing:FQN]) ('('name=ID')')? (transformation=DTransformation)?
+    (ref=[CustomThing:FQN]) ('('name=ID')')?
+    (transformation=DTransformation)?
 ;
 
 CustomThing:
@@ -66,6 +71,7 @@ CustomThing:
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
             ('automated:' automated=BOOL)?
+            ('collidable:' collidable=BOOL)?
             ('targets:'
                 '-' targets+=TargetValue['-'])?
             ('range:' range=FLOAT)?
@@ -99,6 +105,7 @@ EnvSensor:
             ('subtype:' subtype=[EnvSensorType])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('noise:' noise=Noise)?
             ('range:' range=FLOAT)?
         )#
@@ -122,6 +129,7 @@ RangeFinder:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('fov:' fov=FLOAT)?
             ('range:' range=FLOAT)?
             ('noise:' noise=Noise)?
@@ -138,6 +146,7 @@ LiDAR:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('minAngle:' minAngle=FLOAT)?
             ('maxAngle:' maxAngle=FLOAT)?
             ('numBeams:' numBeams=FLOAT)?
@@ -155,6 +164,7 @@ Reader:
             ('subtype:' subtype=ID)
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('range:' range=FLOAT)?
             ('resHeight:' resHeight=FLOAT)?
             ('resWidth:' resWidth=FLOAT)?
@@ -174,6 +184,7 @@ Alarm:
             ('subtype:' subtype=[AlarmType])?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('triggered:' triggered=BOOL)?
             ('range:' range=FLOAT)?
             ('hz:' hz=FLOAT)?
@@ -190,6 +201,7 @@ Microphone:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('range:' range=FLOAT)?
             ('soundLevel:' soundLevel=FLOAT)?
             ('mode:' mode=STRING)?
@@ -206,6 +218,7 @@ Light:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('range:' range=FLOAT)?
         )#
     'end'
@@ -219,6 +232,7 @@ IMU:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('noise:' noise=Noise)?
         )#
     'end'
@@ -255,6 +269,7 @@ EnvDevice:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('automated:' automated=BOOL)?
             ('targets:'
                 '-' targets+=TargetValue['-'])?
@@ -277,6 +292,7 @@ Relay:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('automated:' automated=BOOL)?
             ('targets:'
                 '-' targets+=TargetValue['-'])?
@@ -296,6 +312,7 @@ Button:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('automated:' automated=BOOL)?
             ('targets:'
                 '-' targets+=TargetValue['-'])?
@@ -315,6 +332,7 @@ Led:
             ('subtype:' subtype=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('automated:' automated=BOOL)?
             ('targets:'
                 '-' targets+=TargetValue['-'])?
@@ -331,6 +349,7 @@ Speaker:
             ('type:' type=ID)?
             ('shape:' shape=Shape)?
             ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
             ('automated:' automated=BOOL)?
             ('targets:'
                 '-' targets+=TargetValue['-'])?

@@ -21,7 +21,7 @@ from ..transformations.actor2entity import actor_to_entity_m2m
 from ..transformations.node2comm import node_to_comms_m2m
 from ..transformations.node2dtype import node_to_dtypes_m2m
 from ..transformations.node2vcode import model_to_vcode, env_to_vcode
-from ..utils import validate_pose as vp
+from ..utils import collisions as col
 
 dtypes_output_dir = os.path.join(GENFILES_REPO_PATH, "datatypes")
 comms_output_dir = os.path.join(GENFILES_REPO_PATH, "communications")
@@ -248,40 +248,40 @@ def t2vc(ctx, model_file):
         print(f"[X] Transformation failed: {e}")
         raise
 
-@cli.command("validate-pose")
-# @click.argument("thing_model_file")
-@click.argument("env_model_file")
-def validate_pose(env_model_file):
-    """
-    Validates that all poses are within the environment's grid.
-    """
-    try:
-        print(f'[*] Running validate-pose for environment {env_model_file}')
+# @cli.command("validate-pose")
+# # @click.argument("thing_model_file")
+# @click.argument("env_model_file")
+# def validate_pose(env_model_file):
+#     """
+#     Validates that all poses are within the environment's grid.
+#     """
+#     try:
+#         print(f'[*] Running validate-pose for environment {env_model_file}')
 
-        # Load environment
-        # preload_dtype_models()
-        # preload_thing_models()
-        # preload_actor_models()
-        env_mm = get_env_mm()
-        envmodel = env_mm.model_from_file(env_model_file)
-        env = envmodel.environment
-        dims = env.grid[0]
-        width, height = dims.width, dims.height
+#         # Load environment
+#         # preload_dtype_models()
+#         # preload_thing_models()
+#         # preload_actor_models()
+#         env_mm = get_env_mm()
+#         envmodel = env_mm.model_from_file(env_model_file)
+#         env = envmodel.environment
+#         dims = env.grid[0]
+#         width, height = dims.width, dims.height
  
-        if hasattr(env, 'things'):
-            print('[*] Validating things...')
-            vp.validate_entity_poses(env.things, width, height, "Thing")
+#         if hasattr(env, 'things'):
+#             print('[*] Validating things...')
+#             vp.validate_entity_poses(env.things, width, height, "Thing")
 
-        if hasattr(env, 'actors'):
-            print('[*] Validating actors...')
-            vp.validate_entity_poses(env.actors, width, height, "Actor")
+#         if hasattr(env, 'actors'):
+#             print('[*] Validating actors...')
+#             vp.validate_entity_poses(env.actors, width, height, "Actor")
 
-        if hasattr(env, 'obstacles'):
-            print('[*] Validating obstacles...')
-            vp.validate_entity_poses(env.obstacles, width, height, "Obstacle")
+#         if hasattr(env, 'obstacles'):
+#             print('[*] Validating obstacles...')
+#             vp.validate_entity_poses(env.obstacles, width, height, "Obstacle")
     
-    except Exception as e:
-        print(f'[X] Validation failed: {e}')
+#     except Exception as e:
+#         print(f'[X] Validation failed: {e}')
 
 def main():
    cli(prog_name="omnisim")
