@@ -1,0 +1,12 @@
+CustomThing wash_1
+    class: Actuator
+    type: WashingMachine
+    shape: Square(200)
+    collidable: True
+    pubFreq: 1.0
+    range: 300
+    affects:
+        - id: vibration
+        dispersion: Linear(start: 0.0, end: 1.0)
+        target_value: 2
+end

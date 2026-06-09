@@ -1,0 +1,19 @@
+CustomThing ac_1
+    class: Actuator
+    type: AirCondition
+    shape: Rectangle(300, 120)
+    pubFreq: 1
+    automated: True
+    targets:
+        - value: 50, duration: 2
+        - value: 75, duration: 3
+    range: 1000
+    affects:
+        - id: temperature
+        dispersion: Linear(start:0.0, end:1.0)
+        target_value: 28
+
+        - id: humidity
+        dispersion: Logarithmic(base:2, alpha:1)
+        target_value: 30
+end

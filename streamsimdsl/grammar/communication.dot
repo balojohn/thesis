@@ -1,0 +1,106 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+2885558761472[ label="{CommunicationModel|}"]
+
+2885558760368[ label="{Communication|name: ID\l}"]
+
+2885558756480[ label="{*Endpoint|}"]
+
+2885559066912[ label="{Publisher|topic: STRING\lnamespace: STRING\l}"]
+
+2885559073728[ label="{Subscriber|topic: STRING\lnamespace: STRING\l}"]
+
+2885559062832[ label="{RPCMsg|name: ID\l}"]
+
+2885556302624[ label="{Field|name: ID\ltype: ID\l}"]
+
+2885559064944[ label="{DataTypeModel|}"]
+
+2885559065664[ label="{*DataType|}"]
+
+2885559065712[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
+
+2885559067248[ label="{*Property|}"]
+
+2885559074304[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+2885559071568[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+2885559071952[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+2885559256896[ label="{EnumerationElement|name: STRING\l}"]
+
+2885559256512[ label="{PrimitiveDataType|name: ID\l}"]
+
+2885559256848[ label="{Import|importURI: STRING\lname: ID\l}"]
+
+2885559257376[ label="{MessageModel|}"]
+
+2885559257472[ label="{*Message|}"]
+
+2885559257568[ label="{PubSubMessage|}"]
+
+
+
+2885558761472 -> 2885559256848[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2885558761472 -> 2885558760368[arrowtail=diamond, dir=both, headlabel="communications 0..*"]
+2885558760368 -> 2885558756480[arrowtail=diamond, dir=both, headlabel="endpoints 0..*"]
+2885558760368 -> 2885559257472[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+2885558760368 -> 2885559062832[arrowtail=diamond, dir=both, headlabel="rpcs 0..*"]
+2885558756480 -> 2885559066912 [dir=back]
+2885558756480 -> 2885559073728 [dir=back]
+2885559066912 -> 2885559257568[headlabel="msg "]
+2885559073728 -> 2885559257568[headlabel="msg "]
+2885559062832 -> 2885556302624[arrowtail=diamond, dir=both, headlabel="request_fields 0..*"]
+2885559062832 -> 2885556302624[arrowtail=diamond, dir=both, headlabel="response_fields 0..*"]
+2885559064944 -> 2885559256848[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2885559064944 -> 2885559065664[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+2885559064944 -> 2885559071952[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+2885559065664 -> 2885559256512 [dir=back]
+2885559065664 -> 2885559071952 [dir=back]
+2885559065664 -> 2885559065712 [dir=back]
+2885559065712 -> 2885559067248[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2885559067248 -> 2885559071568 [dir=back]
+2885559067248 -> 2885559074304 [dir=back]
+2885559074304 -> 2885559065664[headlabel="type "]
+2885559071568 -> 2885559065664[headlabel="type "]
+2885559071952 -> 2885559256896[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+2885559257376 -> 2885559256848[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+2885559257376 -> 2885559257472[arrowtail=diamond, dir=both, headlabel="msgs 0..*"]
+2885559257472 -> 2885559067248[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+2885559257472 -> 2885559065664[headlabel="dataType "]
+2885559257472 -> 2885559257568 [dir=back]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>ID (. ID)*</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+</table> >]
+
+
+}

@@ -1,0 +1,8 @@
+Thing led_1
+    class: Actuator
+    type: Led
+    subtype: SingleLed
+    shape: Circle(1)
+    pubFreq: 1
+    color: "#FF0000"
+end

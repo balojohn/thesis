@@ -1,0 +1,124 @@
+{%- set comm_name = thing.subtype if thing.subtype is defined and thing.subtype else thing.type -%}
+{%- set active_rpc_sensors = ["camera", "rfid", "microphone"] -%}
+{%- set thing_type = (thing.subtype if thing.subtype is defined and thing.subtype else thing.type)|lower -%}
+
+Communication {{ comm_name }}Comms
+    {% if thing_type not in active_rpc_sensors %}
+    endpoints
+        {% if thing.sensors is defined and thing.sensors|length > 0 %}
+            {% for sensor in thing.sensors %}
+                {% set ref = sensor.ref %}
+                {% set type = ref.type|lower if ref.type is defined else ref.__class__.__name__|lower %}
+                {% set subtype_orig = (
+                    ref.subtype.name
+                    if ref.subtype is defined and ref.subtype.name is defined
+                    else (ref.subtype if ref.subtype is defined and ref.subtype else ref.type)
+                ) %}
+                {% set sensor_kind = subtype_orig|lower %}
+
+                {% if sensor_kind not in active_rpc_sensors %}
+        publisher
+            topic: 'sensor.{{ type }}.{{ subtype_orig|lower }}'
+            msg: {{ subtype_orig }}Message
+        end
+                {% endif %}
+            {% endfor %}
+
+        {% elif thing.composites is defined and thing.composites|length > 0 %}
+            {% for comp in thing.composites %}
+                {% if comp.ref.sensors is defined and comp.ref.sensors|length > 0 %}
+                    {% for sensor in comp.ref.sensors %}
+                        {% set ref = sensor.ref %}
+                        {% set type = ref.type|lower if ref.type is defined else ref.__class__.__name__|lower %}
+                        {% set subtype_orig = (
+                            ref.subtype.name
+                            if ref.subtype is defined and ref.subtype.name is defined
+                            else (ref.subtype if ref.subtype is defined and ref.subtype else ref.type)
+                        ) %}
+                        {% set sensor_kind = subtype_orig|lower %}
+
+                        {% if sensor_kind not in active_rpc_sensors %}
+        publisher
+            topic: 'sensor.{{ type }}.{{ subtype_orig|lower }}'
+            msg: {{ subtype_orig }}Message
+        end
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+
+        {% elif thing.class == "Sensor" %}
+            {% set type = thing.type|lower if thing.type is defined else "sensor" %}
+            {% set subtype_orig = thing.subtype if thing.subtype is defined and thing.subtype else "" %}
+        publisher
+            topic: 'sensor.{{ type }}{{ "." ~ subtype_orig|lower if subtype_orig else "" }}'
+            msg: {{ subtype_orig if subtype_orig else thing.type }}Message
+        end
+        {% endif %}
+    end
+
+    messages
+        {% if thing.sensors is defined and thing.sensors|length > 0 %}
+            {% for sensor in thing.sensors %}
+                {% set ref = sensor.ref %}
+                {% set subtype_orig = (
+                    ref.subtype.name
+                    if ref.subtype is defined and ref.subtype.name is defined
+                    else (ref.subtype if ref.subtype is defined and ref.subtype else ref.type)
+                ) %}
+                {% set sensor_kind = subtype_orig|lower %}
+
+                {% if sensor_kind not in active_rpc_sensors %}
+        TopicMsg {{ subtype_orig if subtype_orig else ref.type }}Message
+            value: float
+        end
+                {% endif %}
+            {% endfor %}
+
+        {% elif thing.composites is defined and thing.composites|length > 0 %}
+            {% for comp in thing.composites %}
+                {% if comp.ref.sensors is defined and comp.ref.sensors|length > 0 %}
+                    {% for sensor in comp.ref.sensors %}
+                        {% set ref = sensor.ref %}
+                        {% set subtype_orig = (
+                            ref.subtype.name
+                            if ref.subtype is defined and ref.subtype.name is defined
+                            else (ref.subtype if ref.subtype is defined and ref.subtype else ref.type)
+                        ) %}
+                        {% set sensor_kind = subtype_orig|lower %}
+
+                        {% if sensor_kind not in active_rpc_sensors %}
+        TopicMsg {{ subtype_orig if subtype_orig else ref.type }}Message
+            value: float
+        end
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+
+        {% elif thing.class == "Sensor" %}
+        TopicMsg {{ thing.subtype if thing.subtype is defined and thing.subtype else thing.type }}Message
+            value: float
+        end
+        {% endif %}
+    end
+    {% endif %}
+    
+    {%- if thing_type in active_rpc_sensors %}
+    RPCMsg {{ thing_type|capitalize }}ReadRPC
+        Request
+            sensor_id: str
+        end
+        Response
+            {% if thing_type == "camera" or thing_type == "rfid" %}
+            detections: dict
+            messages: dict
+            {% elif thing_type == "microphone" %}
+            sounds: dict
+            {% endif %}
+            error: str
+        end
+    end
+    {% endif %}
+
+end

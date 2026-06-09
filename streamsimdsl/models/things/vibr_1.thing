@@ -1,0 +1,10 @@
+CustomThing vibr_1
+    class: Sensor
+    type: Vibration
+    pubFreq: 1.0
+    collidable: false
+    shape: Square(4)
+    range: 500
+    affectedBy:
+        - id: vibration
+end

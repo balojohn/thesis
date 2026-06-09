@@ -1,0 +1,11 @@
+Thing cam_1
+    class: Sensor
+    type: Reader
+    subtype: Camera
+    shape: Square(4)
+    pubFreq: 1
+    resHeight: 360
+    resWidth: 480
+    fov: 200
+    range: 300
+end

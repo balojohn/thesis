@@ -1,0 +1,9 @@
+Thing b_1
+    class: Actuator
+    type: Button
+    subtype: SingleButton
+    shape: Square(4)
+    pubFreq: 1
+    state: 1
+    size: 1
+end

@@ -1,0 +1,9 @@
+Thing te_1
+    class: Sensor
+    type: EnvSensor
+    subtype: Temperature
+    shape: Circle(5)
+    pubFreq: 1
+    range: 500
+    noise: Gaussian(mean: 0.0, std: 1.5)
+end

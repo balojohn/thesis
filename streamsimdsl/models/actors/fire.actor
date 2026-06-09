@@ -1,0 +1,10 @@
+Actor fi_1
+    class: Actor
+    type: EnvActor
+    subtype: Fire
+    shape: Circle(125)
+    pubFreq: 1.0
+    dispersion: Linear(start:0.0, end:1.0)
+    value: 700
+    range: 300
+end

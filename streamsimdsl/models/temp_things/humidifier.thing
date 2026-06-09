@@ -1,0 +1,10 @@
+Thing humact_1
+    class: Actuator
+    type: EnvDevice
+    subtype: Humidifier
+    shape: Rectangle(5, 2)
+    dispersion: Quadratic(a: 1, b: 0, c: 0)
+    pubFreq: 1
+    target_value: 40
+    range: 50
+end

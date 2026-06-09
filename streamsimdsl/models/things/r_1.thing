@@ -1,0 +1,14 @@
+CThing r_1
+    type: Robot
+    pubFreq: 10
+    shape: Rectangle(210, 70)
+    automated: True
+    collidable: True
+    targets:
+        - Point(300, 500)
+        - Point(600, 500)
+        - Point(600, 300)
+        - Point(300, 300)
+    sensors:
+        - vibr_1 @ Transform(60, 0, 0)
+end

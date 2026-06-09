@@ -1,0 +1,7 @@
+Actor txt_1
+    type: Text
+    subtype: PlainText
+    shape: Rectangle(20, 200)
+    pubFreq: 1.0
+    message: "Hello there!"
+end

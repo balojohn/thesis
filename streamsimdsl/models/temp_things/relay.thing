@@ -1,0 +1,8 @@
+Thing re_1
+    class: Actuator
+    type: Relay
+    shape: Rectangle(2, 1)
+    pubFreq: 1
+    state: 1
+    allowed_states: 2
+end

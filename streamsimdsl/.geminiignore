@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Git
+.git/
+
+# VS Code
+.vscode/
+
+# Generated simulator files
+generated_files/
+streamsimdsl/generated_files/
+
+# Redis / runtime data
+*.rdb
+
+# Logs
+*.log
+
+# Coverage / testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Node (if present)
+node_modules/
+
+# Temporary files
+tmp/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large datasets or exports
+data/
+exports/
+
+# Ignore generated visual outputs
+screenshots/
+recordings/
+
+# Ignore compiled latex artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+
+# Ignore generated code from templates
+*.generated.py

@@ -1,0 +1,9 @@
+Thing hum_1
+    class: Sensor
+    type: EnvSensor
+    subtype: Humidity
+    shape: Circle(5)
+    pubFreq: 1
+    range: 1000
+    noise: Gaussian(mean: 0.0, std: 1.5)
+end

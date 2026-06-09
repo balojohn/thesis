@@ -1,0 +1,10 @@
+Thing so_1
+    class: Sensor
+    type: RangeFinder
+    subtype: Sonar
+    shape: Square(4)
+    pubFreq: 10
+    fov: 100.0
+    range: 500
+    noise: Gaussian(mean: 0.0, std: 1.5)
+end

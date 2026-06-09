@@ -1,0 +1,8 @@
+Thing speak_1
+    class: Actuator
+    type: Speaker
+    shape: Square(4)
+    pubFreq: 10
+    sound: 50
+    range: 100
+end

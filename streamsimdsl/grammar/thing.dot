@@ -1,0 +1,283 @@
+
+    digraph textX {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+1264139051728[ label="{Model|}"]
+
+1264139050816[ label="{*Thing|}"]
+
+1264110772800[ label="{CompositeThing|name: ID\ltype: ID\lpubFreq: FLOAT\lautomated: BOOL\lcollidable: BOOL\l}"]
+
+1264138952128[ label="{TargetPose|}"]
+
+1264138945984[ label="{TargetValue|value: FLOAT\lduration: FLOAT\l}"]
+
+1264138510192[ label="{*PosedThing|}"]
+
+1264138509040[ label="{PosedCThing|name: ID\l}"]
+
+1264138801744[ label="{PosedSensor|name: ID\l}"]
+
+1264138803904[ label="{PosedActuator|name: ID\l}"]
+
+1264138800928[ label="{PosedCustomThing|name: ID\l}"]
+
+1264138808416[ label="{CustomThing|name: ID\lclass: ID\ltype: ID\lsubtype: ID\lpubFreq: FLOAT\lautomated: BOOL\lcollidable: BOOL\lrange: FLOAT\l}"]
+
+1264138807648[ label="{AffectEntry|id: ID\ltarget_value: FLOAT\l}"]
+
+1264138812208[ label="{*Sensor|}"]
+
+1264138811392[ label="{EnvSensor|name: ID\lclass: ID\ltype: ID\lsubtype: EnvSensorType\lpubFreq: FLOAT\lcollidable: BOOL\lrange: FLOAT\l}"]
+
+1264138810144[ label="{RangeFinder|name: ID\lclass: ID\ltype: RangeFinderType\lsubtype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lfov: FLOAT\lrange: FLOAT\l}"]
+
+1264138807552[ label="{LiDAR|name: ID\lclass: ID\ltype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lminAngle: FLOAT\lmaxAngle: FLOAT\lnumBeams: FLOAT\lrange: FLOAT\l}"]
+
+1264138806688[ label="{Reader|name: ID\lclass: ID\ltype: ReaderType\lsubtype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lrange: FLOAT\lresHeight: FLOAT\lresWidth: FLOAT\lfov: FLOAT\l}"]
+
+1264138805296[ label="{Alarm|name: ID\lclass: ID\ltype: ID\lsubtype: AlarmType\lpubFreq: FLOAT\lcollidable: BOOL\ltriggered: BOOL\lrange: FLOAT\lhz: FLOAT\l}"]
+
+1264138798768[ label="{Microphone|name: ID\lclass: ID\ltype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lrange: FLOAT\lsoundLevel: FLOAT\lmode: STRING\lblocked: INT\l}"]
+
+1264138797856[ label="{Light|name: ID\lclass: ID\ltype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lrange: FLOAT\l}"]
+
+1264138810288[ label="{IMU|name: ID\lclass: ID\ltype: IMUType\lsubtype: ID\lpubFreq: FLOAT\lcollidable: BOOL\l}"]
+
+1264138681520[ label="{*Actuator|}"]
+
+1264138679216[ label="{EnvDevice|name: ID\lclass: ID\ltype: EnvDeviceType\lsubtype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lautomated: BOOL\ltarget_value: FLOAT\lrange: FLOAT\l}"]
+
+1264138681616[ label="{Relay|name: ID\lclass: ID\ltype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lautomated: BOOL\lstate: STRING\lallowed_states: INT\l}"]
+
+1264138679648[ label="{Button|name: ID\lclass: ID\ltype: ButtonType\lsubtype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lautomated: BOOL\lstate: INT\lsize: INT\l}"]
+
+1264138675472[ label="{Led|name: ID\lclass: ID\ltype: LedType\lsubtype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lautomated: BOOL\lcolor: STRING\lsize: INT\l}"]
+
+1264138677776[ label="{Speaker|name: ID\lclass: ID\ltype: ID\lpubFreq: FLOAT\lcollidable: BOOL\lautomated: BOOL\lsound: FLOAT\lrange: FLOAT\l}"]
+
+1264138680320[ label="{*Noise|}"]
+
+1264138681232[ label="{Gaussian|mean: FLOAT\lstd: FLOAT\l}"]
+
+1264138680032[ label="{Uniform|min: FLOAT\lmax: FLOAT\l}"]
+
+1264138679312[ label="{CustomNoise|type: STRING\lparams: STRING\l}"]
+
+1264138678112[ label="{DTransformation|}"]
+
+1264138676912[ label="{*DispersionType|}"]
+
+1264138676816[ label="{Constant|value: FLOAT\l}"]
+
+1264138676432[ label="{Linear|start: FLOAT\lend: FLOAT\l}"]
+
+1264138675856[ label="{Quadratic|a: FLOAT\lb: FLOAT\lc: FLOAT\l}"]
+
+1264138674656[ label="{Exponential|base: FLOAT\lyIntercept: FLOAT\l}"]
+
+1264138674560[ label="{Logarithmic|base: FLOAT\lalpha: FLOAT\l}"]
+
+1264138740768[ label="{DataTypeModel|}"]
+
+1264138747440[ label="{*DataType|}"]
+
+1264138731936[ label="{CustomDataType|name: ID\ldescription: Description\l}"]
+
+1264138738224[ label="{*Property|}"]
+
+1264138737552[ label="{SimpleProperty|name: ID\ldefault: STRING\l}"]
+
+1264138736304[ label="{ListProperty|name: ID\ldefault: STRING\l}"]
+
+1264138735680[ label="{Enumeration|name: ID\ldescription: Description\l}"]
+
+1264138734816[ label="{EnumerationElement|name: STRING\l}"]
+
+1264138733904[ label="{PrimitiveDataType|name: ID\l}"]
+
+1264138747824[ label="{Import|importURI: STRING\lname: ID\l}"]
+
+1264138742064[ label="{Point|x: FLOAT\ly: FLOAT\l}"]
+
+1264138741104[ label="{Angle|theta: FLOAT\l}"]
+
+1264138739904[ label="{Transformation|dx: FLOAT\ldy: FLOAT\ldtheta: FLOAT\l}"]
+
+1264138741344[ label="{Pose|x: FLOAT\ly: FLOAT\ltheta: FLOAT\l}"]
+
+1264138745376[ label="{*Shape|}"]
+
+1264138745760[ label="{ComplexShape|}"]
+
+1264138744224[ label="{*PredefinedShape|}"]
+
+1264138744368[ label="{Circle|radius: FLOAT\l}"]
+
+1264138744608[ label="{Square|length: FLOAT\l}"]
+
+1264138747488[ label="{Rectangle|width: FLOAT\llength: FLOAT\l}"]
+
+1264138747056[ label="{Cylinder|radius: FLOAT\lheight: FLOAT\l}"]
+
+1264138746192[ label="{ArbitraryShape|}"]
+
+
+
+1264139051728 -> 1264138747824[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1264139051728 -> 1264139050816[arrowtail=diamond, dir=both, headlabel="thing "]
+1264139050816 -> 1264138812208 [dir=back]
+1264139050816 -> 1264138681520 [dir=back]
+1264139050816 -> 1264110772800 [dir=back]
+1264139050816 -> 1264138808416 [dir=back]
+1264110772800 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264110772800 -> 1264138952128[arrowtail=diamond, dir=both, headlabel="targets 1..*"]
+1264110772800 -> 1264138801744[arrowtail=diamond, dir=both, headlabel="sensors 1..*"]
+1264110772800 -> 1264138803904[arrowtail=diamond, dir=both, headlabel="actuators 1..*"]
+1264110772800 -> 1264138509040[arrowtail=diamond, dir=both, headlabel="composites 1..*"]
+1264138952128 -> 1264138742064[arrowtail=diamond, dir=both, headlabel="point "]
+1264138952128 -> 1264138741104[arrowtail=diamond, dir=both, headlabel="angle "]
+1264138510192 -> 1264138801744 [dir=back]
+1264138510192 -> 1264138803904 [dir=back]
+1264138510192 -> 1264138509040 [dir=back]
+1264138510192 -> 1264138800928 [dir=back]
+1264138509040 -> 1264110772800[headlabel="ref "]
+1264138509040 -> 1264138678112[arrowtail=diamond, dir=both, headlabel="transformation "]
+1264138801744 -> 1264138812208[headlabel="ref "]
+1264138801744 -> 1264138678112[arrowtail=diamond, dir=both, headlabel="transformation "]
+1264138803904 -> 1264138681520[headlabel="ref "]
+1264138803904 -> 1264138678112[arrowtail=diamond, dir=both, headlabel="transformation "]
+1264138800928 -> 1264138808416[headlabel="ref "]
+1264138800928 -> 1264138678112[arrowtail=diamond, dir=both, headlabel="transformation "]
+1264138808416 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138808416 -> 1264138945984[arrowtail=diamond, dir=both, headlabel="targets 1..*"]
+1264138808416 -> 1264138680320[arrowtail=diamond, dir=both, headlabel="noise "]
+1264138808416 -> 1264138676912[arrowtail=diamond, dir=both, headlabel="dispersion "]
+1264138808416 -> 1264138807648[arrowtail=diamond, dir=both, headlabel="affects 1..*"]
+1264138808416 -> 1264138807648[arrowtail=diamond, dir=both, headlabel="affectedBy 1..*"]
+1264138807648 -> 1264138676912[arrowtail=diamond, dir=both, headlabel="dispersion "]
+1264138812208 -> 1264138811392 [dir=back]
+1264138812208 -> 1264138810144 [dir=back]
+1264138812208 -> 1264138807552 [dir=back]
+1264138812208 -> 1264138806688 [dir=back]
+1264138812208 -> 1264138805296 [dir=back]
+1264138812208 -> 1264138798768 [dir=back]
+1264138812208 -> 1264138797856 [dir=back]
+1264138812208 -> 1264138810288 [dir=back]
+1264138811392 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138811392 -> 1264138680320[arrowtail=diamond, dir=both, headlabel="noise "]
+1264138810144 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138810144 -> 1264138680320[arrowtail=diamond, dir=both, headlabel="noise "]
+1264138807552 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138807552 -> 1264138680320[arrowtail=diamond, dir=both, headlabel="noise "]
+1264138806688 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138806688 -> 1264138680320[arrowtail=diamond, dir=both, headlabel="noise "]
+1264138805296 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138798768 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138798768 -> 1264138680320[arrowtail=diamond, dir=both, headlabel="noise "]
+1264138797856 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138810288 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138810288 -> 1264138680320[arrowtail=diamond, dir=both, headlabel="noise "]
+1264138681520 -> 1264138679216 [dir=back]
+1264138681520 -> 1264138681616 [dir=back]
+1264138681520 -> 1264138679648 [dir=back]
+1264138681520 -> 1264138675472 [dir=back]
+1264138681520 -> 1264138677776 [dir=back]
+1264138679216 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138679216 -> 1264138945984[arrowtail=diamond, dir=both, headlabel="targets 1..*"]
+1264138679216 -> 1264138676912[arrowtail=diamond, dir=both, headlabel="dispersion "]
+1264138681616 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138681616 -> 1264138945984[arrowtail=diamond, dir=both, headlabel="targets 1..*"]
+1264138679648 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138679648 -> 1264138945984[arrowtail=diamond, dir=both, headlabel="targets 1..*"]
+1264138675472 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138675472 -> 1264138945984[arrowtail=diamond, dir=both, headlabel="targets 1..*"]
+1264138677776 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shape "]
+1264138677776 -> 1264138945984[arrowtail=diamond, dir=both, headlabel="targets 1..*"]
+1264138680320 -> 1264138681232 [dir=back]
+1264138680320 -> 1264138680032 [dir=back]
+1264138680320 -> 1264138679312 [dir=back]
+1264138678112 -> 1264138739904[arrowtail=diamond, dir=both, headlabel="transformation "]
+1264138678112 -> 1264138510192[headlabel="parentThing "]
+1264138676912 -> 1264138676816 [dir=back]
+1264138676912 -> 1264138676432 [dir=back]
+1264138676912 -> 1264138675856 [dir=back]
+1264138676912 -> 1264138674656 [dir=back]
+1264138676912 -> 1264138674560 [dir=back]
+1264138740768 -> 1264138747824[arrowtail=diamond, dir=both, headlabel="imports 0..*"]
+1264138740768 -> 1264138747440[arrowtail=diamond, dir=both, headlabel="types 0..*"]
+1264138740768 -> 1264138735680[arrowtail=diamond, dir=both, headlabel="enums 0..*"]
+1264138747440 -> 1264138733904 [dir=back]
+1264138747440 -> 1264138735680 [dir=back]
+1264138747440 -> 1264138731936 [dir=back]
+1264138731936 -> 1264138738224[arrowtail=diamond, dir=both, headlabel="properties 0..*"]
+1264138738224 -> 1264138736304 [dir=back]
+1264138738224 -> 1264138737552 [dir=back]
+1264138737552 -> 1264138747440[headlabel="type "]
+1264138736304 -> 1264138747440[headlabel="type "]
+1264138735680 -> 1264138734816[arrowtail=diamond, dir=both, headlabel="elements 1..*"]
+1264138745376 -> 1264138744224 [dir=back]
+1264138745376 -> 1264138746192 [dir=back]
+1264138745376 -> 1264138745760 [dir=back]
+1264138745760 -> 1264138745376[arrowtail=diamond, dir=both, headlabel="shapes 0..*"]
+1264138744224 -> 1264138744368 [dir=back]
+1264138744224 -> 1264138744608 [dir=back]
+1264138744224 -> 1264138747488 [dir=back]
+1264138744224 -> 1264138747056 [dir=back]
+1264138746192 -> 1264138742064[arrowtail=diamond, dir=both, headlabel="points 0..*"]
+match_rules [ shape=plaintext, label=< <table>
+	<tr>
+		<td><b>Comment</b></td><td></td>
+	</tr>
+	<tr>
+		<td><b>CommentBlock</b></td><td>\/\*(.|\n)*?\*\/</td>
+	</tr>
+	<tr>
+		<td><b>CommentLine</b></td><td>\/\/.*?$</td>
+	</tr>
+	<tr>
+		<td><b>Description</b></td><td>\#(.*?)$</td>
+	</tr>
+	<tr>
+		<td><b>FQN</b></td><td>ID (. ID)*</td>
+	</tr>
+	<tr>
+		<td><b>FQNI</b></td><td>(ID)+ .*?</td>
+	</tr>
+	<tr>
+		<td><b>AlarmType</b></td><td>AreaAlarm|LinearAlarm</td>
+	</tr>
+	<tr>
+		<td><b>ButtonType</b></td><td>SingleButton|ButtonArray</td>
+	</tr>
+	<tr>
+		<td><b>EnvDeviceType</b></td><td>Thermostat|Humidifier</td>
+	</tr>
+	<tr>
+		<td><b>EnvSensorType</b></td><td>Temperature|Humidity|Gas|CO2|PH|AirQuality</td>
+	</tr>
+	<tr>
+		<td><b>IMUType</b></td><td>6DOF|9DOF</td>
+	</tr>
+	<tr>
+		<td><b>LedType</b></td><td>SingleLed|LedArray</td>
+	</tr>
+	<tr>
+		<td><b>RangeFinderType</b></td><td>Sonar|IR</td>
+	</tr>
+	<tr>
+		<td><b>ReaderType</b></td><td>Camera|RFID</td>
+	</tr>
+</table> >]
+
+
+}

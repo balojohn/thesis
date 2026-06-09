@@ -1,0 +1,8 @@
+Thing gas_1
+    class: Sensor
+    type: EnvSensor
+    subtype: Gas
+    shape: Circle(3)
+    pubFreq: 1
+    range: 100
+end

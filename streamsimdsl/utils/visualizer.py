@@ -1,0 +1,743 @@
+import pygame
+import math
+import sys
+
+class EnvVisualizer:
+    def __init__(self, env_node):
+        """
+        Visualizer for generated environment nodes (e.g., HomeNode).
+        Automatically scales to fit your screen while keeping aspect ratio.
+        Supports interactive zooming and panning.
+        """
+        self.node = env_node
+        self.running = True
+        self._last_sensor_values = {}
+        # self._last_alarm_values = {}
+        self._label_rects = []
+
+        # === Environment info ===
+        self.env_width = getattr(env_node, "width", 20.0)
+        self.env_height = getattr(env_node, "height", 20.0)
+        self.properties = getattr(env_node, "properties", {})
+
+        # === Determine window size dynamically ===
+        pygame.init()
+        info = pygame.display.Info()
+        max_w, max_h = int(info.current_w * 0.9), int(info.current_h * 0.9)
+
+        env_aspect = self.env_width / self.env_height
+        screen_aspect = max_w / max_h
+        if env_aspect > screen_aspect:
+            self.width = max_w
+            self.height = int(max_w / env_aspect)
+        else:
+            self.height = max_h
+            self.width = int(max_h * env_aspect)
+
+        # Compute scale factor (pixels per world unit)
+        self.scale = self.width / self.env_width
+
+        # === Setup pygame ===
+        pygame.display.set_caption(f"{env_node.env_name} Environment")
+
+        # --- Add extra width for side info panel ---
+        self.panel_width = 520  # enough space for all sensor info
+        total_width = self.width + self.panel_width
+
+        # Main display
+        self.screen = pygame.display.set_mode((total_width, self.height))
+
+        # --- Fonts and clock ---
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont("consolas", 14)
+        self.bigfont = pygame.font.SysFont("consolas", 18, bold=True)
+        
+        # === Colors ===
+        self.bg_color = (25, 25, 30)
+        self.grid_color = (40, 40, 45)
+        self.border_color = (100, 100, 100)
+        self.text_color = (230, 230, 230)
+        self.colors = {
+            "sensor": (0, 200, 255),
+            "actuator": (255, 180, 0),
+            "composite": (255, 100, 120),
+            "actor": (180, 120, 255),
+            "obstacle": (200, 200, 200),
+        }
+
+        # === Camera control (zoom + pan) ===
+        self.zoom = 1.0
+        self.pan_x = 0.0
+        self.pan_y = 0.0
+        self.zoom_step = 1.1
+        self.pan_speed = 20.0
+        self.dragging = False
+        self.drag_start = None
+        self.panel_scroll_x = 0  # horizontal scroll offset for right panel
+
+    # -----------------------------------------------------
+    # ---------------- DRAW HELPERS -----------------------
+    # -----------------------------------------------------
+
+    def world_to_screen(self, x, y):
+        """Map world coords (0,0 bottom-left) → screen coords (top-left origin)."""
+        sx = int((x - self.pan_x) * self.scale * self.zoom)
+        sy = int(self.height - (y - self.pan_y) * self.scale * self.zoom)
+        return (sx, sy)
+
+    def draw_arrow(self, pos, theta, color=(255, 255, 255)):
+        length = 14
+        end = (
+            pos[0] + length * math.cos(math.radians(theta)),
+            pos[1] - length * math.sin(math.radians(theta)),
+        )
+        pygame.draw.line(self.screen, color, pos, end, 2)
+        head_angle = math.radians(theta)
+        hx1 = end[0] - 5 * math.cos(head_angle - 0.4)
+        hy1 = end[1] + 5 * math.sin(head_angle - 0.4)
+        hx2 = end[0] - 5 * math.cos(head_angle + 0.4)
+        hy2 = end[1] + 5 * math.sin(head_angle + 0.4)
+        pygame.draw.polygon(self.screen, color, [(end[0], end[1]), (hx1, hy1), (hx2, hy2)])
+
+    def draw_grid(self):
+        step = max(1, int(self.scale * self.zoom))
+        for x in range(0, self.width, step):
+            pygame.draw.line(self.screen, self.grid_color, (x, 0), (x, self.height))
+        for y in range(0, self.height, step):
+            pygame.draw.line(self.screen, self.grid_color, (0, y), (self.width, y))
+
+    def draw_background(self):
+        self.screen.fill(self.bg_color)
+        self.draw_grid()
+        pygame.draw.rect(self.screen, self.border_color, (0, 0, self.width - 1, self.height - 1), 2)
+
+        # --- Environment name ---
+        name_text = self.bigfont.render(f"{self.node.env_name} Environment", True, (180, 220, 255))
+        self.screen.blit(name_text, (12, 10))
+
+        # --- Display environmental properties ---
+        y_offset = 36
+        for k, v in self.properties.items():
+            txt = self.font.render(f"{k.capitalize()}: {v}", True, self.text_color)
+            self.screen.blit(txt, (12, y_offset))
+            y_offset += 18
+
+        # --- Camera overlay ---
+        zoom_text = self.font.render(f"Zoom: {self.zoom:.2f}x", True, (180, 220, 255))
+        pan_text = self.font.render(f"Pan: ({self.pan_x:.1f}, {self.pan_y:.1f})", True, (180, 220, 255))
+        self.screen.blit(zoom_text, (self.width - 160, 10))
+        self.screen.blit(pan_text, (self.width - 200, 28))
+
+    def draw_world_bounds(self):
+        p0 = self.world_to_screen(0, 0)
+        p1 = self.world_to_screen(self.env_width, 0)
+        p2 = self.world_to_screen(self.env_width, self.env_height)
+        p3 = self.world_to_screen(0, self.env_height)
+
+        pygame.draw.lines(self.screen, (255, 255, 255), True, [p0, p1, p2, p3], 2)
+
+    # -----------------------------------------------------
+    # ---------------- SENSOR TABLE -----------------------
+    # -----------------------------------------------------
+
+    def draw_sensor_table(self):
+        """Draw a right-side panel listing sensors and their current values/detections."""
+        sensor_values = getattr(self.node, "sensor_values", {})
+        env_props = getattr(self.node, "env_properties", {})
+
+        # --- Layout ---
+        panel_x = self.width + self.panel_scroll_x
+        panel_y = 40
+        panel_width = self.panel_width
+        row_h = 28
+        if not hasattr(self, "panel_scroll_x"):
+            self.panel_scroll_x = 0
+
+        # --- Background ---
+        pygame.draw.rect(self.screen, (28, 30, 38),
+                        (panel_x, panel_y, panel_width, self.height - panel_y - 16),
+                        border_radius=8)
+        pygame.draw.rect(self.screen, (75, 80, 95),
+                        (panel_x, panel_y, panel_width, self.height - panel_y - 16),
+                        2, border_radius=8)
+
+        # --- Title ---
+        title = self.bigfont.render("Affection results", True, (210, 220, 255))
+        self.screen.blit(title, (panel_x + 16, panel_y + 12))
+        y = panel_y + 48
+
+        def draw_section_header(text, y):
+            header = self.font.render(text, True, (160, 200, 255))
+            self.screen.blit(header, (panel_x + 14, y))
+            y += header.get_height() + 8
+            pygame.draw.line(
+                self.screen,
+                (70, 70, 80),
+                (panel_x + 12, y),
+                (panel_x + panel_width - 12, y)
+            )
+            y += 12
+            return y
+
+        # --- Environment section ---
+        y = draw_section_header("Environment", y)
+
+        for prop, val in env_props.items():
+            label = prop.replace("_", " ").title()
+            val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
+            self.screen.blit(self.font.render(label, True, (200, 200, 200)), (panel_x + 22, y))
+            self.screen.blit(self.font.render(val_str, True, (160, 255, 160)), (panel_x + 210, y))
+            y += row_h
+
+        # --- Recursive sensor collector (must be defined before use) ---
+        def collect_sensors(node_section):
+            sensors = {}
+            if not isinstance(node_section, dict):
+                return sensors
+            for name, node in node_section.items():
+                if not isinstance(node, dict):
+                    continue
+                if node.get("class") == "sensor":
+                    sensors[name] = node
+                else:
+                    sensors.update(collect_sensors(node))
+            return sensors
+
+        # --- Separator ---
+        y += 8
+        pygame.draw.line(self.screen, (95, 95, 110),
+                        (panel_x + 10, y), (panel_x + panel_width - 10, y))
+        y += 18
+
+        # === RPC SENSORS SECTION ===
+        rpc_sensors = {"camera", "rfid", "microphone"}
+        rpc_nodes = {
+            name: node
+            for name, node in collect_sensors(self.node.nodes).items()
+            if (node.get("subtype") or node.get("type", "")).lower() in rpc_sensors
+        }
+        if rpc_nodes:
+            y = draw_section_header("RPC Sensors", y)
+
+            rpc_headers = ["Name", "Type", "Detected", "Value"]
+            rpc_col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
+            for i, h in enumerate(rpc_headers):
+                self.screen.blit(self.font.render(h, True, (150, 160, 190)), (rpc_col_x[i], y))
+            y += 22
+            pygame.draw.line(self.screen, (70, 70, 80),
+                            (panel_x + 10, y), (panel_x + panel_width - 10, y))
+            y += 12
+
+            for sname, sent in sorted(rpc_nodes.items()):
+                stype = (sent.get("subtype") or sent.get("type") or "Unknown").lower()
+                val = sensor_values.get(sname)
+                if not val or not isinstance(val, dict):
+                    val = self._last_sensor_values.get(sname, val)
+                else:
+                    self._last_sensor_values[sname] = val
+
+                detected_name = "-"
+                message = "-"
+
+                if isinstance(val, dict):
+                    # Check if val is a nested detection dict (new format)
+                    detections = val.get("detections", {})
+                    
+                    if detections:
+                        # Format: {"detections": {"target": {...}}}
+                        first_target = next(iter(detections))
+                        detected_name = first_target
+                        det_info = detections[first_target]
+
+                        if isinstance(det_info, dict):
+                            if "content" in det_info:
+                                message = det_info["content"]
+                            elif "message" in det_info:
+                                message = det_info["message"]
+                            elif "color" in det_info:
+                                message = det_info["color"]
+                            elif "distance" in det_info:
+                                message = f"{det_info['distance']:.1f}"
+                        else:
+                            message = str(det_info)
+                    else:
+                        # Check if val itself is a flat detection dict (old format)
+                        # e.g. {'class': 'actor', 'type': 'text', 'distance': 100.4, ...}
+                        if "subtype" in val or "type" in val:
+                            # This looks like a detection result
+                            if "class" in val:
+                                detected_name = val.get("detected_name", "target")
+                            
+                            if "message" in val:
+                                message = val["message"]
+                            elif "content" in val:
+                                message = val["content"]
+                            elif "distance" in val:
+                                message = f"{val['distance']:.1f}"
+
+                # --- render properly into columns ---
+                self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (rpc_col_x[0], y + 2))
+                self.screen.blit(self.font.render(stype.title(), True, (200, 200, 200)), (rpc_col_x[1], y))
+                self.screen.blit(self.font.render(detected_name, True, (180, 220, 255)), (rpc_col_x[2], y))
+                self.screen.blit(self.font.render(str(message), True, (180, 255, 180)), (rpc_col_x[3], y))
+                y += row_h
+                if y > self.height - 40:
+                    break
+
+            # Spacer
+            y += 16
+            pygame.draw.line(self.screen, (95, 95, 110),
+                            (panel_x + 10, y), (panel_x + panel_width - 10, y))
+            y += 18
+
+        # === OTHER SENSORS SECTION ===
+        y = draw_section_header("Sensors", y)
+
+        headers = ["Name", "Entity", "Value", "Detection"]
+        col_x = [panel_x + 14, panel_x + 130, panel_x + 250, panel_x + 360]
+        for i, h in enumerate(headers):
+            self.screen.blit(self.font.render(h, True, (150, 160, 190)), (col_x[i], y))
+        y += 22
+
+        pygame.draw.line(self.screen, (70, 70, 80),
+                        (panel_x + 10, y), (panel_x + panel_width - 10, y))
+        y += 12
+
+        # Remove RPC from general sensors
+        rpc_sensors = {"camera", "rfid", "microphone"}
+        all_sensors = {
+            k: v for k, v in collect_sensors(self.node.nodes).items()
+            if (v.get("subtype") or v.get("type", "")).lower() not in rpc_sensors
+        }
+
+        # # === Central datatype-driven renderer ===
+        # def render_value(v):
+        #     """Convert any value (dict, list, tuple, scalar) into (value_str, det_str)."""
+        #     # --- 1. None/empty -> reuse last ---
+        #     if v in (None, {}, []):
+        #         return "-", ""
+            
+        #     # --- 2. Alarms (dict with 'triggered') ---
+        #     elif isinstance(v, tuple) and len(v) == 2:
+        #         trig, dets = v
+        #         return ("Triggered" if trig else "Idle",
+        #                 ", ".join(dets) if isinstance(dets, dict) else str(dets))
+
+        #     elif isinstance(v, dict) and "triggered" in v:
+        #         trig = v.get("triggered", False)
+        #         dets = v.get("detections", {})
+        #         return ("Triggered" if trig else "Idle",
+        #                 ", ".join(dets) if isinstance(dets, dict) else str(dets))
+
+        #     # --- 3. Distance-based sensors ---
+        #     elif isinstance(v, dict) and "distance" in v:
+        #         target = v.get("detected_name", "None")
+        #         dist = v.get("distance", 0)
+        #         return f"{dist:.1f}", f"{target} ({dist:.1f})"
+
+        #     # --- 4. Generic dict ---
+        #     elif isinstance(v, dict):
+        #         items = []
+        #         for k, val in v.items():
+        #             if isinstance(val, (float, int)):
+        #                 items.append(f"{k}:{val:.2f}")
+        #             else:
+        #                 items.append(f"{k}:{val}")
+        #         return ", ".join(items), ""
+
+        #     # --- 5. List ---
+        #     elif isinstance(v, list):
+        #         return ", ".join(str(x) for x in v), ""
+
+        #     # --- 6. Tuple (e.g. (trig, detlist) from cache) ---
+        #     elif isinstance(v, tuple) and len(v) == 2:
+        #         trig, dets = v
+        #         val_str = "Triggered" if trig else "Idle"
+        #         det_str = ", ".join(dets) if isinstance(dets, (list, dict)) else str(dets)
+        #         return val_str, det_str
+
+        #     # --- 7. Numbers ---
+        #     elif isinstance(v, (int, float)):
+        #         return f"{v:.2f}", ""
+
+        #     # --- 8. Everything else ---
+        #     else:
+        #         return str(v), ""
+
+
+        # === Draw rows ===
+        for sname, sent in sorted(all_sensors.items()):
+            stype = sent.get("subtype") or sent.get("type") or "Unknown"
+
+            # --- Fetch value exactly like RPC sensors ---
+            val = sensor_values.get(sname)
+
+            # If value is not a dict -> fall back immediately
+            if isinstance(val, dict):
+                # valid structured value -> update cache
+                self._last_sensor_values[sname] = val
+            else:
+                # fallback -> only use cache if it contains a dict
+                cached = self._last_sensor_values.get(sname)
+                if isinstance(cached, dict):
+                    val = cached
+                else:
+                    # no valid state -> render nothing
+                    val = {}
+
+            det_str = "-"
+            val_str = "-"
+
+            # ALARM
+            if "triggered" in val:
+                val_str = "Triggered" if val["triggered"] else "Idle"
+                dets = val.get("detections", [])
+                if isinstance(dets, dict):
+                    det_str = ", ".join(dets.keys())
+                elif isinstance(dets, list):
+                    det_str = ", ".join(str(x) for x in dets)
+
+            # DISTANCE SENSOR
+            elif "distance" in val:
+                d = val["distance"]
+                n = val.get("detected_name", "None")
+                val_str = f"{d:.1f}"
+                det_str = f"{n} ({d:.1f})"
+
+            # GENERIC SENSOR
+            else:
+                if len(val) == 1:
+                    only_value = next(iter(val.values()))
+                    if isinstance(only_value, (int, float)):
+                        val_str = f"{only_value:.2f}"
+                    else:
+                        val_str = str(only_value)
+                else:
+                    parts = []
+                    for k, v in val.items():
+                        if isinstance(v, (int, float)):
+                            parts.append(f"{k}:{v:.2f}")
+                        else:
+                            parts.append(f"{k}:{v}")
+                    val_str = ", ".join(parts)
+                det_str = ""
+
+            # Draw
+            self.screen.blit(self.font.render(sname, True, (230, 230, 230)), (col_x[0], y + 2))
+            self.screen.blit(self.font.render(stype.title(), True, (200, 200, 200)), (col_x[1], y))
+            self.screen.blit(self.font.render(val_str, True, (180, 255, 180)), (col_x[2], y))
+            if det_str:
+                self.screen.blit(self.font.render(det_str, True, (180, 220, 255)), (col_x[3], y))
+
+            y += row_h
+            if y > self.height - 40:
+                break
+    # -----------------------------------------------------
+    # ---------------- ENTITY DRAWING ---------------------
+    # -----------------------------------------------------
+
+    def draw_entity(self, x, y, theta, entity, label):
+        """Draw geometric shape for an entity based on its declared properties."""
+        pos = self.world_to_screen(x, y)
+        eclass = entity.get("class", "").lower()
+        color = self.colors.get(eclass, (200, 200, 200))
+
+        # --- Try to find shape in multiple possible sources ---
+        shape = None
+        # Directly on the entity (node-level)
+        if isinstance(entity.get("shape"), dict):
+            shape = entity["shape"]
+        # Inside properties
+        elif isinstance(entity.get("properties", {}).get("shape"), dict):
+            shape = entity["properties"]["shape"]
+        # In the matching pose (pose may hold shape)
+        elif hasattr(self.node, "poses"):
+            found_pose = None
+            # Find pose by label (slow but safe)
+            def find_pose(d):
+                for k, v in d.items():
+                    if k == label and isinstance(v, dict) and "shape" in v:
+                        return v
+                    elif isinstance(v, dict):
+                        res = find_pose(v)
+                        if res:
+                            return res
+                return None
+            found_pose = find_pose(self.node.poses)
+            if found_pose and isinstance(found_pose.get("shape"), dict):
+                shape = found_pose["shape"]
+
+        # --- Fallback ---
+        if not isinstance(shape, dict):
+            shape = {}
+
+        shape_type = shape.get("type", "").lower()
+
+        # === Draw by shape type ===
+        if shape_type == "rectangle":
+            # Rectangle(width, length)
+            w = shape.get("width", 1.0)
+            l = shape.get("length", 1.0)
+            hw, hl = (w / 2) * self.scale * self.zoom, (l / 2) * self.scale * self.zoom
+            pts = [(-hw, -hl), (hw, -hl), (hw, hl), (-hw, hl)]
+            rot = math.radians(theta)
+            rotated = [
+                (
+                    pos[0] + px * math.cos(rot) - py * math.sin(rot),
+                    pos[1] - (px * math.sin(rot) + py * math.cos(rot))
+                )
+                for px, py in pts
+            ]
+            pygame.draw.polygon(self.screen, color, rotated, 2)
+
+        elif shape_type == "square":
+            # Square(length)
+            length = shape.get("length", 1.0)
+            hw = hl = (length / 2) * self.scale * self.zoom
+            pts = [(-hw, -hl), (hw, -hl), (hw, hl), (-hw, hl)]
+            rot = math.radians(theta)
+            rotated = [
+                (
+                    pos[0] + px * math.cos(rot) - py * math.sin(rot),
+                    pos[1] - (px * math.sin(rot) + py * math.cos(rot))
+                )
+                for px, py in pts
+            ]
+            pygame.draw.polygon(self.screen, color, rotated, 2)
+        
+        elif shape_type == "circle":
+            r = shape.get("radius", shape.get("size", 0.5)) * self.scale * self.zoom
+            pygame.draw.circle(self.screen, color, pos, int(r), 2)
+
+        elif shape_type == "arbitraryshape":
+            pts = shape.get("points", [])
+            if len(pts) >= 2:
+                # Alarm pose is the local origin (anchor)
+                ent_x, ent_y, ent_theta = x, y, theta
+                rot = math.radians(ent_theta)
+
+                # Convert local shape points → world → screen coords
+                screen_pts = []
+                for p in pts:
+                    # Local point relative to entity pose
+                    wx = ent_x + (p["x"] * math.cos(rot) - p["y"] * math.sin(rot))
+                    wy = ent_y + (p["x"] * math.sin(rot) + p["y"] * math.cos(rot))
+                    sx, sy = self.world_to_screen(wx, wy)
+                    screen_pts.append((sx, sy))
+
+                # --- Determine color based on trigger state ---
+                # Use SAME cached value as sensor table
+                val = self.node.sensor_values.get(label)
+                if not isinstance(val, dict):
+                    val = self._last_sensor_values.get(label, {})
+
+                # Now val is consistent with table
+                if isinstance(val, dict) and val.get("triggered", False):
+                    color = (255, 60, 60)
+                    width = 3
+                else:
+                    color = self.colors.get("sensor", (0, 200, 255))
+                    width = 3
+
+                # Draw line segment (laser beam)
+                pygame.draw.lines(self.screen, color, False, screen_pts, width)
+
+        else:
+            pygame.draw.circle(self.screen, color, pos, 4)
+
+        # --- Label box with automatic offset ---
+        label_surf = self.font.render(label, True, (0, 0, 0))
+        lw, lh = label_surf.get_size()
+
+        # Try 4 offset directions and pick one that doesn't overlap nearby entities
+        candidate_offsets = [
+            (10, -10),   # top-right
+            (-lw - 10, -10),  # top-left
+            (10, lh + 10),    # bottom-right
+            (-lw - 10, lh + 10)  # bottom-left
+        ]
+
+        # Track drawn label rectangles to avoid overlaps
+        if not hasattr(self, "_label_rects"):
+            self._label_rects = []
+
+        # Pick first offset that doesn’t collide with existing labels
+        for ox, oy in candidate_offsets:
+            test_rect = pygame.Rect(pos[0] + ox, pos[1] + oy, lw, lh)
+            if not any(test_rect.colliderect(r) for r in self._label_rects):
+                chosen_rect = test_rect
+                break
+        else:
+            # fallback: top-right if all collide
+            chosen_rect = pygame.Rect(pos[0] + 10, pos[1] - 10, lw, lh)
+
+        # Store rect for next labels
+        self._label_rects.append(chosen_rect)
+
+        # Draw background + text
+        pygame.draw.rect(self.screen, color, chosen_rect.inflate(6, 4), border_radius=3)
+        self.screen.blit(label_surf, (chosen_rect.x + 3, chosen_rect.y + 2))
+
+        # --- Orientation arrow ---
+        self.draw_arrow(pos, theta, color)
+
+    # -----------------------------------------------------
+    # ---------------- INPUT HANDLING ---------------------
+    # -----------------------------------------------------
+
+    def handle_input(self):
+        """Keyboard & mouse input for zoom and pan."""
+        keys = pygame.key.get_pressed()
+
+        # Zoom with keyboard
+        if keys[pygame.K_EQUALS] or keys[pygame.K_PLUS]:
+            self.zoom *= self.zoom_step
+        elif keys[pygame.K_MINUS] or keys[pygame.K_UNDERSCORE]:
+            self.zoom /= self.zoom_step
+        elif keys[pygame.K_r]:
+            self.zoom = 1.0
+            self.pan_x = 0.0
+            self.pan_y = 0.0
+
+        # Pan with arrow keys
+        if keys[pygame.K_LEFT]:
+            self.pan_x -= self.pan_speed / self.zoom
+        if keys[pygame.K_RIGHT]:
+            self.pan_x += self.pan_speed / self.zoom
+        if keys[pygame.K_UP]:
+            self.pan_y += self.pan_speed / self.zoom
+        if keys[pygame.K_DOWN]:
+            self.pan_y -= self.pan_speed / self.zoom
+
+        # Mouse events
+        mouse_buttons = pygame.mouse.get_pressed(num_buttons=3)
+        mx, my = pygame.mouse.get_pos()
+
+        # Right-click drag to pan
+        if mouse_buttons[2]:
+            if not self.dragging:
+                self.dragging = True
+                self.drag_start = (mx, my)
+            else:
+                dx = (mx - self.drag_start[0]) / (self.scale * self.zoom)
+                dy = (my - self.drag_start[1]) / (self.scale * self.zoom)
+                self.pan_x -= dx
+                self.pan_y += dy
+                self.drag_start = (mx, my)
+        else:
+            self.dragging = False
+
+        # Mouse wheel for zoom
+        for event in pygame.event.get(pygame.MOUSEWHEEL):
+            if event.y > 0:
+                self.zoom *= self.zoom_step
+            elif event.y < 0:
+                self.zoom /= self.zoom_step
+    
+    def _draw_all_entities(self):
+        """Traverse all node entities recursively and draw them if a matching pose is found."""
+        def find_pose_by_name(d, name, depth=0):
+            if not isinstance(d, dict):
+                return None
+            # --- Case 1: key directly matches ---
+            if name in d and isinstance(d[name], dict):
+                pose = d[name]
+                if all(k in pose for k in ("x", "y", "theta")):
+                    return pose
+                if "rel_pose" in pose and all(k in pose["rel_pose"] for k in ("x", "y", "theta")):
+                    return pose["rel_pose"]
+            # --- Case 2: this dict itself has a matching name ---
+            if "name" in d and d["name"].lower() == name.lower():
+                if all(k in d for k in ("x", "y", "theta")):
+                    return d
+                if "rel_pose" in d and all(k in d["rel_pose"] for k in ("x", "y", "theta")):
+                    return d["rel_pose"]
+            # --- Case 3: recurse deeper ---
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    res = find_pose_by_name(v, name, depth + 1)
+                    if res:
+                        return res
+            return None
+
+        def recurse(branch):
+            """Depth-first traversal of all node branches (no class filtering)."""
+            if not isinstance(branch, dict):
+                return
+            for key, node in branch.items():
+                if not isinstance(node, dict):
+                    continue
+                if "class" in node:
+                    # Try poses first (standard)
+                    pose = find_pose_by_name(self.node.poses, key) if hasattr(self.node, 'poses') else None
+                    
+                    # If not found in poses, try extracting from node itself
+                    if not pose and all(k in node for k in ("x", "y", "theta")):
+                        pose = {"x": node["x"], "y": node["y"], "theta": node["theta"]}
+                    
+                    if pose:
+                        # Debug print so you can verify it draws the deep ones
+                        # print(f"[DRAW] {key} ({node.get('class')}) -> {pose}")
+                        self.draw_entity(pose["x"], pose["y"], pose["theta"], node, key)
+                # Always recurse deeper
+                recurse(node)
+
+        # start from the full nodes dict (not just top categories)
+        recurse(self.node.nodes)
+    
+    # -----------------------------------------------------
+    # ---------------- MAIN LOOP --------------------------
+    # -----------------------------------------------------
+
+    def render(self):
+        """Main pygame render loop (draws all entities)."""
+        try:
+            while self.running:
+                events = pygame.event.get()  # get once
+
+                for event in events:
+                    if event.type == pygame.QUIT:
+                        self.stop()
+                        return
+                    # Horizontal scroll with Shift + wheel
+                    if event.type == pygame.MOUSEWHEEL and (pygame.key.get_mods() & pygame.KMOD_SHIFT):
+                        self.panel_scroll_x += event.y * 40
+
+                self.handle_input()
+
+                # A/D key horizontal scroll
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_a]:
+                    self.panel_scroll_x += 15
+                elif keys[pygame.K_d]:
+                    self.panel_scroll_x -= 15
+
+                # Clamp scroll range (optional)
+                self.panel_scroll_x = max(-300, min(300, self.panel_scroll_x))
+
+                self.draw_background()
+                self.draw_world_bounds()
+                self._label_rects = []
+
+                self._draw_all_entities()
+                self.draw_sensor_table()
+
+                pygame.display.flip()
+                self.clock.tick(30)
+
+        except KeyboardInterrupt:
+            print("[Visualizer] Interrupted by user.")
+            self.stop()
+        except Exception as e:
+            print(f"[Visualizer ERROR] {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            self.stop()
+
+    # -----------------------------------------------------
+    # ----------------- LIFECYCLE -------------------------
+    # -----------------------------------------------------
+
+    def stop(self):
+        self.running = False
+        pygame.quit()

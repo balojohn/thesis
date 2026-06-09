@@ -1,0 +1,459 @@
+import datatype
+import geometry
+
+Model:
+    (
+    imports*=Import
+    thing=Thing
+    )#
+;
+
+
+// Thing: 'Sensor' | 'Actuator' | CompositeThing | CustomThing;
+
+Thing:
+    Sensor          | 
+    Actuator        |
+    Reader          |
+    EnvSensor       |
+    RangeFinder     |
+    LiDAR           |
+    Alarm           |
+    Microphone      |
+    Light           |
+    IMU             |
+    EnvDevice       |
+    Relay           |
+    Button          |
+    Led             |
+    Speaker         |
+    CompositeThing  |
+    CustomThing
+;
+
+CompositeThing:
+    'CThing' name=ID
+	(
+        ('type:' type=ID)
+        ('pubFreq:' pubFreq=FLOAT)?
+        ('shape:' shape=Shape)?
+        ('automated:' automated=BOOL)?
+        ('collidable:' collidable=BOOL)?
+        ('targets:'
+             '-' targets+=TargetPose['-'])?
+        ('sensors:'
+             '-' sensors+=PosedSensor['-'])?
+        ('actuators:'
+             '-' actuators+=PosedActuator['-'])?
+        ('composites:'
+             '-' composites+=PosedCThing['-'])?
+	)#
+    'end'
+;
+
+TargetPose:
+    point=Point | angle=Angle
+;
+
+TargetValue:
+    'value:' value=FLOAT (',' 'duration:' duration=FLOAT)?
+;
+
+
+PosedThing: PosedSensor | PosedActuator | PosedCThing | PosedCustomThing;
+
+PosedCThing:
+    (ref=[CompositeThing:FQN]) ('('name=ID')')?
+    (transformation=DTransformation)?
+;
+
+PosedSensor:
+    (ref=[Sensor:FQN] | ref=[CustomThing:FQN]) ('('name=ID')')?
+    (transformation=DTransformation)?
+;
+
+PosedActuator:
+    ref=[Actuator:FQN] ('('name=ID')')?
+    (transformation=DTransformation)?
+;
+
+PosedCustomThing:
+    (ref=[CustomThing:FQN]) ('('name=ID')')?
+    (transformation=DTransformation)?
+;
+
+CustomThing:
+    'CustomThing' name=ID
+        (
+            ('class:' class=ID)?
+            ('type:' type=ID)?
+            ('subtype:' subtype=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('automated:' automated=BOOL)?
+            ('collidable:' collidable=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
+            ('range:' range=FLOAT)?
+            ('noise:' noise=Noise)?
+            ('dispersion:' dispersion=DispersionType)?
+            ('affects:'
+                '-' affects+=AffectEntry['-'])?
+            ('affectedBy:'
+                '-' affectedBy+=AffectEntry['-'])?
+
+        )#
+    'end'
+;
+
+AffectEntry:
+    'id:' id=ID
+    ('dispersion:' dispersion=DispersionType)?
+    ('target_value:' target_value=FLOAT)?
+;
+
+
+Sensor:
+    EnvSensor   |
+    RangeFinder |
+    LiDAR       |
+    Reader      |
+    Alarm       |
+    Microphone  |
+    Light       |
+    IMU
+;
+
+EnvSensor:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('subtype:' subtype=[EnvSensorType])?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('value:' value=FLOAT)?
+            ('noise:' noise=Noise)?
+            ('range:' range=FLOAT)?
+        )#
+    'end'
+;
+
+EnvSensorType:
+    'Temperature'   |
+    'Humidity'      |
+    'Light'         |
+    'Gas'           |
+    'CO2'           |
+    'PH'            |
+    'AirQuality'
+;
+
+RangeFinder:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=[RangeFinderType])?
+            ('subtype:' subtype=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('fov:' fov=FLOAT)?
+            ('range:' range=FLOAT)?
+            ('noise:' noise=Noise)?
+        )#
+    'end'
+;
+
+RangeFinderType: 'Sonar' | 'IR';
+
+LiDAR:
+    'LiDAR' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('minAngle:' minAngle=FLOAT)?
+            ('maxAngle:' maxAngle=FLOAT)?
+            ('numBeams:' numBeams=FLOAT)?
+            ('range:' range=FLOAT)?
+            ('noise:' noise=Noise)?
+        )#
+    'end'
+;
+
+Reader:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=[ReaderType])
+            ('subtype:' subtype=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('range:' range=FLOAT)?
+            ('resHeight:' resHeight=FLOAT)?
+            ('resWidth:' resWidth=FLOAT)?
+            ('fov:' fov=FLOAT)?
+            ('noise:' noise=Noise)?
+        )#
+    'end'
+;
+
+ReaderType: 'Camera' | 'RFID' ;
+
+Alarm:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)
+            ('subtype:' subtype=[AlarmType])?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('triggered:' triggered=BOOL)?
+            ('range:' range=FLOAT)?
+            ('hz:' hz=FLOAT)?
+        )#
+    'end'
+;
+
+AlarmType: 'AreaAlarm' | 'LinearAlarm' ;
+
+Microphone:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('range:' range=FLOAT)?
+            ('soundLevel:' soundLevel=FLOAT)?
+            ('mode:' mode=STRING)?
+            ('blocked:' blocked=INT)?
+            ('noise:' noise=Noise)?
+        )#
+    'end'
+;
+
+Light:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('range:' range=FLOAT)?
+        )#
+    'end'
+;
+
+IMU:
+    'IMU' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=[IMUType])?
+            ('subtype:' subtype=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('noise:' noise=Noise)?
+        )#
+    'end'
+;
+
+IMUType: '6DOF' | '9DOF';
+
+Actuator:
+    // PanTilt     |
+    EnvDevice   |
+    Relay       |
+    Button      |
+    Led         |
+    Speaker
+;
+
+// PanTilt:
+//     'PanTilt' name=ID
+//         (
+//             ('class:' class=ID)
+//             ('relativePos:' relativePos=Transformation)?
+//             ('pan_shape' ':' pan_shape=Shape)?
+//             ('tilt_shape' ':' tilt_shape=Shape)?
+//             ('pubFreq:' pubFreq=FLOAT)?
+//         )#
+//     'end'
+// ;
+
+EnvDevice:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('subtype:' subtype=[EnvDeviceType])?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
+            ('dispersion:' dispersion=DispersionType)?
+            ('target_value:' target_value=FLOAT)?
+            ('range:' range=FLOAT)?
+        )#
+    'end'
+;
+
+EnvDeviceType:
+    'Thermostat' |
+    'Humidifier'
+;
+
+Relay:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
+            ('state:' state=INT)?
+            ('allowed_states:' allowed_states=INT)?
+        )#
+    'end'
+;
+
+ButtonType: 'SingleButton' | 'ButtonArray';
+
+Button:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('subtype:' subtype=[ButtonType])?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
+            ('state:' state=INT)?
+            ('size:' size=INT)?
+        )#
+    'end'
+;
+
+LedType: 'SingleLed' | 'LedArray';
+
+Led:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('subtype:' subtype=[LedType])?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
+            ('color' ':' color=STRING)?
+            ('size:' size=INT)?
+        )#
+    'end'
+;
+
+Speaker:
+    'Thing' name=ID
+        (
+            ('class:' class=ID)
+            ('type:' type=ID)?
+            ('shape:' shape=Shape)?
+            ('pubFreq:' pubFreq=FLOAT)?
+            ('collidable:' collidable=BOOL)?
+            ('automated:' automated=BOOL)?
+            ('targets:'
+                '-' targets+=TargetValue['-'])?
+            ('sound:' sound=FLOAT)?
+            ('range:' range=FLOAT)?
+        )#
+    'end'
+;
+
+Noise:
+    Gaussian | Uniform | CustomNoise
+;
+
+Gaussian:
+    'Gaussian' '('
+        'mean:' mean=FLOAT ',' 
+        'std:' std=FLOAT
+    ')'
+;
+
+Uniform:
+    'Uniform' '('
+        'min:' min=FLOAT ',' 
+        'max:' max=FLOAT
+    ')'
+;
+
+CustomNoise:
+    'CustomNoise' '('
+        'type:' type=STRING ',' 
+        'params:' params=STRING
+    ')'
+;
+
+DTransformation:
+    ('@' transformation=Transformation)? ('on' parentThing=[PosedThing:FQN])?
+;
+
+DispersionType:
+    Constant      |
+    Linear        |
+    Quadratic     |
+    Exponential   |
+    Logarithmic
+;
+
+Constant:
+    'Constant' '(' 'value:' value=FLOAT ')'
+;
+
+Linear:
+    'Linear' '('
+        'start:' start=FLOAT ',' 
+        'end:' end=FLOAT
+    ')'
+;
+
+Quadratic:
+    'Quadratic' '('
+        'a' ':' a=FLOAT ',' 
+        'b' ':' b=FLOAT ',' 
+        'c' ':' c=FLOAT
+    ')'
+;
+
+Exponential:
+    'Exponential' '('
+        'base' ':' base=FLOAT ',' 
+        'yIntercept' ':' yIntercept=FLOAT
+    ')'
+;
+
+Logarithmic:
+    'Logarithmic' '('
+        'base' ':' base=FLOAT ',' 
+        'alpha' ':' alpha=FLOAT
+    ')'
+;

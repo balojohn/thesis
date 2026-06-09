@@ -1,0 +1,37 @@
+{# --- Excluded internal attributes --- #}
+{%- set excluded = [
+    "class", "type", "subtype", "name", "shape", "parent", "collidable",
+    "pubFreq", "noise", "dispersion", "affects", "affectedBy", "value",
+    "automated", "targets", "_tx_position", "_tx_position_end", "_tx_model"
+] -%}
+
+{# --- Determine proper DataType name --- #}
+{%- set dt_name = (
+    thing.subtype if thing.subtype is defined and thing.subtype else thing.type
+) ~ "Data" -%}
+
+{# --- Header --- #}
+DataType {{ dt_name }}
+{% if thing.properties %}
+    {% for attr, val in thing.properties.items() if attr not in excluded %}
+    {% if val is boolean %}
+    {{ attr }}: bool
+    {% elif val is number %}
+    {{ attr }}: float
+    {% else %}
+    {{ attr }}: string
+    {% endif %}
+    {% endfor %}
+{% else %}
+    {# fallback if no properties block defined #}
+    {% for attr, val in thing.__dict__.items() if attr not in excluded and (val or val in [True, False]) %}
+    {% if val is boolean %}
+    {{ attr }}: bool
+    {% elif val is number %}
+    {{ attr }}: float
+    {% else %}
+    {{ attr }}: str
+    {% endif %}
+    {% endfor %}
+{% endif %}
+end
